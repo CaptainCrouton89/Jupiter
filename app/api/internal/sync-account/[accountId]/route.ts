@@ -7,6 +7,7 @@ import { assignConversationId, storeEmail } from "@/lib/email/storeEmails"; // R
 import { SupabaseClient } from "@supabase/supabase-js"; // Correct import for SupabaseClient type
 import { ImapFlow } from "imapflow"; // Real ImapFlow
 import { NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid"; // Import uuid
 // Assuming ParsedEmailData might be needed for typing if not inferred
 // import { ParsedEmailData } from "@/lib/email/parseEmail";
 
@@ -55,6 +56,72 @@ async function getEmailAccountDetails(
     return null;
   }
   return data;
+}
+
+// Helper function to get or create folder_id
+async function getOrCreateFolderId(
+  supabase: SupabaseClient<Database>,
+  accountId: string,
+  folderPath: string
+): Promise<string> {
+  // Check if folder exists
+  let { data: existingFolder, error: fetchError } = await supabase
+    .from("folders")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("name", folderPath) // Assuming 'name' column stores the IMAP path
+    .single();
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    // PGRST116: "Searched for a single row, but 0 rows were found"
+    logger.error(
+      `Error fetching folder ${folderPath} for account ${accountId}:`,
+      fetchError.message
+    );
+    throw new Error(
+      `Failed to fetch folder ${folderPath}: ${fetchError.message}`
+    );
+  }
+
+  if (existingFolder) {
+    return existingFolder.id;
+  }
+
+  // Folder does not exist, create it
+  const newFolderId = uuidv4();
+  const { data: newFolder, error: insertError } = await supabase
+    .from("folders")
+    .insert({
+      id: newFolderId,
+      account_id: accountId,
+      name: folderPath, // IMAP path
+      type: "inbox", // Changed from "mailbox" to "inbox" based on user's check constraint
+    })
+    .select("id")
+    .single();
+
+  if (insertError) {
+    logger.error(
+      `Error creating folder ${folderPath} for account ${accountId}:`,
+      insertError.message
+    );
+    throw new Error(
+      `Failed to create folder ${folderPath}: ${insertError.message}`
+    );
+  }
+
+  if (!newFolder) {
+    logger.error(
+      `Failed to create folder ${folderPath} for account ${accountId} - no data returned after insert.`
+    );
+    throw new Error(
+      `Failed to create folder ${folderPath} - no data returned.`
+    );
+  }
+  logger.info(
+    `Created folder ${folderPath} with ID ${newFolder.id} for account ${accountId}`
+  );
+  return newFolder.id;
 }
 
 export async function POST(
@@ -181,6 +248,14 @@ export async function POST(
               uid
             );
 
+            // Get or create the folder_id (UUID)
+            const currentMailboxPath = imapClient!.mailbox.path;
+            const folderUuid = await getOrCreateFolderId(
+              supabase,
+              accountId,
+              currentMailboxPath
+            );
+
             const {
               success: storeSuccess,
               emailId,
@@ -188,8 +263,8 @@ export async function POST(
             } = await storeEmail(
               supabase,
               accountId, // accountId is correct here
-              parsedEmail
-              // folderId defaults to INBOX in storeEmail
+              parsedEmail,
+              folderUuid // Pass the actual folder UUID
             );
 
             if (!storeSuccess || !emailId) {
