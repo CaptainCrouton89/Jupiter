@@ -22,13 +22,35 @@ export default function ResetPasswordPage() {
       async (event, session) => {
         if (event === "PASSWORD_RECOVERY") {
           // Supabase has verified the token from the URL and prepared for password update.
-          // The session might contain the user if they were already logged in on another tab.
+          // The session object here might contain context for the recovery flow.
           setShowForm(true);
           setError(null);
-        } else if (event === "SIGNED_IN" && session?.user && showForm) {
+        } else if (event === "SIGNED_IN" && showForm) {
           // This case might happen if the user somehow signs in while on this page after recovery started.
           // Or if the password update was successful and a new session is established.
           // We typically redirect after a successful password update from the form itself.
+          // Fetch the user to be sure, though useAuth() store will also update.
+          try {
+            const {
+              data: { user: authUser },
+              error: authError,
+            } = await clientSupabase.auth.getUser();
+            if (authError) {
+              console.error(
+                "Error fetching user on SIGNED_IN during password reset:",
+                authError
+              );
+              // Potentially set an error or let the main AuthProvider handle it
+            } else if (authUser) {
+              // User is signed in. The main AuthProvider should also pick this up.
+              // Depending on UX, might redirect or trust ResetPasswordForm's onSuccess.
+            }
+          } catch (e) {
+            console.error(
+              "Exception fetching user on SIGNED_IN during password reset:",
+              e
+            );
+          }
         } else if (event === "INITIAL_SESSION" && !session) {
           // If there's no session and no PASSWORD_RECOVERY event, the link might be invalid or expired.
           // The check for `code` in URL is a fallback if `PASSWORD_RECOVERY` isn't immediately fired.

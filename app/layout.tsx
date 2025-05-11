@@ -18,7 +18,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { session } = await getServerSession();
+  const { user } = await getServerSession();
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -28,7 +28,7 @@ export default async function RootLayout({
           inter.className
         )}
       >
-        <AuthProvider initialSession={session}>
+        <AuthProvider initialUser={user}>
           {children}
           <Toaster />
         </AuthProvider>

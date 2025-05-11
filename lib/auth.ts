@@ -101,23 +101,23 @@ export const auth = {
   },
 
   /**
-   * Get the current user session
+   * Get the current authenticated user
    */
-  getSession: async () => {
+  getSession: async (): Promise<AuthResponse> => {
     try {
-      const { data, error } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getUser();
 
       if (error) throw error;
 
       return {
         success: true,
-        data: data.session,
+        data: data.user,
       };
     } catch (error) {
-      console.error("Get session error:", error);
+      console.error("Get user error (from former getSession):", error);
       return {
         success: false,
-        error: (error as AuthError).message || "Failed to get session",
+        error: (error as AuthError).message || "Failed to get user",
       };
     }
   },

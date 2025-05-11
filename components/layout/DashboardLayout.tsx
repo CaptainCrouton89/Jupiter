@@ -1,4 +1,3 @@
-import Link from "next/link";
 import React from "react";
 import { Header } from "./Header";
 // import { Sidebar } from "./Sidebar";
@@ -41,63 +40,49 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <SidebarContent className="p-2">
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <Link href="/inbox" passHref>
-                    <SidebarMenuButton asChild tooltip="Inbox" isActive>
-                      <Inbox className="size-4" />
-                      <span>Inbox</span>
-                      <SidebarMenuBadge>24</SidebarMenuBadge>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton tooltip="Inbox" isActive>
+                    <Inbox className="size-4" />
+                    <span>Inbox</span>
+                    <SidebarMenuBadge>24</SidebarMenuBadge>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/starred" passHref legacyBehavior>
-                    <SidebarMenuButton asChild tooltip="Starred">
-                      <Star className="size-4" />
-                      <span>Starred</span>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton tooltip="Starred">
+                    <Star className="size-4" />
+                    <span>Starred</span>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/sent" passHref legacyBehavior>
-                    <SidebarMenuButton asChild tooltip="Sent">
-                      <Send className="size-4" />
-                      <span>Sent</span>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton tooltip="Sent">
+                    <Send className="size-4" />
+                    <span>Sent</span>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/drafts" passHref legacyBehavior>
-                    <SidebarMenuButton asChild tooltip="Drafts">
-                      <FileText className="size-4" />
-                      <span>Drafts</span>
-                      <SidebarMenuBadge>2</SidebarMenuBadge>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton tooltip="Drafts">
+                    <FileText className="size-4" />
+                    <span>Drafts</span>
+                    <SidebarMenuBadge>2</SidebarMenuBadge>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/archive" passHref legacyBehavior>
-                    <SidebarMenuButton asChild tooltip="Archive">
-                      <Archive className="size-4" />
-                      <span>Archive</span>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton tooltip="Archive">
+                    <Archive className="size-4" />
+                    <span>Archive</span>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/spam" passHref legacyBehavior>
-                    <SidebarMenuButton asChild tooltip="Spam">
-                      <AlertOctagon className="size-4" />
-                      <span>Spam</span>
-                      <SidebarMenuBadge>5</SidebarMenuBadge>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton tooltip="Spam">
+                    <AlertOctagon className="size-4" />
+                    <span>Spam</span>
+                    <SidebarMenuBadge>5</SidebarMenuBadge>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <Link href="/trash" passHref legacyBehavior>
-                    <SidebarMenuButton asChild tooltip="Trash">
-                      <Trash2 className="size-4" />
-                      <span>Trash</span>
-                    </SidebarMenuButton>
-                  </Link>
+                  <SidebarMenuButton tooltip="Trash">
+                    <Trash2 className="size-4" />
+                    <span>Trash</span>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarContent>

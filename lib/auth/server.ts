@@ -58,11 +58,20 @@ export async function requireAuth() {
 export async function getServerSession() {
   const supabase = await createClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error("Error fetching server session (user):", error);
+    return {
+      user: null,
+      supabase,
+    };
+  }
 
   return {
-    session,
+    user,
     supabase,
   };
 }
