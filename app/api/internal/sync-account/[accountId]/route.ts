@@ -133,16 +133,30 @@ async function fetchNewEmailUids(
   // Example: Fetch UIDs for all messages if no lastSyncedUid, or newer ones
   // This is a simplified placeholder. Real implementation needs to be robust.
   logger.info(`Fetching UIDs since: ${lastSyncedUid}`); // Changed from console.log
-  await client.mailboxOpen("INBOX");
-  const searchCriteria =
-    lastSyncedUid > 0 ? `UID ${lastSyncedUid + 1}:*` : "1:*";
+  // await client.mailboxOpen("INBOX"); // MAILBOX IS NOW OPENED/LOCKED BY CALLER
+
+  // Construct the search query object based on imapflow documentation
+  const query: any = {}; // Using 'any' for flexibility, but should match ImapFlow.SearchObject
+  if (lastSyncedUid > 0) {
+    query.uid = `${lastSyncedUid + 1}:*`;
+  } else {
+    query.all = true; // Fetches all messages if no lastSyncedUid
+  }
+  logger.info(`IMAP search query object: ${JSON.stringify(query)}`);
+
   // Fetch UIDs and sort them immediately to ensure they are processed in order
-  let uids = await client.search({ uid: searchCriteria });
+  // The second argument { uid: true } ensures UIDs are returned.
+  let uids = await client.search(query, { uid: true });
+  logger.info(
+    `Raw UIDs from search: ${
+      Array.isArray(uids) ? uids.join(", ") : "Not an array or empty"
+    }`
+  );
 
   // Ensure uids is an array and sort if it has elements
   if (Array.isArray(uids) && uids.length > 0) {
     uids.sort((a, b) => a - b); // Ensure UIDs are sorted ascending
-    logger.info(`Found UIDs: ${uids.join(", ")}`);
+    logger.info(`Found and sorted UIDs: ${uids.join(", ")}`);
   } else {
     logger.info(`No new UIDs found since: ${lastSyncedUid}`);
     uids = []; // Default to an empty array if no UIDs are found or if not an array
@@ -259,6 +273,8 @@ export async function POST(
 
     // Subtask 12.2: Implement IMAP Connection and UID Fetching
     let imapClient: ImapFlow | null = null;
+    let mailboxLock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | null =
+      null;
     let newUids: number[] = [];
     let processedEmailsCount = 0;
     let failedEmailsCount = 0;
@@ -269,7 +285,7 @@ export async function POST(
       await supabase
         .from("sync_logs")
         .update({
-          status: "in_progress",
+          status: "fetching_uids",
           updated_at: new Date().toISOString(),
         })
         .eq("job_id", jobId);
@@ -277,18 +293,24 @@ export async function POST(
       imapClient = new ImapFlow({
         host: account.imap_host,
         port: account.imap_port,
-        secure: true, // Defaulting to true, common for IMAP SSL (e.g., port 993)
-        // This might need to be dynamic based on port or a new DB column if STARTTLS is also supported.
+        secure: account.imap_port === 993, // Set secure based on port; true for 993 (IMAPS), false otherwise (for STARTTLS)
         auth: {
           user: account.email, // Assuming the email is the username for IMAP
           pass: decryptedPassword,
         },
-        logger: false, // Set to true for detailed IMAP logs if needed
+        logger: console, // ENABLE VERBOSE LOGGING
       });
 
       logger.info(`Attempting IMAP connection for ${account.email}...`); // Changed from console.log
       await imapClient.connect();
       logger.info(`IMAP connection successful for ${account.email}.`); // Changed from console.log
+
+      // Acquire mailbox lock
+      logger.info(
+        `Attempting to get mailbox lock for 'INBOX' for ${account.email}...`
+      );
+      mailboxLock = await imapClient.getMailboxLock("INBOX");
+      logger.info(`Mailbox 'INBOX' selected and locked for ${account.email}.`);
 
       // Fetch new UIDs
       const lastSyncedUidFromDb = account.last_synced_uid || 0;
@@ -447,6 +469,20 @@ export async function POST(
         { status: 500 }
       );
     } finally {
+      // Ensure the lock is released and client is logged out
+      if (mailboxLock) {
+        try {
+          await mailboxLock.release();
+          logger.info(
+            `Mailbox 'INBOX' lock released in finally block for ${account.email}.`
+          );
+        } catch (releaseError) {
+          logger.error(
+            "Error releasing mailbox lock in finally block:",
+            releaseError
+          );
+        }
+      }
       if (imapClient && imapClient.usable) {
         logger.info(`Closing IMAP connection for ${account.email}...`); // Changed from console.log
         await imapClient
