@@ -1,96 +1,71 @@
+import { getSupabaseAdminClient } from "@/lib/auth/admin"; // New admin client
+import { decrypt } from "@/lib/auth/encryption"; // Real decrypt
+import { Database } from "@/lib/database.types";
+import { EmailCredentials, fetchNewEmailUids } from "@/lib/email/fetchEmails"; // Real fetchNewEmailUids and EmailCredentials
+import { fetchAndParseEmail, ParsedEmailData } from "@/lib/email/parseEmail"; // Real fetchAndParseEmail, Added ParsedEmailData import
+import { assignConversationId, storeEmail } from "@/lib/email/storeEmails"; // Real storeEmail
+import { SupabaseClient } from "@supabase/supabase-js"; // Correct import for SupabaseClient type
+import { ImapFlow } from "imapflow"; // Real ImapFlow
 import { NextResponse } from "next/server";
-// Assume Supabase client, logger, and email utility functions are available
-// import { createClient } from '@/lib/supabase/server';
-// import { logger } from '@/lib/logger';
-// import { getEmailCredentials } from '@/lib/email/credentials'; // Assuming this exists
-// import { fetchNewEmailUids } from '@/lib/email/fetchEmails'; // To be created/updated
-// import { fetchAndParseEmail } from '@/lib/email/parseEmail';
-// import { storeEmail, assignConversationId } from '@/lib/email/storeEmails';
+// Assuming ParsedEmailData might be needed for typing if not inferred
+// import { ParsedEmailData } from "@/lib/email/parseEmail";
 
-// Placeholders for now
-const supabase_placeholder = {
-  from: (table: string) => ({
-    select: (columns: string) => ({
-      eq: (column: string, value: any) =>
-        Promise.resolve({
-          data: {
-            id: value,
-            email: "test@example.com",
-            last_synced_uid: 0,
-            last_synced_at: null,
-          },
-          error: null as { message: string } | null,
-        }),
-    }),
-    update: (data: any) => ({
-      eq: (column: string, value: any) => Promise.resolve({ error: null }),
-    }),
-  }),
+// Remove all placeholder functions and supabase_placeholder, logger_placeholder
+
+const logger = {
+  // Simple console logger for now
+  info: (...args: any[]) => console.log("[SYNC_ACCOUNT_INFO]", ...args),
+  warn: (...args: any[]) => console.warn("[SYNC_ACCOUNT_WARN]", ...args),
+  error: (...args: any[]) => console.error("[SYNC_ACCOUNT_ERROR]", ...args),
 };
-const logger_placeholder = {
-  info: (...args: any[]) => console.log(...args),
-  warn: (...args: any[]) => console.warn(...args),
-  error: (...args: any[]) => console.error(...args),
-};
-const getEmailCredentials_placeholder = (accountId: string) =>
-  Promise.resolve({
-    imap_host: "host",
-    username: "user",
-    password_encrypted: "pass",
-  });
-const fetchNewEmailUids_placeholder = (
-  creds: any,
-  lastUid: number,
-  lastDate?: string | null
-) => Promise.resolve([1, 2, 3]);
-const fetchAndParseEmail_placeholder = (creds: any, uid: number) =>
-  Promise.resolve({
-    messageId: `msg-${uid}`,
-    subject: "Test",
-    isRead: false,
-    attachments: [],
-    from: { address: "f@e.com" },
-    to: [],
-    cc: [],
-    bcc: [],
-    headers: {},
-  });
-const storeEmail_placeholder = (
-  supabase: any,
-  parsedEmail: any,
+
+export const maxDuration = 300; // 5 minutes max for single account sync, increased slightly
+
+interface EmailAccountDetails {
+  id: string;
+  email: string;
+  imap_host: string;
+  imap_port: number;
+  password_encrypted: string;
+  last_synced_uid: number | null;
+  last_synced_at: string | null;
+  user_id: string; // Added user_id
+}
+
+async function getEmailAccountDetails(
+  supabase: SupabaseClient<Database>,
   accountId: string
-) =>
-  Promise.resolve({
-    success: true,
-    emailId: `email-${parsedEmail.messageId}`,
-    error: null,
-  });
-const assignConversationId_placeholder = (
-  supabase: any,
-  emailId: string,
-  headers: any
-) => Promise.resolve({ success: true });
+): Promise<EmailAccountDetails | null> {
+  const { data, error } = await supabase
+    .from("email_accounts")
+    .select(
+      "id, email, imap_host, imap_port, password_encrypted, last_synced_uid, last_synced_at, user_id"
+    )
+    .eq("id", accountId)
+    .single<EmailAccountDetails>(); // Specify the expected return type for single()
 
-export const maxDuration = 240; // 4 minutes max for single account sync
+  console.log("data", data);
+  console.log("error", error);
+
+  if (error) {
+    logger.error(
+      `Error fetching email account details for ${accountId}:`,
+      error.message
+    );
+    return null;
+  }
+  return data;
+}
 
 export async function POST(
   request: Request,
   { params }: { params: { accountId: string } }
 ) {
   const accountId = params.accountId;
-  // const supabase = createClient();
-  // const logger = logger_placeholder;
-  const supabase = supabase_placeholder;
-  const logger = logger_placeholder;
-  const getEmailCredentials = getEmailCredentials_placeholder;
-  const fetchNewEmailUids = fetchNewEmailUids_placeholder;
-  const fetchAndParseEmail = fetchAndParseEmail_placeholder;
-  const storeEmail = storeEmail_placeholder;
-  const assignConversationId = assignConversationId_placeholder;
+  const supabase = getSupabaseAdminClient(); // Use the admin client
 
   logger.info(`Sync request received for account: ${accountId}`);
 
-  // Verify internal API secret (passed from the main cron job)
   const authHeader = request.headers.get("Authorization");
   const token = authHeader?.split(" ")[1];
   if (token !== process.env.INTERNAL_API_SECRET) {
@@ -98,79 +73,99 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  let imapClient: ImapFlow | null = null; // Declare here for access in finally block
+  // Declare variables that need to be accessed in the final response here
+  let newUidsCount = 0;
+  let processedCount = 0;
+  let finalHighestUid = 0;
+
   try {
-    // 1. Get account details including last sync info
-    const { data: account, error: accountError } = await supabase
-      .from("email_accounts")
-      .select("id, email, last_synced_uid, last_synced_at") // Ensure these fields exist
-      .eq("id", accountId);
-    // .single(); // .single() should be chained if fetching one record
+    const accountDetails = await getEmailAccountDetails(supabase, accountId);
 
-    // The placeholder needs to be adjusted if .single() is used.
-    // For now, assume select().eq() returns the single object or an array with one item.
-    // Let's simulate that the direct result of .eq() is the object we need for the placeholder.
-
-    if (accountError || !account) {
-      logger.error(
-        `Account not found or error fetching account ${accountId}:`,
-        accountError
-      );
+    if (!accountDetails) {
       throw new Error(
-        `Account not found or error: ${
-          accountError?.message || "Unknown error"
-        }`
+        `Email account ${accountId} not found or error fetching details (see previous logs).`
       );
     }
-    logger.info(
-      `Account details fetched for ${account.email}. Last synced UID: ${account.last_synced_uid}, Last synced at: ${account.last_synced_at}`
-    );
-
-    // 2. Get email credentials (decrypt password, etc.)
-    const credentials = await getEmailCredentials(accountId);
-    if (!credentials) {
-      logger.error(`Failed to retrieve credentials for account ${accountId}`);
-      throw new Error("Credentials not found.");
-    }
-
-    // 3. Fetch new email UIDs since last sync
-    const lastSyncedUid = account.last_synced_uid || 0;
-    const lastSyncedAt = account.last_synced_at; // This might be null
+    finalHighestUid = accountDetails.last_synced_uid || 0; // Initialize with current value
 
     logger.info(
-      `Fetching new emails for account ${account.email} since UID ${lastSyncedUid}`
-    );
-    const newUids = await fetchNewEmailUids(
-      credentials,
-      lastSyncedUid,
-      lastSyncedAt
+      `Account details fetched for ${accountDetails.email}. Last synced UID: ${accountDetails.last_synced_uid}, Last synced at: ${accountDetails.last_synced_at}`
     );
 
-    if (newUids.length === 0) {
-      logger.info(`No new emails for account ${account.email}`);
-      // Optionally, update last_synced_at here if desired even if no new emails
+    const password = decrypt(accountDetails.password_encrypted);
+    const credentials: EmailCredentials = {
+      email: accountDetails.email,
+      password_encrypted: accountDetails.password_encrypted, // Or pass decrypted password directly if fetchNewEmailUids is adapted
+      password: password, // Pass decrypted password
+      imap_host: accountDetails.imap_host,
+      imap_port: accountDetails.imap_port,
+    };
+
+    // IMAP Client Setup
+    imapClient = new ImapFlow({
+      host: credentials.imap_host,
+      port: credentials.imap_port,
+      secure: true, // Assuming true, adjust if necessary from accountDetails
+      auth: {
+        user: credentials.email,
+        pass: password,
+      },
+      logger: console, // Enable imapflow detailed logging
+    });
+
+    logger.info(`Connecting to IMAP for account ${accountDetails.email}...`);
+    await imapClient.connect();
+    logger.info(`Connected. Opening INBOX for ${accountDetails.email}...`);
+    await imapClient.mailboxOpen("INBOX");
+    logger.info(`INBOX opened for ${accountDetails.email}.`);
+
+    const lastSyncedUid = accountDetails.last_synced_uid || 0;
+    // const lastSyncedAt = accountDetails.last_synced_at; // Not used by fetchNewEmailUids yet
+
+    logger.info(
+      `Fetching new emails for account ${accountDetails.email} since UID ${lastSyncedUid}`
+    );
+    // Pass the connected imapClient to fetchNewEmailUids
+    const uidsToProcess = await fetchNewEmailUids(
+      imapClient, // Pass the client
+      lastSyncedUid
+      // lastSyncedAt // Not currently used by fetchNewEmailUids
+    );
+    newUidsCount = uidsToProcess.length;
+
+    if (uidsToProcess.length === 0) {
+      logger.info(`No new emails for account ${accountDetails.email}`);
       await supabase
         .from("email_accounts")
-        .update({ last_synced_at: new Date().toISOString() })
+        .update({ last_synced_at: new Date().toISOString() } as any) // Cast to any if type error persists
         .eq("id", accountId);
+      // No need to update finalHighestUid here as it remains the same
+      // Return early as no emails to process
       return NextResponse.json({
         success: true,
         message: "No new emails to sync.",
-        newEmails: 0,
+        accountId,
+        totalNewEmails: 0,
+        processedEmails: 0,
+        highestUidProcessed: finalHighestUid,
       });
     }
 
     logger.info(
-      `Found ${newUids.length} new emails for account ${
-        account.email
-      }. UIDs: ${newUids.join(", ")}`
+      `Found ${uidsToProcess.length} new emails for account ${
+        accountDetails.email
+      }. UIDs: ${uidsToProcess.join(", ")}`
     );
 
-    let processedCount = 0;
-    let currentHighestUid = lastSyncedUid;
-    const batchSize = 10; // Process in smaller batches
+    // Sort UIDs in ascending order to process oldest first and update last_synced_uid correctly
+    uidsToProcess.sort((a, b) => a - b);
+    let currentBatchHighestUid = lastSyncedUid; // Track highest UID within the batch for DB update
 
-    for (let i = 0; i < newUids.length; i += batchSize) {
-      const batchUids = newUids.slice(i, i + batchSize);
+    const batchSize = 5; // Process in smaller batches to avoid overwhelming server or function timeout
+
+    for (let i = 0; i < uidsToProcess.length; i += batchSize) {
+      const batchUids = uidsToProcess.slice(i, i + batchSize);
       logger.info(
         `Processing batch for account ${accountId}: UIDs ${batchUids.join(
           ", "
@@ -180,13 +175,22 @@ export async function POST(
       const batchResults = await Promise.allSettled(
         batchUids.map(async (uid) => {
           try {
-            const parsedEmail = await fetchAndParseEmail(credentials, uid);
-            // Ensure parsedEmail has all necessary fields for storeEmail and assignConversationId
+            // fetchAndParseEmail now uses the passed client
+            const parsedEmail: ParsedEmailData = await fetchAndParseEmail(
+              imapClient!,
+              uid
+            );
+
             const {
               success: storeSuccess,
               emailId,
               error: storeError,
-            } = await storeEmail(supabase, parsedEmail, accountId);
+            } = await storeEmail(
+              supabase,
+              accountId, // accountId is correct here
+              parsedEmail
+              // folderId defaults to INBOX in storeEmail
+            );
 
             if (!storeSuccess || !emailId) {
               throw new Error(
@@ -197,52 +201,82 @@ export async function POST(
             }
 
             // Pass necessary headers from parsedEmail to assignConversationId
-            await assignConversationId(supabase, emailId, parsedEmail.headers);
+            await assignConversationId(
+              supabase,
+              accountId,
+              emailId,
+              parsedEmail.messageId,
+              parsedEmail.inReplyTo,
+              parsedEmail.references
+            );
 
-            currentHighestUid = Math.max(currentHighestUid, uid);
-            return { uid, status: "success" };
+            currentBatchHighestUid = Math.max(currentBatchHighestUid, uid);
+            logger.info(
+              `Successfully processed and stored email UID ${uid} for account ${accountId}. Email ID: ${emailId}`
+            );
+            return { uid, status: "success", emailId };
           } catch (emailError: any) {
             logger.error(
               `Error processing email UID ${uid} for account ${accountId}:`,
-              emailError.message
+              emailError.message,
+              emailError.stack // Log stack for more details
             );
             return { uid, status: "failed", error: emailError.message };
           }
         })
       );
 
-      processedCount += batchResults.filter(
-        (r) => r.status === "fulfilled" && r.value.status === "success"
+      const successfulInBatch = batchResults.filter(
+        (r) => r.status === "fulfilled" && (r.value as any).status === "success"
       ).length;
+      processedCount += successfulInBatch;
 
       // Update sync info (last_synced_uid, last_synced_at) in DB for the account
-      await supabase
-        .from("email_accounts")
-        .update({
-          last_synced_uid: currentHighestUid,
-          last_synced_at: new Date().toISOString(),
-        })
-        .eq("id", accountId);
-      logger.info(
-        `Batch processed for account ${accountId}. Current highest UID: ${currentHighestUid}`
-      );
+      // Only update if there were successful operations in the batch to ensure currentBatchHighestUid is valid for processed emails
+      if (successfulInBatch > 0) {
+        finalHighestUid = currentBatchHighestUid; // Update the overall highest UID processed
+        await supabase
+          .from("email_accounts")
+          .update({
+            last_synced_uid: finalHighestUid,
+            last_synced_at: new Date().toISOString(),
+          } as any) // Cast to any if type error persists
+          .eq("id", accountId);
+        logger.info(
+          `Batch processed for account ${accountId}. Updated last_synced_uid to ${finalHighestUid}.`
+        );
+      } else {
+        logger.info(
+          `Batch processed for account ${accountId}, but no emails successfully stored in this batch. last_synced_uid not updated.`
+        );
+      }
     }
-
-    logger.info(
-      `Sync completed for account ${accountId}. Processed ${processedCount} new emails.`
-    );
-    return NextResponse.json({
-      success: true,
-      accountId,
-      totalNewEmails: newUids.length,
-      processedEmails: processedCount,
-      highestUidProcessed: currentHighestUid,
-    });
   } catch (error: any) {
-    logger.error(`Sync failed for account ${accountId}:`, error.message);
+    logger.error(
+      `Sync failed for account ${accountId}:`,
+      error.message,
+      error.stack
+    );
     return NextResponse.json(
       { error: `Sync failed for account ${accountId}`, details: error.message },
       { status: 500 }
     );
+  } finally {
+    if (imapClient && imapClient.usable) {
+      logger.info(`Logging out IMAP client for account ${accountId}...`);
+      await imapClient.logout();
+      logger.info(`IMAP client logged out for account ${accountId}.`);
+    }
   }
+
+  logger.info(
+    `Sync completed for account ${accountId}. Total new UIDs found: ${newUidsCount}. Successfully processed: ${processedCount}.`
+  );
+  return NextResponse.json({
+    success: true,
+    accountId,
+    totalNewEmails: newUidsCount,
+    processedEmails: processedCount,
+    highestUidProcessed: finalHighestUid,
+  });
 }

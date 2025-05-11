@@ -22,6 +22,7 @@ import {
   Star,
   Trash2,
 } from "lucide-react"; // Added icons
+import Link from "next/link";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -40,49 +41,69 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <SidebarContent className="p-2">
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Inbox" isActive>
-                    <Inbox className="size-4" />
-                    <span>Inbox</span>
-                    <SidebarMenuBadge>24</SidebarMenuBadge>
-                  </SidebarMenuButton>
+                  <Link href="/inbox">
+                    <SidebarMenuButton tooltip="Inbox" isActive>
+                      <Inbox className="size-4" />
+                      <span>Inbox</span>
+                      <SidebarMenuBadge>
+                        {/* TODO: Add badge */}
+                      </SidebarMenuBadge>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Starred">
-                    <Star className="size-4" />
-                    <span>Starred</span>
-                  </SidebarMenuButton>
+                  <Link href="/starred">
+                    <SidebarMenuButton tooltip="Starred">
+                      <Star className="size-4" />
+                      <span>Starred</span>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Sent">
-                    <Send className="size-4" />
-                    <span>Sent</span>
-                  </SidebarMenuButton>
+                  <Link href="/sent">
+                    <SidebarMenuButton tooltip="Sent">
+                      <Send className="size-4" />
+                      <span>Sent</span>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Drafts">
-                    <FileText className="size-4" />
-                    <span>Drafts</span>
-                    <SidebarMenuBadge>2</SidebarMenuBadge>
-                  </SidebarMenuButton>
+                  <Link href="/drafts">
+                    <SidebarMenuButton tooltip="Drafts">
+                      <FileText className="size-4" />
+                      <span>Drafts</span>
+                      <SidebarMenuBadge>
+                        {/* TODO: Add badge */}
+                      </SidebarMenuBadge>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Archive">
-                    <Archive className="size-4" />
-                    <span>Archive</span>
-                  </SidebarMenuButton>
+                  <Link href="/archive">
+                    <SidebarMenuButton tooltip="Archive">
+                      <Archive className="size-4" />
+                      <span>Archive</span>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Spam">
-                    <AlertOctagon className="size-4" />
-                    <span>Spam</span>
-                    <SidebarMenuBadge>5</SidebarMenuBadge>
-                  </SidebarMenuButton>
+                  <Link href="/spam">
+                    <SidebarMenuButton tooltip="Spam">
+                      <AlertOctagon className="size-4" />
+                      <span>Spam</span>
+                      <SidebarMenuBadge>
+                        {/* TODO: Add badge */}
+                      </SidebarMenuBadge>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Trash">
-                    <Trash2 className="size-4" />
-                    <span>Trash</span>
-                  </SidebarMenuButton>
+                  <Link href="/trash">
+                    <SidebarMenuButton tooltip="Trash">
+                      <Trash2 className="size-4" />
+                      <span>Trash</span>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarContent>

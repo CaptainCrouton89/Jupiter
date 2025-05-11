@@ -54,6 +54,8 @@ export type Database = {
           id: string
           imap_host: string
           imap_port: number
+          last_synced_at: string | null
+          last_synced_uid: number | null
           name: string | null
           password_encrypted: string
           smtp_host: string
@@ -68,6 +70,8 @@ export type Database = {
           id?: string
           imap_host: string
           imap_port: number
+          last_synced_at?: string | null
+          last_synced_uid?: number | null
           name?: string | null
           password_encrypted: string
           smtp_host: string
@@ -82,6 +86,8 @@ export type Database = {
           id?: string
           imap_host?: string
           imap_port?: number
+          last_synced_at?: string | null
+          last_synced_uid?: number | null
           name?: string | null
           password_encrypted?: string
           smtp_host?: string

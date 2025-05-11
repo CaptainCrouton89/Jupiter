@@ -1,6 +1,6 @@
 import { decrypt } from "@/lib/auth/encryption";
 import { createClient } from "@/lib/auth/server";
-import { ImapFlow } from "imapflow";
+import { ImapFlow, SearchObject } from "imapflow";
 
 /**
  * Fetches recent email UIDs from the INBOX of a given email account
@@ -45,7 +45,7 @@ export async function fetchRecentEmailUids(
       user: account.email,
       pass: password,
     },
-    logger: console, // DEBUG: Pass console object for imapflow logging
+    // logger: console, // DEBUG: Pass console object for imapflow logging
   });
 
   try {
@@ -122,92 +122,48 @@ export async function fetchEmailsByUids(
   return [];
 }
 
-// Define a basic EmailCredentials type for use in fetchNewEmailUids
-// This should ideally match the structure provided by getEmailCredentials
-interface EmailCredentials {
+// Make sure this interface is exported
+export interface EmailCredentials {
   email: string;
-  password_encrypted: string; // Or decrypted password if handled before calling
+  password_encrypted: string;
+  password?: string; // Decrypted password, optional if not already decrypted
   imap_host: string;
   imap_port: number;
-  // Assuming password will be decrypted before or during createImapConnection
-  password?: string;
 }
 
 /**
- * Fetches UIDs of new emails from the INBOX of a given email account
- * since the last sync point (UID or date).
- * @param credentials The email account credentials (host, port, user, pass).
- * @param lastSyncedUid The last UID that was successfully synced. Fetches UIDs greater than this.
- * @param lastSyncedAt The timestamp of the last successful sync (ISO string). Used if lastSyncedUid is 0 or not reliable.
- * @returns Array of UIDs for new emails, sorted in ascending order.
+ * Fetches UIDs of new emails since the last known UID.
+ * @param client An already connected and mailbox-opened ImapFlow client.
+ * @param lastUid The last UID that was successfully synced. Fetches UIDs greater than this.
+ * @returns A promise that resolves to an array of new email UIDs.
  */
 export async function fetchNewEmailUids(
-  credentials: EmailCredentials, // Assumes password in credentials.password is decrypted
-  lastSyncedUid: number = 0,
-  lastSyncedAt?: string | null
+  client: ImapFlow,
+  lastUid: number
 ): Promise<number[]> {
-  const imapClient = new ImapFlow({
-    host: credentials.imap_host,
-    port: credentials.imap_port,
-    secure: true, // Assume SSL/TLS
-    auth: {
-      user: credentials.email,
-      pass: credentials.password || decrypt(credentials.password_encrypted), // Decrypt if not already
-    },
-    logger: console, // DEBUG: Pass console object for imapflow logging
-  });
+  if (!client || !client.usable) {
+    throw new Error("IMAP client is not connected or usable.");
+  }
+  // Check if mailbox is an object and has a path, implying it's open and details are available
+  if (
+    !client.mailbox ||
+    typeof client.mailbox !== "object" ||
+    !client.mailbox.path
+  ) {
+    throw new Error(
+      "IMAP mailbox is not open or path is unavailable. Please call mailboxOpen('INBOX') first."
+    );
+  }
+
+  const searchCriteria: SearchObject = {
+    uid: `${lastUid + 1}:*`,
+  };
 
   try {
-    await imapClient.connect();
-    const mailboxInfo = await imapClient.mailboxOpen("INBOX");
-
-    let searchOptions: Record<string, any> = {}; // Using Record<string, any> for flexibility with imapflow.SearchObject
-
-    if (lastSyncedUid > 0 && lastSyncedUid < mailboxInfo.uidNext) {
-      searchOptions = { uid: `${lastSyncedUid + 1}:*` };
-    } else if (lastSyncedAt) {
-      const date = new Date(lastSyncedAt);
-      const day = date.getDate().toString().padStart(2, "0");
-      const month = date.toLocaleString("en-US", { month: "short" });
-      const year = date.getFullYear();
-      const formattedDate = `${day}-${month}-${year}`;
-      searchOptions = { since: formattedDate };
-    } else {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const day = thirtyDaysAgo.getDate().toString().padStart(2, "0");
-      const month = thirtyDaysAgo.toLocaleString("en-US", { month: "short" });
-      const year = thirtyDaysAgo.getFullYear();
-      const formattedDate = `${day}-${month}-${year}`;
-      searchOptions = { since: formattedDate };
-    }
-
-    // The second argument { uid: true } to imapClient.search is to ensure UIDs are returned.
-    // imapflow documentation confirms .search(criteria, options)
-    const uids = await imapClient.search(searchOptions, { uid: true });
-
-    const numericUids = uids.filter(
-      (uid) => typeof uid === "number" && uid > lastSyncedUid
-    ) as number[];
-
-    return numericUids.sort((a, b) => a - b);
+    const uids: number[] = await client.search(searchCriteria, { uid: true });
+    return uids.sort((a, b) => a - b);
   } catch (error) {
-    console.error(
-      `Error fetching new email UIDs for ${credentials.email}:`,
-      error
-    );
-    throw new Error(
-      `Failed to fetch new email UIDs: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
-  } finally {
-    try {
-      if (imapClient.usable) {
-        await imapClient.logout();
-      }
-    } catch (e) {
-      console.error(`Error during IMAP logout for ${credentials.email}:`, e);
-    }
+    console.error("Error fetching new email UIDs:", error);
+    return [];
   }
 }

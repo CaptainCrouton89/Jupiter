@@ -56,7 +56,7 @@ export async function GET(
         user: account.email,
         pass: password,
       },
-      logger: console, // DEBUG: Pass console object for imapflow logging
+      // logger: console, // DEBUG: Pass console object for imapflow logging
     });
 
     try {
