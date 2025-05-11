@@ -1,6 +1,7 @@
 "use client";
 
 import { EmailConnectionForm } from "@/components/email/EmailConnectionForm";
+import { TestEmailFetch } from "@/components/email/TestEmailFetch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,6 +94,10 @@ export function ConnectedAccountsList({
   const [isTestingConnection, setIsTestingConnection] = useState<string | null>(
     null
   ); // Store ID of account being tested
+  // State for showing email fetch test UI
+  const [emailFetchTestAccount, setEmailFetchTestAccount] = useState<
+    string | null
+  >(null);
 
   const handleEditClick = (account: AccountForList) => {
     setEditingAccount(account);
@@ -223,78 +228,100 @@ export function ConnectedAccountsList({
     <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {accounts.map((account) => (
-          <Card key={account.id} className="flex flex-col">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle
-                    className="text-lg truncate"
-                    title={account.name || account.email}
+          <div key={account.id} className="space-y-4">
+            <Card className="flex flex-col">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle
+                      className="text-lg truncate"
+                      title={account.name || account.email}
+                    >
+                      {account.name || "Unnamed Account"}
+                    </CardTitle>
+                    <CardDescription className="truncate" title={account.email}>
+                      {account.email}
+                    </CardDescription>
+                  </div>
+                  {/* Placeholder for connection status badge */}
+                  <Badge
+                    variant={
+                      account.is_connected === undefined
+                        ? "outline"
+                        : account.is_connected
+                        ? "default"
+                        : "destructive"
+                    }
                   >
-                    {account.name || "Unnamed Account"}
-                  </CardTitle>
-                  <CardDescription className="truncate" title={account.email}>
-                    {account.email}
-                  </CardDescription>
-                </div>
-                {/* Placeholder for connection status badge */}
-                <Badge
-                  variant={
-                    account.is_connected === undefined
-                      ? "outline"
+                    {account.is_connected === undefined
+                      ? "Unknown"
                       : account.is_connected
-                      ? "default"
-                      : "destructive"
+                      ? "Connected"
+                      : "Issue"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>
+                    IMAP: {account.imap_host}:{account.imap_port}
+                  </p>
+                  <p>
+                    SMTP: {account.smtp_host}:{account.smtp_port}
+                  </p>
+                  {/* We don\'t have last_synced in the select query, and it\'s hypothetical anyway */}
+                  {/* <p>Last synced: {formatDate(account.last_synced)}</p> */}
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    handleTestConnection(account.id, account.email)
+                  }
+                  disabled={isTestingConnection === account.id}
+                >
+                  {isTestingConnection === account.id ? "Testing..." : "Test"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEmailFetchTestAccount(
+                      emailFetchTestAccount === account.id ? null : account.id
+                    )
                   }
                 >
-                  {account.is_connected === undefined
-                    ? "Unknown"
-                    : account.is_connected
-                    ? "Connected"
-                    : "Issue"}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>
-                  IMAP: {account.imap_host}:{account.imap_port}
-                </p>
-                <p>
-                  SMTP: {account.smtp_host}:{account.smtp_port}
-                </p>
-                {/* We don\'t have last_synced in the select query, and it\'s hypothetical anyway */}
-                {/* <p>Last synced: {formatDate(account.last_synced)}</p> */}
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleTestConnection(account.id, account.email)}
-                disabled={isTestingConnection === account.id}
-              >
-                {isTestingConnection === account.id ? "Testing..." : "Test"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleEditClick(account)}
-              >
-                Edit
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => handleDeleteClick(account)}
-                disabled={isDeleting && accountToDelete?.id === account.id}
-              >
-                {isDeleting && accountToDelete?.id === account.id
-                  ? "Removing..."
-                  : "Remove"}
-              </Button>
-            </CardFooter>
-          </Card>
+                  {emailFetchTestAccount === account.id
+                    ? "Hide Fetch"
+                    : "Fetch Emails"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditClick(account)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDeleteClick(account)}
+                  disabled={isDeleting && accountToDelete?.id === account.id}
+                >
+                  {isDeleting && accountToDelete?.id === account.id
+                    ? "Removing..."
+                    : "Remove"}
+                </Button>
+              </CardFooter>
+            </Card>
+
+            {/* Show TestEmailFetch component when this account is selected */}
+            {emailFetchTestAccount === account.id && (
+              <TestEmailFetch accountId={account.id} />
+            )}
+          </div>
         ))}
       </div>
 
