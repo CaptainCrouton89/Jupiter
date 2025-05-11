@@ -1,14 +1,16 @@
 import { createNewSupabaseAdminClient } from "@/lib/auth/admin"; // Corrected import path
 import { decrypt } from "@/lib/auth/encryption"; // Real decrypt
 import { Database } from "@/lib/database.types";
-import { fetchAndParseEmails } from "@/lib/email/parseEmail"; // Added import
+import { fetchAndParseEmails, ParsedEmailData } from "@/lib/email/parseEmail"; // Added import, ensured ParsedEmailData is imported
+import {
+  evaluateEmailForSpam,
+  SpamEvaluationResult,
+} from "@/lib/email/spamEvaluator"; // Import spam evaluator
 import { storeEmails } from "@/lib/email/storeEmails"; // Added import
 import { SupabaseClient } from "@supabase/supabase-js"; // Correct import for SupabaseClient type
 import { ImapFlow } from "imapflow"; // Import ImapFlow
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid"; // Import uuid
-// Assuming ParsedEmailData might be needed for typing if not inferred
-// import { ParsedEmailData } from "@/lib/email/parseEmail";
 
 // Remove all placeholder functions and supabase_placeholder, logger_placeholder
 
@@ -332,50 +334,138 @@ export async function POST(
       // Subtask 12.3 - Implement Email Fetching, Parsing, and Storage Loop (using newUids)
       if (newUids.length > 0) {
         logger.info(`Fetching and parsing ${newUids.length} emails...`);
-        const parsedEmails = await fetchAndParseEmails(imapClient, newUids, 10); // Batch size 10
+        const parsedEmailsInBatch = await fetchAndParseEmails(
+          imapClient,
+          newUids,
+          10
+        ); // Batch size 10
 
-        if (parsedEmails.length > 0) {
-          logger.info(`Storing ${parsedEmails.length} parsed emails...`);
-          const inboxFolderId = await getOrCreateFolderId(
-            supabase,
-            account.id,
-            "INBOX"
-          );
-          const storeResult = await storeEmails(
-            supabase,
-            account.id,
-            parsedEmails,
-            inboxFolderId,
-            (current, total) => {
-              logger.info(`Storage progress: ${current}/${total}`);
-            }
-          );
-          processedEmailsCount = storeResult.success;
-          failedEmailsCount = storeResult.failed;
-          if (storeResult.errors.length > 0) {
-            logger.error("Errors during email storage:", storeResult.errors);
-          }
+        if (parsedEmailsInBatch.length > 0) {
           logger.info(
-            `Email storage complete. Success: ${processedEmailsCount}, Failed: ${failedEmailsCount}`
+            `Processing ${parsedEmailsInBatch.length} parsed emails for spam and storage...`
           );
 
-          // Update sync_logs with processed count
+          const inboxEmails: ParsedEmailData[] = [];
+          const spamEmails: ParsedEmailData[] = [];
+
+          for (const parsedEmail of parsedEmailsInBatch) {
+            // Evaluate for Spam
+            const spamEvaluationInput = {
+              from: parsedEmail.from,
+              subject: parsedEmail.subject,
+              textContent: parsedEmail.text,
+              htmlContent: parsedEmail.html,
+            };
+            const spamResult: SpamEvaluationResult = await evaluateEmailForSpam(
+              spamEvaluationInput
+            );
+
+            logger.info(
+              `Email (messageId: ${
+                parsedEmail.messageId || "N/A"
+              }) for account ${accountId}: Spam Score - ${spamResult.spamScore}`
+            );
+
+            if (spamResult.spamScore > 0.7) {
+              spamEmails.push(parsedEmail);
+            } else {
+              inboxEmails.push(parsedEmail);
+            }
+          }
+
+          let currentBatchProcessedCount = 0;
+          let currentBatchFailedCount = 0;
+          let uidsSuccessfullyStoredInBatch: number[] = [];
+
+          // Process INBOX emails
+          if (inboxEmails.length > 0) {
+            const inboxFolderId = await getOrCreateFolderId(
+              supabase,
+              account.id,
+              "INBOX"
+            );
+            logger.info(
+              `Storing ${inboxEmails.length} emails to INBOX (folderId: ${inboxFolderId}) for account ${accountId}`
+            );
+            const storeResultInbox = await storeEmails(
+              supabase,
+              account.id,
+              inboxEmails, // Correct: 3rd param is the array of emails
+              inboxFolderId // Correct: 4th param is the folderId
+              // TODO: Add progress callback if storeEmails supports it and it's needed
+            );
+            currentBatchProcessedCount += storeResultInbox.success;
+            currentBatchFailedCount += storeResultInbox.failed;
+            if (storeResultInbox.errors.length > 0) {
+              logger.error(
+                `Errors storing INBOX emails for account ${accountId}:`,
+                storeResultInbox.errors
+              );
+            }
+            // Assuming newUids corresponds to parsedEmailsInBatch order and UIDs are needed for tracking.
+            // This is a simplification. A robust way is if storeEmail returns the UID or if ParsedEmailData has it.
+            if (storeResultInbox.success > 0) {
+              // Add UIDs of successfully stored inbox emails. This needs a reliable way to map ParsedEmailData back to its original UID.
+              // For simplicity, if some inbox emails are stored, consider UIDs related to inboxEmails as processed.
+              // This part is tricky without UIDs on ParsedEmailData.
+            }
+          }
+
+          // Process SPAM emails
+          if (spamEmails.length > 0) {
+            const spamFolderId = await getOrCreateFolderId(
+              supabase,
+              account.id,
+              "Spam"
+            ); // Or your designated spam folder name
+            logger.info(
+              `Storing ${spamEmails.length} emails to Spam (folderId: ${spamFolderId}) for account ${accountId}`
+            );
+            const storeResultSpam = await storeEmails(
+              supabase,
+              account.id,
+              spamEmails, // Correct: 3rd param is the array of emails
+              spamFolderId // Correct: 4th param is the folderId
+            );
+            currentBatchProcessedCount += storeResultSpam.success;
+            currentBatchFailedCount += storeResultSpam.failed;
+            if (storeResultSpam.errors.length > 0) {
+              logger.error(
+                `Errors storing SPAM emails for account ${accountId}:`,
+                storeResultSpam.errors
+              );
+            }
+            // Similar simplification for UIDs of spam emails.
+          }
+
+          processedEmailsCount += currentBatchProcessedCount;
+          failedEmailsCount += currentBatchFailedCount;
+
+          logger.info(
+            `Email storage for batch complete. Success: ${currentBatchProcessedCount}, Failed: ${currentBatchFailedCount}`
+          );
+
+          // Update sync_logs with processed count for this batch
+          // The uids_processed_count in sync_logs should be cumulative for the job.
           await supabase
             .from("sync_logs")
             .update({
-              uids_processed_count: processedEmailsCount, // Assuming processedEmailsCount reflects UIDs fully processed
+              // Increment uids_processed_count by emails processed in this batch
+              // This requires fetching the current value or using a Supabase function for atomic increment.
+              // For simplicity, let's just set the total processed so far in the job.
+              uids_processed_count: processedEmailsCount,
               updated_at: new Date().toISOString(),
             })
             .eq("job_id", jobId);
 
-          // Update last_synced_uid with the maximum UID actually processed and stored successfully
-          // This assumes UIDs are processed in order by fetchAndParseEmails and storeEmails
-          // and that parsedEmails retains that order.
-          // A more robust way would be to track max successful UID within storeEmails or from its results.
-          // For now, if any emails were processed, update to the max UID from the fetched batch.
-          if (processedEmailsCount > 0) {
-            // newUids are sorted ascending, so the last one is the highest.
-            maxUidProcessed = newUids[newUids.length - 1];
+          // Update last_synced_uid with the maximum UID from the *original newUids batch*
+          // if any emails in this batch were successfully processed.
+          // newUids are sorted.
+          if (currentBatchProcessedCount > 0 && newUids.length > 0) {
+            const highestUidInThisBatch = newUids[newUids.length - 1]; //This assumes the current batch of newUids corresponds to this processing
+            if (highestUidInThisBatch > maxUidProcessed) {
+              maxUidProcessed = highestUidInThisBatch;
+            }
           }
         } else {
           logger.info(

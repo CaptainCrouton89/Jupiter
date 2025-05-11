@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const page = parseInt(url.searchParams.get("page") || "1", 10);
   const limit = parseInt(url.searchParams.get("limit") || "100", 10);
+  const folderType = url.searchParams.get("folderType"); // Get folderType
 
   if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
     return NextResponse.json(
@@ -80,31 +81,58 @@ export async function GET(request: NextRequest) {
     // Explicitly type 'acc'
     const accountIds = userAccounts.map((acc: { id: string }) => acc.id);
 
-    // Fetch total count of emails for these accounts for pagination metadata
-    const { count: totalEmails, error: countError } = await supabase
-      .from("emails")
-      .select("", { count: "exact", head: true })
-      .in("account_id", accountIds);
+    let folderIdsToFilter: string[] | null = null;
 
-    if (countError) {
-      console.error("Error fetching total email count:", countError);
-      return NextResponse.json(
-        { error: "Failed to fetch email count" },
-        { status: 500 }
-      );
+    if (folderType) {
+      const { data: folders, error: foldersError } = await supabase
+        .from("folders")
+        .select("id")
+        .in("account_id", accountIds)
+        .eq("type", folderType);
+
+      if (foldersError) {
+        console.error(`Error fetching ${folderType} folders:`, foldersError);
+        return NextResponse.json(
+          { error: `Failed to fetch ${folderType} folder IDs` },
+          { status: 500 }
+        );
+      }
+      folderIdsToFilter = folders ? folders.map((f) => f.id) : [];
+      if (folderIdsToFilter.length === 0) {
+        // If no folders of the specified type exist, return empty results
+        return NextResponse.json({
+          emails: [],
+          totalEmails: 0,
+          hasNextPage: false,
+          currentPage: page,
+        });
+      }
     }
 
-    const totalEmailsCount = totalEmails || 0;
-
-    // Fetch paginated emails
-    const { data: emailsData, error: emailsError } = await supabase
+    // Base query for emails
+    let emailQuery = supabase
       .from("emails")
       .select(
-        "id, from_name, from_email, subject, body_text, received_at, read, starred, has_attachments, account_id, message_id"
+        "id, from_name, from_email, subject, body_text, received_at, read, starred, has_attachments, account_id, message_id",
+        { count: "exact" } // Request total count along with data
       )
-      .in("account_id", accountIds)
+      .in("account_id", accountIds);
+
+    // Apply folder ID filter if folderType was specified and folder IDs were found
+    if (folderIdsToFilter) {
+      emailQuery = emailQuery.in("folder_id", folderIdsToFilter);
+    }
+
+    // Apply ordering and pagination
+    emailQuery = emailQuery
       .order("received_at", { ascending: false })
       .range(startIndex, endIndex);
+
+    const {
+      data: emailsData,
+      error: emailsError,
+      count: totalEmails,
+    } = await emailQuery;
 
     if (emailsError) {
       console.error("Error fetching emails:", emailsError);
@@ -113,6 +141,8 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    const totalEmailsCount = totalEmails || 0;
 
     // Explicitly type 'email' based on the select query
     // This type can be more precisely derived from Database types if needed

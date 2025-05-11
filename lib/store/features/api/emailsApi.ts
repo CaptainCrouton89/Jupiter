@@ -33,10 +33,15 @@ export const emailsApi = createApi({
   endpoints: (builder) => ({
     getEmails: builder.query<
       PaginatedEmailsResponse,
-      { page?: number; filters?: string[]; search?: string } // Added search to QueryArg type
+      {
+        page?: number;
+        filters?: string[];
+        search?: string;
+        folderType?: string;
+      } // Added folderType to QueryArg type
     >({
-      query: ({ page = 1, filters = [], search = "" } = {}) => {
-        // Destructure search
+      query: ({ page = 1, filters = [], search = "", folderType } = {}) => {
+        // Destructure search and folderType
         let queryString = `email/inbox?page=${page}&limit=${EMAILS_PER_PAGE}`;
         if (filters.length > 0) {
           queryString += `&filters=${filters.join(",")}`;
@@ -45,12 +50,15 @@ export const emailsApi = createApi({
           // Append search query if it exists
           queryString += `&search=${encodeURIComponent(search)}`;
         }
+        if (folderType) {
+          queryString += `&folderType=${encodeURIComponent(folderType)}`;
+        }
         return queryString;
       },
       providesTags: (
         result,
         error,
-        { page, filters, search } // Adjusted to use destructured args
+        { page, filters, search, folderType } // Adjusted to use destructured args, added folderType
       ) =>
         result
           ? [
@@ -64,7 +72,8 @@ export const emailsApi = createApi({
                 page,
                 filters: filters?.join(","),
                 search,
-              }, // Tag with page, filters, and search
+                folderType, // Tag with folderType
+              },
             ]
           : [
               {
@@ -73,6 +82,7 @@ export const emailsApi = createApi({
                 page,
                 filters: filters?.join(","),
                 search,
+                folderType, // Tag with folderType
               },
             ],
     }),
