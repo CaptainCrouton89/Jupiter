@@ -34,7 +34,7 @@ const logger_placeholder = {
 // This function can be adjusted based on Vercel's recommendations for cron job execution time
 export const maxDuration = 300; // 5 minutes
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   // 1. Authenticate the cron job request (e.g., using a secret token)
   const authHeader = request.headers.get("Authorization");
   const token = authHeader?.split(" ")[1];

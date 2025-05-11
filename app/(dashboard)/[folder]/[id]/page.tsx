@@ -272,7 +272,7 @@ export default function EmailViewPage() {
         <Separator />
         {/* Email Body - Sanitized HTML */}
         <div
-          className="p-4 prose prose-sm dark:prose-invert max-w-none break-words overflow-auto whitespace-pre-wrap email-body-content"
+          className="p-4 prose prose-sm dark:prose-invert break-words overflow-auto whitespace-pre-wrap email-body-content"
           dangerouslySetInnerHTML={{ __html: sanitizedHtmlBody }}
         />
 
