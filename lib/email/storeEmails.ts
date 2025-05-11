@@ -76,6 +76,7 @@ export async function storeEmail(
       has_attachments: parsedEmail.attachments.length > 0,
       body_html: parsedEmail.html,
       body_text: parsedEmail.text,
+      category: parsedEmail.category, // Save the AI-determined category
       // The conversation_id will be handled separately
     };
 

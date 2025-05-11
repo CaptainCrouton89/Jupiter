@@ -14,6 +14,7 @@ export interface InboxEmail {
   has_attachments: boolean;
   account_id: string;
   message_id: string | null;
+  category: string;
 }
 
 export interface PaginatedEmailsResponse {

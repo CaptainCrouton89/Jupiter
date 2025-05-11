@@ -1,5 +1,6 @@
 "use client"; // Add use client for hooks
 
+import { Badge } from "@/components/ui/badge"; // Added Badge for category
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; // Added Input for search
 import {
@@ -23,6 +24,38 @@ import {
 import { useRouter } from "next/navigation"; // Added useRouter
 import { useCallback, useEffect, useState } from "react"; // Added useEffect, useState, and useCallback
 import { useInView } from "react-intersection-observer"; // Import useInView
+
+// Helper function to determine badge class names based on category
+const getCategoryBadgeClassName = (category: string | undefined): string => {
+  if (!category)
+    return "border-transparent bg-muted text-muted-foreground hover:bg-muted/80"; // Default for undefined
+
+  switch (category.toLowerCase()) {
+    case "newsletter":
+      return "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-200/80 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/70";
+    case "marketing":
+      return "border-transparent bg-purple-100 text-purple-800 hover:bg-purple-200/80 dark:bg-purple-900/50 dark:text-purple-300 dark:hover:bg-purple-900/70";
+    case "receipt":
+      return "border-transparent bg-green-100 text-green-800 hover:bg-green-200/80 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/70";
+    case "invoice":
+      return "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-200/80 dark:bg-yellow-900/50 dark:text-yellow-300 dark:hover:bg-yellow-900/70";
+    case "finances":
+      return "border-transparent bg-emerald-100 text-emerald-800 hover:bg-emerald-200/80 dark:bg-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70";
+    case "code-related":
+      return "border-transparent bg-slate-200 text-slate-800 hover:bg-slate-300/80 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-700/80";
+    case "notification":
+      return "border-transparent bg-sky-100 text-sky-800 hover:bg-sky-200/80 dark:bg-sky-900/50 dark:text-sky-300 dark:hover:bg-sky-900/70";
+    case "account-related":
+      return "border-transparent bg-orange-100 text-orange-800 hover:bg-orange-200/80 dark:bg-orange-900/50 dark:text-orange-300 dark:hover:bg-orange-900/70";
+    case "personal":
+      return "border-transparent bg-pink-100 text-pink-800 hover:bg-pink-200/80 dark:bg-pink-900/50 dark:text-pink-300 dark:hover:bg-pink-900/70";
+    case "email-verification":
+      return "border-transparent bg-teal-100 text-teal-800 hover:bg-teal-200/80 dark:bg-teal-900/50 dark:text-teal-300 dark:hover:bg-teal-900/70";
+    case "uncategorizable":
+    default:
+      return "border-transparent bg-gray-200 text-gray-700 hover:bg-gray-300/80 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-700/80";
+  }
+};
 
 // Custom hook for debounce
 function useDebounce<T>(value: T, delay: number): T {
@@ -279,6 +312,9 @@ export default function InboxPage() {
                 {/* Star */}
                 <TableHead className="w-[25%]">From</TableHead>
                 <TableHead>Subject</TableHead>
+                <TableHead className="hidden md:table-cell w-[100px]">
+                  Category
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -346,6 +382,22 @@ export default function InboxPage() {
                         {email.preview || "(No preview available)"}
                       </span>
                     </div>
+                  </TableCell>
+                  <TableCell
+                    className="hidden md:table-cell px-2"
+                    role="gridcell"
+                  >
+                    {email.category && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "capitalize",
+                          getCategoryBadgeClassName(email.category)
+                        )}
+                      >
+                        {email.category.replace(/-/g, " ")}
+                      </Badge>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

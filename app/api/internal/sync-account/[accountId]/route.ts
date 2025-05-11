@@ -1,11 +1,11 @@
 import { createNewSupabaseAdminClient } from "@/lib/auth/admin"; // Corrected import path
 import { decrypt } from "@/lib/auth/encryption"; // Real decrypt
 import { Database } from "@/lib/database.types";
-import { fetchAndParseEmails, ParsedEmailData } from "@/lib/email/parseEmail"; // Added import, ensured ParsedEmailData is imported
 import {
-  evaluateEmailForSpam,
-  SpamEvaluationResult,
-} from "@/lib/email/spamEvaluator"; // Import spam evaluator
+  categorizeEmail,
+  EmailCategorizationResult,
+} from "@/lib/email/emailCategorizer"; // Import spam evaluator
+import { fetchAndParseEmails, ParsedEmailData } from "@/lib/email/parseEmail"; // Added import, ensured ParsedEmailData is imported
 import { storeEmails } from "@/lib/email/storeEmails"; // Added import
 import { SupabaseClient } from "@supabase/supabase-js"; // Correct import for SupabaseClient type
 import { ImapFlow } from "imapflow"; // Import ImapFlow
@@ -163,6 +163,12 @@ async function fetchNewEmailUids(
   if (Array.isArray(uids) && uids.length > 0) {
     uids.sort((a, b) => a - b); // Ensure UIDs are sorted ascending
     logger.info(`Found and sorted UIDs: ${uids.join(", ")}`);
+
+    // Limit to the latest 50 UIDs if more are found
+    if (uids.length > 50) {
+      uids = uids.slice(-50);
+      logger.info(`Limited to the latest 50 UIDs. Count: ${uids.length}`);
+    }
   } else {
     logger.info(`No new UIDs found since: ${lastSyncedUid}`);
     uids = []; // Default to an empty array if no UIDs are found or if not an array
@@ -464,22 +470,33 @@ export async function POST(
               subject: parsedEmail.subject,
               textContent: parsedEmail.text,
               htmlContent: parsedEmail.html,
+              headers: parsedEmail.headers,
             };
-            const spamResult: SpamEvaluationResult = await evaluateEmailForSpam(
+
+            const spamResult: EmailCategorizationResult = await categorizeEmail(
               spamEvaluationInput
             );
 
             logger.info(
-              `[SpamDebug] Email (MsgID: ${
+              `[CategorizationDebug] Email (MsgID: ${
                 parsedEmail.messageId || "N/A"
               }, Subject: "${
                 parsedEmail.subject || "N/A"
-              }") for account ${accountId}: Spam Score - ${
-                spamResult.spamScore
-              }`
+              }") for account ${accountId}: Category - ${spamResult.category}`
             );
 
-            if (spamResult.spamScore > 0.7) {
+            // Assign the determined category to the parsedEmail object
+            parsedEmail.category = spamResult.category;
+
+            if (
+              spamResult.category === "newsletter" ||
+              spamResult.category === "marketing" ||
+              spamResult.category === "receipt" ||
+              spamResult.category === "invoice" ||
+              spamResult.category === "finances" ||
+              spamResult.category === "code-related" ||
+              spamResult.category === "notification"
+            ) {
               logger.info(
                 `[SpamDebug] Classified as SPAM. MsgID: ${
                   parsedEmail.messageId || "N/A"

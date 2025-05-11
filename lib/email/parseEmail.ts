@@ -28,6 +28,7 @@ export interface ParsedEmailData {
   date: Date | null;
   isRead: boolean; // Added for read status
   imapUid?: number; // IMAP UID of the message
+  category?: string; // AI-determined category
 
   // Addresses
   from: {
@@ -59,7 +60,10 @@ export interface ParsedEmailData {
 }
 
 // Intermediate type for content parsing without IMAP-specific flags
-export type BaseParsedEmailData = Omit<ParsedEmailData, "isRead" | "imapUid">;
+export type BaseParsedEmailData = Omit<
+  ParsedEmailData,
+  "isRead" | "imapUid" | "category"
+>;
 
 /**
  * Helper to convert stream to buffer
@@ -196,76 +200,53 @@ export async function fetchAndParseEmail(
   const uidString = String(uid);
   try {
     logger.info(
-      `[fetchAndParseEmail] Attempting main fetch for UID: ${uidString} using client.download()`
+      `[fetchAndParseEmail] Attempting fetch for UID: ${uidString} using client.fetchOne()`
     );
 
-    let messageStream: Readable | undefined;
-    let messageFlags: Set<string> = new Set(); // Initialize, though flags might not be reliably fetched
+    // Use client.fetchOne to get both flags and source (raw email content)
+    const messageData = await client.fetchOne(
+      uidString,
+      { source: true, flags: true }, // Query for source and flags
+      { uid: true } // Specify that uidString is a UID
+    );
 
-    // Use client.download to fetch the email content.
-    // The third argument {uid: true} ensures it uses UID for fetching.
-    const downloadInfo = await client.download(uidString, undefined, {
-      uid: true,
-    });
-
-    if (downloadInfo && downloadInfo.content) {
-      if (typeof downloadInfo.content.pipe === "function") {
-        messageStream = downloadInfo.content as Readable;
-      } else if (Buffer.isBuffer(downloadInfo.content)) {
-        messageStream = Readable.from(downloadInfo.content);
-      } else if (typeof downloadInfo.content === "string") {
-        messageStream = Readable.from(Buffer.from(downloadInfo.content));
-      } else {
-        logger.error(
-          "[fetchAndParseEmail] downloadInfo.content is not a recognized streamable type"
-        );
-      }
-
-      // Attempt to get flags if available, but don't rely on it for critical logic yet
-      if (
-        downloadInfo.meta &&
-        (downloadInfo.meta as any).flags instanceof Set
-      ) {
-        messageFlags = (downloadInfo.meta as any).flags as Set<string>;
-        logger.trace(
-          `[fetchAndParseEmail] Flags from client.download for UID ${uidString}:`,
-          messageFlags
-        );
-      } else {
-        logger.trace(
-          `[fetchAndParseEmail] No flags reliably found in downloadInfo.meta for UID ${uidString}`
-        );
-      }
-    } else {
+    if (!messageData) {
       throw new Error(
-        `client.download did not return content for UID ${uidString}`
+        `client.fetchOne did not return data for UID ${uidString}`
       );
     }
 
-    if (!messageStream) {
+    if (!messageData.source) {
       throw new Error(
-        `Email stream not available for UID ${uidString} after client.download.`
+        `Email source not available for UID ${uidString} after client.fetchOne.`
       );
     }
 
-    const rawEmail = await streamToBuffer(messageStream);
+    const rawEmail = messageData.source; // messageData.source is a Buffer
+    const messageFlags = messageData.flags || new Set<string>(); // messageData.flags is a Set<string>
+
+    logger.trace(
+      `[fetchAndParseEmail] Flags from client.fetchOne for UID ${uidString}:`,
+      messageFlags
+    );
+
     const parsedContent = await parseEmailContent(rawEmail, logger);
 
-    // For now, default isRead to false. Fetching/syncing read status can be a separate improvement.
     const isMessageRead = messageFlags.has("\\Seen");
 
     return {
       ...parsedContent,
-      isRead: isMessageRead, // Use flags if found, otherwise will be false if not \Seen
-      imapUid: uid, // Store the original IMAP UID
+      isRead: isMessageRead,
+      imapUid: uid,
+      // category: will be populated by AI logic elsewhere, after this function typically
     };
   } catch (error) {
     console.error(
-      `[fetchAndParseEmail] Error in fetchAndParseEmail (using download) for UID ${uidString}:`,
+      `[fetchAndParseEmail] Error in fetchAndParseEmail (using fetchOne) for UID ${uidString}:`,
       error
     );
     throw new Error(
-      `Failed to fetch and parse email (using download): ${
+      `Failed to fetch and parse email (using fetchOne): ${
         error instanceof Error ? error.message : String(error)
       }`
     );

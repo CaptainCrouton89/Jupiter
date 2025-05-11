@@ -16,6 +16,7 @@ export interface FolderEmail {
   has_attachments: boolean;
   account_id: string;
   message_id: string | null;
+  category: string;
 }
 
 function generatePreview(text: string | null, maxLength = 100): string | null {
@@ -121,7 +122,7 @@ export async function GET(
     let emailQuery = supabase
       .from("emails")
       .select(
-        "id, from_name, from_email, subject, body_text, received_at, read, starred, has_attachments, account_id, message_id",
+        "id, from_name, from_email, subject, body_text, received_at, read, starred, has_attachments, account_id, message_id, category",
         { count: "exact" }
       )
       .in("account_id", accountIds)
@@ -160,6 +161,7 @@ export async function GET(
         has_attachments: email.has_attachments,
         account_id: email.account_id,
         message_id: email.message_id,
+        category: email.category,
       })
     );
 

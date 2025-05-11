@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Toaster, toast } from "sonner"; // Added sonner imports
+import { toast } from "sonner"; // Added sonner imports
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -109,7 +109,6 @@ export default function EmailViewPage() {
               setEmail((prevEmail) =>
                 prevEmail ? { ...prevEmail, read: true } : null
               );
-              toast.success("Email marked as read.");
             } catch (patchErr: any) {
               console.error("Error marking email as read:", patchErr);
               toast.error(patchErr.message || "Could not mark email as read.");

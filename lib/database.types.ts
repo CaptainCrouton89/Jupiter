@@ -141,6 +141,7 @@ export type Database = {
           account_id: string
           body_html: string | null
           body_text: string | null
+          category: string
           conversation_id: string | null
           created_at: string
           folder_id: string
@@ -160,6 +161,7 @@ export type Database = {
           account_id: string
           body_html?: string | null
           body_text?: string | null
+          category?: string
           conversation_id?: string | null
           created_at?: string
           folder_id: string
@@ -179,6 +181,7 @@ export type Database = {
           account_id?: string
           body_html?: string | null
           body_text?: string | null
+          category?: string
           conversation_id?: string | null
           created_at?: string
           folder_id?: string
