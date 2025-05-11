@@ -1,5 +1,5 @@
+import { createNewSupabaseAdminClient } from "@/lib/auth/admin"; // Corrected import path
 import { decrypt } from "@/lib/auth/encryption"; // Real decrypt
-import { createClient } from "@/lib/auth/server"; // Corrected import path
 import { Database } from "@/lib/database.types";
 import { fetchAndParseEmails } from "@/lib/email/parseEmail"; // Added import
 import { storeEmails } from "@/lib/email/storeEmails"; // Added import
@@ -137,9 +137,16 @@ async function fetchNewEmailUids(
   const searchCriteria =
     lastSyncedUid > 0 ? `UID ${lastSyncedUid + 1}:*` : "1:*";
   // Fetch UIDs and sort them immediately to ensure they are processed in order
-  const uids = await client.search({ uid: searchCriteria });
-  uids.sort((a, b) => a - b); // Ensure UIDs are sorted ascending
-  logger.info(`Found UIDs: ${uids.join(", ")}`); // Changed from console.log
+  let uids = await client.search({ uid: searchCriteria });
+
+  // Ensure uids is an array and sort if it has elements
+  if (Array.isArray(uids) && uids.length > 0) {
+    uids.sort((a, b) => a - b); // Ensure UIDs are sorted ascending
+    logger.info(`Found UIDs: ${uids.join(", ")}`);
+  } else {
+    logger.info(`No new UIDs found since: ${lastSyncedUid}`);
+    uids = []; // Default to an empty array if no UIDs are found or if not an array
+  }
   return uids;
 }
 
@@ -150,7 +157,7 @@ export async function POST(
   { params }: { params: Promise<{ accountId: string }> }
 ) {
   const { accountId } = await params;
-  const supabase = await createClient();
+  const supabase = await createNewSupabaseAdminClient();
   const jobId = uuidv4(); // Unique ID for this sync run
 
   // Log start of sync job

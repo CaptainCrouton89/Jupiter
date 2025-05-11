@@ -38,11 +38,11 @@ export async function GET(request: Request) {
   // 1. Authenticate the cron job request (e.g., using a secret token)
   const authHeader = request.headers.get("authorization");
   console.log("authHeader", authHeader);
-  // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-  //   return new Response("Unauthorized", {
-  //     status: 401,
-  //   });
-  // }
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response("Unauthorized", {
+      status: 401,
+    });
+  }
 
   const supabase = await createNewSupabaseAdminClient();
   let accountsProcessed = 0;

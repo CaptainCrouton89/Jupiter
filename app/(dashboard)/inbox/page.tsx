@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   Loader2,
   Mail,
-  Paperclip,
   Search as SearchIcon,
   Star,
 } from "lucide-react"; // Added Mail, Loader2 and AlertTriangle
@@ -278,11 +277,8 @@ export default function InboxPage() {
                 {/* Checkbox/Select */}
                 <TableHead className="w-[30px]"></TableHead>
                 {/* Star */}
-                <TableHead className="w-[30px]"></TableHead>
-                {/* Attachment */}
-                <TableHead className="w-[200px]">From</TableHead>
+                <TableHead className="w-[25%]">From</TableHead>
                 <TableHead>Subject</TableHead>
-                <TableHead className="text-right w-[100px]">Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -326,15 +322,10 @@ export default function InboxPage() {
                       aria-hidden="true"
                     />
                   </TableCell>
-                  <TableCell className="px-2" role="gridcell">
-                    {email.has_attachments && (
-                      <Paperclip
-                        className="h-4 w-4 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell role="gridcell">
+                  <TableCell
+                    role="gridcell"
+                    className="overflow-hidden break-words whitespace-normal min-w-0"
+                  >
                     {email.from_name || email.from_email}
                   </TableCell>
                   <TableCell role="gridcell">
@@ -349,15 +340,12 @@ export default function InboxPage() {
                         {email.subject || "(No Subject)"}
                       </span>
                       <span
-                        className="text-muted-foreground text-sm block truncate max-w-[300px] sm:max-w-[400px] md:max-w-[500px]"
+                        className="text-muted-foreground text-sm block truncate max-w-[350px] sm:max-w-[450px] md:max-w-[600px] lg:max-w-[700px]"
                         title={email.preview || "(No preview available)"}
                       >
                         {email.preview || "(No preview available)"}
                       </span>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground text-sm">
-                    {formatDate(email.received_at)}
                   </TableCell>
                 </TableRow>
               ))}
