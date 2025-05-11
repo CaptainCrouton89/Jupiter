@@ -77,6 +77,24 @@ CREATE TABLE user_settings (
   UNIQUE(user_id)
 );
 
+-- Table to track email synchronization jobs
+CREATE TABLE sync_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  account_id UUID NOT NULL REFERENCES email_accounts(id) ON DELETE CASCADE,
+  job_id UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4(), -- Unique ID for this specific sync run
+  status TEXT NOT NULL CHECK (status IN ('started', 'in_progress', 'completed', 'failed', 'no_new_emails')),
+  total_uids_to_process INTEGER DEFAULT 0,
+  uids_processed_count INTEGER DEFAULT 0,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  error_message TEXT,
+  CONSTRAINT fk_account FOREIGN KEY(account_id) REFERENCES email_accounts(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_sync_logs_account_id ON sync_logs(account_id);
+CREATE INDEX idx_sync_logs_status ON sync_logs(status);
+
 -- Create update triggers for updated_at
 CREATE OR REPLACE FUNCTION update_modified_column()
 RETURNS TRIGGER AS $$

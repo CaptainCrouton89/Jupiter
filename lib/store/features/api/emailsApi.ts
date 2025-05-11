@@ -31,21 +31,50 @@ export const emailsApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api/" }), // Base URL for all API requests
   tagTypes: ["Email"], // For cache invalidation
   endpoints: (builder) => ({
-    getEmails: builder.query<PaginatedEmailsResponse, number>({
-      // ResultType, QueryArg (page number)
-      query: (page = 1) => `email/inbox?page=${page}&limit=${EMAILS_PER_PAGE}`,
-      providesTags: (result, error, page) =>
+    getEmails: builder.query<
+      PaginatedEmailsResponse,
+      { page?: number; filters?: string[]; search?: string } // Added search to QueryArg type
+    >({
+      query: ({ page = 1, filters = [], search = "" } = {}) => {
+        // Destructure search
+        let queryString = `email/inbox?page=${page}&limit=${EMAILS_PER_PAGE}`;
+        if (filters.length > 0) {
+          queryString += `&filters=${filters.join(",")}`;
+        }
+        if (search) {
+          // Append search query if it exists
+          queryString += `&search=${encodeURIComponent(search)}`;
+        }
+        return queryString;
+      },
+      providesTags: (
+        result,
+        error,
+        { page, filters, search } // Adjusted to use destructured args
+      ) =>
         result
           ? [
               ...result.emails.map(({ id }) => ({
                 type: "Email" as const,
                 id,
               })),
-              { type: "Email", id: "LIST", page }, // Tag the list with the page number
+              {
+                type: "Email",
+                id: "LIST",
+                page,
+                filters: filters?.join(","),
+                search,
+              }, // Tag with page, filters, and search
             ]
-          : [{ type: "Email", id: "LIST", page }],
-      // No serializeQueryArgs or merge needed here for this strategy.
-      // RTK Query will cache based on the `page` argument automatically.
+          : [
+              {
+                type: "Email",
+                id: "LIST",
+                page,
+                filters: filters?.join(","),
+                search,
+              },
+            ],
     }),
     // We can add more endpoints here later, e.g., getEmailById, updateEmail, etc.
   }),

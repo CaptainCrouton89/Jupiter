@@ -250,6 +250,60 @@ export type Database = {
           },
         ]
       }
+      sync_logs: {
+        Row: {
+          account_id: string
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          job_id: string
+          started_at: string
+          status: string
+          total_uids_to_process: number | null
+          uids_processed_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          started_at?: string
+          status: string
+          total_uids_to_process?: number | null
+          uids_processed_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          started_at?: string
+          status?: string
+          total_uids_to_process?: number | null
+          uids_processed_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_account"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_settings: {
         Row: {
           created_at: string

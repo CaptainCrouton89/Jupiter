@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { supabase } from "./client"; // Assumes supabase client is exported from here
+import { supabase } from "../supabase";
 
 const ATTACHMENT_BUCKET = "email-attachments";
 

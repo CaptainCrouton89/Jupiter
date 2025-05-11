@@ -1,6 +1,7 @@
 "use client"; // Add use client for hooks
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; // Added Input for search
 import {
   Table,
   TableBody,
@@ -11,13 +12,31 @@ import {
 } from "@/components/ui/table";
 import type { InboxEmail } from "@/lib/store/features/api/emailsApi";
 import { useGetEmailsQuery } from "@/lib/store/features/api/emailsApi"; // Import RTK Query hook
-import { AlertTriangle, Loader2, Mail, Paperclip, Star } from "lucide-react"; // Added Mail, Loader2 and AlertTriangle
+import {
+  AlertTriangle,
+  Loader2,
+  Mail,
+  Paperclip,
+  Search as SearchIcon,
+  Star,
+} from "lucide-react"; // Added Mail, Loader2 and AlertTriangle
 import { useRouter } from "next/navigation"; // Added useRouter
 import { useCallback, useEffect, useState } from "react"; // Added useEffect, useState, and useCallback
 import { useInView } from "react-intersection-observer"; // Import useInView
 
-// Removed InboxEmail interface as it's now imported
-// Removed dummy email data
+// Custom hook for debounce
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -54,6 +73,9 @@ export default function InboxPage() {
     []
   );
   const [showFullPageError, setShowFullPageError] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState(""); // Added state for search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 500); // Debounce search query (500ms)
 
   // Fetch data for the currentPageToFetch
   const {
@@ -63,7 +85,11 @@ export default function InboxPage() {
     isError: isErrorCurrentPage,
     error: currentError,
     // refetch // We can use this for pull-to-refresh if needed later
-  } = useGetEmailsQuery(currentPageToFetch);
+  } = useGetEmailsQuery({
+    page: currentPageToFetch,
+    filters: activeFilters,
+    search: debouncedSearchQuery,
+  }); // Modified to pass search query
 
   // Accumulate emails and manage overall status
   useEffect(() => {
@@ -104,7 +130,21 @@ export default function InboxPage() {
     }
   }, [inView, hasMore, isFetchingCurrentPage]);
 
+  const handleFilterToggle = useCallback((filterId: string) => {
+    setActiveFilters((prevFilters) => {
+      const newFilters = prevFilters.includes(filterId)
+        ? prevFilters.filter((f) => f !== filterId)
+        : [...prevFilters, filterId];
+      // When filters change, reset to page 1 and clear existing emails
+      setCurrentPageToFetch(1);
+      setAllDisplayedEmails([]);
+      setShowFullPageError(false);
+      return newFilters;
+    });
+  }, []);
+
   const handleRefresh = useCallback(() => {
+    setActiveFilters([]); // Reset filters
     setAllDisplayedEmails([]); // Clear displayed emails
     setCurrentPageToFetch(1); // Reset to fetch page 1
     setShowFullPageError(false); // Clear any full page error
@@ -117,7 +157,8 @@ export default function InboxPage() {
   const showPrimaryLoader =
     isLoadingInitialPage &&
     currentPageToFetch === 1 &&
-    allDisplayedEmails.length === 0;
+    allDisplayedEmails.length === 0 &&
+    !debouncedSearchQuery; // Don't show primary loader if searching initially
 
   if (showPrimaryLoader) {
     return (
@@ -150,10 +191,16 @@ export default function InboxPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">
-          Inbox ({allDisplayedEmails.length} / {totalEmails})
-        </h1>
+        <h1 className="text-2xl font-bold">Inbox</h1>
         <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => router.push("/compose")}
+          >
+            <Mail className="mr-2 h-4 w-4" />
+            Compose
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -169,6 +216,46 @@ export default function InboxPage() {
             Archive
           </Button>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="relative">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search emails..."
+            className="pl-10 w-full"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              // When search query changes, reset to page 1 and clear existing emails
+              setCurrentPageToFetch(1);
+              setAllDisplayedEmails([]);
+              setShowFullPageError(false);
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <span className="text-sm text-muted-foreground mr-2">Filter by:</span>
+        {[
+          { id: "unread", label: "Unread" },
+          { id: "starred", label: "Starred" },
+          { id: "attachments", label: "With Attachments" },
+        ].map((filter) => (
+          <Button
+            key={filter.id}
+            variant={
+              activeFilters.includes(filter.id) ? "secondary" : "outline"
+            }
+            size="sm"
+            onClick={() => handleFilterToggle(filter.id)}
+            className="text-xs px-2 py-1 h-auto sm:text-sm sm:px-3 sm:py-1.5"
+          >
+            {filter.label}
+          </Button>
+        ))}
       </div>
 
       {allDisplayedEmails.length === 0 &&
@@ -204,32 +291,52 @@ export default function InboxPage() {
                   ref={
                     index === allDisplayedEmails.length - 5 ? loadMoreRef : null
                   }
+                  tabIndex={0}
+                  role="row"
+                  aria-selected={false}
+                  aria-label={`Email from ${
+                    email.from_name || email.from_email
+                  }, Subject: ${
+                    email.subject || "(No Subject)"
+                  }, Received: ${formatDate(email.received_at)}`}
                   className={`cursor-pointer ${
                     !email.read
                       ? "font-medium bg-muted/30 hover:bg-muted/40"
                       : "hover:bg-muted/20"
                   }`}
                   onClick={() => router.push(`/inbox/${email.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(`/inbox/${email.id}`);
+                    }
+                  }}
                 >
-                  <TableCell className="px-2">
+                  <TableCell className="px-2" role="gridcell">
                     <div className="flex items-center justify-center h-4 w-4 rounded border"></div>
                   </TableCell>
-                  <TableCell className="px-2">
+                  <TableCell className="px-2" role="gridcell">
                     <Star
                       className={`h-4 w-4 ${
                         email.starred
                           ? "fill-yellow-400 text-yellow-400"
                           : "text-muted-foreground hover:text-yellow-500"
                       }`}
+                      aria-hidden="true"
                     />
                   </TableCell>
-                  <TableCell className="px-2">
+                  <TableCell className="px-2" role="gridcell">
                     {email.has_attachments && (
-                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <Paperclip
+                        className="h-4 w-4 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     )}
                   </TableCell>
-                  <TableCell>{email.from_name || email.from_email}</TableCell>
-                  <TableCell>
+                  <TableCell role="gridcell">
+                    {email.from_name || email.from_email}
+                  </TableCell>
+                  <TableCell role="gridcell">
                     <div className="flex flex-col">
                       <span className={!email.read ? "font-semibold" : ""}>
                         {email.subject || "(No Subject)"}
