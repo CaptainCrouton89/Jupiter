@@ -27,9 +27,9 @@ type AttachmentRow = Database["public"]["Tables"]["attachments"]["Row"];
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: emailId } = params;
+  const { id: emailId } = await params;
 
   if (!emailId) {
     return NextResponse.json(
@@ -93,9 +93,9 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: emailId } = params;
+  const { id: emailId } = await params;
   const { read } = await request.json(); // Expecting { read: boolean }
 
   if (!emailId) {

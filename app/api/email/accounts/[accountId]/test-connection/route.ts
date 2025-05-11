@@ -17,10 +17,10 @@ async function streamToString(stream: Readable): Promise<string> {
 
 export async function POST(
   request: Request, // Keep request for potential future use, though not strictly needed now
-  { params }: { params: { accountId: string } }
+  { params }: { params: Promise<{ accountId: string }> }
 ) {
   const supabase = await createClient();
-  const { accountId } = params;
+  const { accountId } = await params;
 
   if (!accountId) {
     return NextResponse.json(

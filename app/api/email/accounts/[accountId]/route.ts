@@ -6,10 +6,10 @@ import { NextResponse } from "next/server";
 
 export async function PUT(
   request: Request,
-  { params }: { params: { accountId: string } }
+  { params }: { params: Promise<{ accountId: string }> }
 ) {
   const supabase = await createClient();
-  const { accountId } = params;
+  const { accountId } = await params;
 
   if (!accountId) {
     return NextResponse.json(
@@ -108,10 +108,10 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { accountId: string } }
+  { params }: { params: Promise<{ accountId: string }> }
 ) {
   const supabase = await createClient();
-  const { accountId } = params;
+  const { accountId } = await params;
 
   if (!accountId) {
     return NextResponse.json(

@@ -147,9 +147,9 @@ const RATE_LIMIT_DELAY_MS = 200; // Example: 200ms delay after processing a batc
 
 export async function POST(
   request: Request,
-  { params }: { params: { accountId: string } }
+  { params }: { params: Promise<{ accountId: string }> }
 ) {
-  const { accountId } = params;
+  const { accountId } = await params;
   const supabase = await createClient();
   const jobId = uuidv4(); // Unique ID for this sync run
 

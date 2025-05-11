@@ -4,10 +4,10 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: { accountId: string } }
+  { params }: { params: Promise<{ accountId: string }> }
 ) {
   const supabase = await createClient();
-  const { accountId } = params;
+  const { accountId } = await params;
 
   if (!accountId) {
     return NextResponse.json(
