@@ -1,5 +1,6 @@
 "use client";
 
+import { getAttachmentDownloadUrl } from "@/lib/supabase/storage"; // Import for download URL
 import DOMPurify from "dompurify"; // For HTML sanitization
 import {
   AlertTriangle,
@@ -55,6 +56,8 @@ interface EmailDetails {
   attachments: Attachment[];
   // Add other fields as needed, e.g., cc, bcc, read status
   read?: boolean;
+  from_avatar_url?: string;
+  tags?: string[];
 }
 
 export default function EmailViewPage() {
@@ -179,6 +182,8 @@ export default function EmailViewPage() {
 
   const hasAttachments = email.attachments && email.attachments.length > 0;
 
+  const sanitizedHtmlBody = sanitizeHtml(email.body_html || email.body_text);
+
   return (
     <div className="flex flex-col h-full">
       <Toaster position="top-right" /> {/* Added Toaster component */}
@@ -221,11 +226,11 @@ export default function EmailViewPage() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-4">
+        <div className="flex items-center p-2">
+          <div className="flex items-center gap-2">
             <Avatar className="h-10 w-10">
               <AvatarImage
-                src={undefined /* Placeholder for avatar image */}
+                src={email.from_avatar_url || undefined}
                 alt={email.from_name || email.from_email}
               />
               <AvatarFallback>
@@ -235,93 +240,96 @@ export default function EmailViewPage() {
               </AvatarFallback>
             </Avatar>
             <div className="grid gap-0.5">
-              <div className="font-semibold flex items-center gap-2">
+              <div className="font-semibold truncate">
                 {email.from_name || email.from_email}
-                <span className="text-xs font-normal text-muted-foreground">
-                  &lt;{email.from_email}&gt;
-                </span>
               </div>
-              {/* Placeholder for To/Cc/Bcc - data needs to be fetched or inferred */}
-              <div className="text-xs text-muted-foreground">
-                To: {email.to_email || "Undisclosed recipients"}
+              <div className="text-xs text-muted-foreground truncate">
+                To: {email.to_email}
               </div>
-              {/* Add Cc/Bcc if available */}
             </div>
           </div>
-          <div className="text-right text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              {hasAttachments && <Paperclip className="h-4 w-4" />}
-              <span>{formatDate(email.received_at)}</span>
-            </div>
-            <Badge
-              variant={email.read ? "outline" : "secondary"}
-              className="mt-1"
-            >
-              {email.read ? "Read" : "Unread"}
-            </Badge>
+          <div className="ml-auto text-xs text-muted-foreground">
+            {formatDistanceToNow(parseISO(email.received_at), {
+              addSuffix: true,
+            })}
           </div>
         </div>
-
-        <Separator className="my-4" />
-
-        <h1 className="text-2xl font-bold mb-4">
-          {email.subject || "(No Subject)"}
-        </h1>
-
-        {/* Email Body */}
-        {/* Use dangerouslySetInnerHTML with sanitized HTML */}
-        {/* For text body, use <pre> or similar for formatting */}
+        <Separator />
+        <div className="p-4 space-y-2">
+          <h1 className="text-2xl font-bold break-words">
+            {email.subject || "(No Subject)"}
+          </h1>
+          {email.tags && email.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {email.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+        <Separator />
+        {/* Email Body - Sanitized HTML */}
         <div
-          className="prose prose-sm dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{
-            __html: sanitizeHtml(email.body_html || email.body_text),
-          }}
+          className="p-4 prose prose-sm dark:prose-invert max-w-none break-words overflow-auto whitespace-pre-wrap email-body-content"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtmlBody }}
         />
 
         {/* Attachments Section */}
-        {hasAttachments && (
+        {email.attachments && email.attachments.length > 0 && (
           <>
-            <Separator className="my-6" />
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold flex items-center">
-                <Paperclip className="h-5 w-5 mr-2" />
+            <Separator />
+            <div className="p-4">
+              <h3 className="text-lg font-semibold mb-2">
                 Attachments ({email.attachments.length})
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {email.attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="border rounded-lg p-3 flex flex-col items-start gap-2 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-center gap-2">
-                    {/* Basic icon, could be more specific based on file_type */}
-                    <Paperclip className="h-5 w-5 text-muted-foreground" />
-                    <span
-                      className="text-sm font-medium truncate"
-                      title={att.file_name}
-                    >
-                      {att.file_name}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {(att.file_size / 1024).toFixed(1)} KB - {att.file_type}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-auto w-full"
-                    onClick={() => {
-                      /* TODO: Implement download from att.storage_path */ alert(
-                        "Download: " + att.file_name
-                      );
-                    }}
+              </h3>
+              <ul className="space-y-2">
+                {email.attachments.map((att) => (
+                  <li
+                    key={att.id}
+                    className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50"
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2 truncate">
+                      <Paperclip className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm truncate" title={att.file_name}>
+                        {att.file_name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({(att.file_size / 1024).toFixed(2)} KB)
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          // Assuming att.storage_path is the correct path for the download URL function
+                          const { downloadUrl, error } =
+                            await getAttachmentDownloadUrl(att.storage_path);
+                          if (error || !downloadUrl) {
+                            toast.error(
+                              `Failed to get download link for ${
+                                att.file_name
+                              }: ${error?.message || "Unknown error"}`
+                            );
+                            return;
+                          }
+                          // Trigger download
+                          window.open(downloadUrl, "_blank");
+                        } catch (e: any) {
+                          toast.error(
+                            `Error downloading ${att.file_name}: ${e.message}`
+                          );
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </>
         )}
