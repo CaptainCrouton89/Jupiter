@@ -27,6 +27,7 @@ export interface ParsedEmailData {
   subject: string | null;
   date: Date | null;
   isRead: boolean; // Added for read status
+  imapUid?: number; // IMAP UID of the message
 
   // Addresses
   from: {
@@ -58,7 +59,7 @@ export interface ParsedEmailData {
 }
 
 // Intermediate type for content parsing without IMAP-specific flags
-export type BaseParsedEmailData = Omit<ParsedEmailData, "isRead">;
+export type BaseParsedEmailData = Omit<ParsedEmailData, "isRead" | "imapUid">;
 
 /**
  * Helper to convert stream to buffer
@@ -113,10 +114,12 @@ function processAttachments(attachments: Attachment[]): EmailAttachmentMeta[] {
 /**
  * Parse raw email content into structured data (without IMAP flags like isRead)
  * @param rawEmail Raw email content as buffer or string
+ * @param logger Optional logger instance
  * @returns Parsed email data in a structured format, excluding isRead status
  */
 export async function parseEmailContent(
-  rawEmail: Buffer | string
+  rawEmail: Buffer | string,
+  logger?: any
 ): Promise<BaseParsedEmailData> {
   try {
     // Parse the raw email
@@ -166,12 +169,15 @@ export async function parseEmailContent(
       headers,
     };
   } catch (error) {
-    console.error("Error parsing email:", error);
-    throw new Error(
-      `Failed to parse email: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+    const errorMessage = `Failed to parse email: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    if (logger && logger.error) {
+      logger.error("Error parsing email:", error);
+    } else {
+      console.error("Error parsing email:", error); // Fallback if no logger
+    }
+    throw new Error(errorMessage);
   }
 }
 
@@ -179,15 +185,17 @@ export async function parseEmailContent(
  * Fetch and parse a specific email from IMAP server
  * @param client Initialized ImapFlow client
  * @param uid UID of the email to fetch
+ * @param logger Logger instance
  * @returns Parsed email data
  */
 export async function fetchAndParseEmail(
   client: ImapFlow,
-  uid: number
+  uid: number,
+  logger: any
 ): Promise<ParsedEmailData> {
   const uidString = String(uid);
   try {
-    console.log(
+    logger.info(
       `[fetchAndParseEmail] Attempting main fetch for UID: ${uidString} using client.download()`
     );
 
@@ -208,7 +216,7 @@ export async function fetchAndParseEmail(
       } else if (typeof downloadInfo.content === "string") {
         messageStream = Readable.from(Buffer.from(downloadInfo.content));
       } else {
-        console.error(
+        logger.error(
           "[fetchAndParseEmail] downloadInfo.content is not a recognized streamable type"
         );
       }
@@ -219,12 +227,12 @@ export async function fetchAndParseEmail(
         (downloadInfo.meta as any).flags instanceof Set
       ) {
         messageFlags = (downloadInfo.meta as any).flags as Set<string>;
-        console.log(
+        logger.trace(
           `[fetchAndParseEmail] Flags from client.download for UID ${uidString}:`,
           messageFlags
         );
       } else {
-        console.log(
+        logger.trace(
           `[fetchAndParseEmail] No flags reliably found in downloadInfo.meta for UID ${uidString}`
         );
       }
@@ -241,7 +249,7 @@ export async function fetchAndParseEmail(
     }
 
     const rawEmail = await streamToBuffer(messageStream);
-    const parsedContent = await parseEmailContent(rawEmail);
+    const parsedContent = await parseEmailContent(rawEmail, logger);
 
     // For now, default isRead to false. Fetching/syncing read status can be a separate improvement.
     const isMessageRead = messageFlags.has("\\Seen");
@@ -249,6 +257,7 @@ export async function fetchAndParseEmail(
     return {
       ...parsedContent,
       isRead: isMessageRead, // Use flags if found, otherwise will be false if not \Seen
+      imapUid: uid, // Store the original IMAP UID
     };
   } catch (error) {
     console.error(
@@ -268,50 +277,53 @@ export async function fetchAndParseEmail(
  * @param client Initialized ImapFlow client
  * @param uids Array of UIDs to fetch
  * @param batchSize Number of emails to fetch in each batch (defaults to 10)
+ * @param accountId Account ID for logging context
+ * @param logger Logger instance
  * @returns Array of parsed email data
  */
 export async function fetchAndParseEmails(
   client: ImapFlow,
   uids: number[],
-  batchSize: number = 10
+  batchSize: number = 10,
+  accountId: string,
+  logger: any
 ): Promise<ParsedEmailData[]> {
-  const results: ParsedEmailData[] = [];
-  const errors: { uid: number; error: string }[] = [];
+  const allParsedEmails: ParsedEmailData[] = [];
+  const totalUids = uids.length;
+  logger.info(
+    `[fetchAndParseEmails] Starting batch fetch for account ${accountId}. Total UIDs: ${totalUids}, Batch Size: ${batchSize}`
+  );
 
-  // Process in batches to avoid memory issues with large numbers of emails
-  for (let i = 0; i < uids.length; i += batchSize) {
+  for (let i = 0; i < totalUids; i += batchSize) {
     const batchUids = uids.slice(i, i + batchSize);
-
-    // Process each batch in parallel but limit concurrency
-    const batchPromises = batchUids.map(async (uid) => {
-      try {
-        return await fetchAndParseEmail(client, uid);
-      } catch (error) {
-        errors.push({
-          uid,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        return null;
-      }
-    });
-
-    const batchResults = await Promise.all(batchPromises);
-
-    // Filter out null results (errors) and add to results array
-    results.push(
-      ...batchResults.filter(
-        (result): result is ParsedEmailData => result !== null
-      )
+    logger.info(
+      `[fetchAndParseEmails] Processing batch ${i / batchSize + 1}/${Math.ceil(
+        totalUids / batchSize
+      )} for account ${accountId}. UIDs: ${batchUids.join(", ")}`
     );
+    try {
+      // Fetch and parse emails in the current batch
+      const promises = batchUids.map((uid) =>
+        fetchAndParseEmail(client, uid, logger)
+      );
+      const parsedBatch = await Promise.all(promises);
+      allParsedEmails.push(...parsedBatch);
+      logger.info(
+        `[fetchAndParseEmails] Successfully parsed batch ${
+          i / batchSize + 1
+        } for account ${accountId}. Emails in batch: ${parsedBatch.length}`
+      );
+    } catch (error) {
+      logger.error(
+        `[fetchAndParseEmails] Error processing batch starting with UID ${batchUids[0]} for account ${accountId}:`,
+        error
+      );
+      // Decide if one failed email in a batch should stop the whole sync
+      // For now, we log and continue with other batches
+    }
   }
-
-  // Log any errors that occurred during batch processing
-  if (errors.length > 0) {
-    console.error(
-      `[fetchAndParseEmails] Failed to fetch and parse ${errors.length} emails in batch:`,
-      errors
-    );
-  }
-
-  return results;
+  logger.info(
+    `[fetchAndParseEmails] Finished batch fetching for account ${accountId}. Total parsed emails: ${allParsedEmails.length}`
+  );
+  return allParsedEmails;
 }

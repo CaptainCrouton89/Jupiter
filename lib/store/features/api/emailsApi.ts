@@ -40,19 +40,25 @@ export const emailsApi = createApi({
         folderType?: string;
       } // Added folderType to QueryArg type
     >({
-      query: ({ page = 1, filters = [], search = "", folderType } = {}) => {
-        // Destructure search and folderType
-        let queryString = `email/inbox?page=${page}&limit=${EMAILS_PER_PAGE}`;
+      query: ({
+        page = 1,
+        filters = [],
+        search = "",
+        folderType = "inbox",
+      } = {}) => {
+        // Default folderType to "inbox"
+        // Sanitize and use folderType directly in the path
+        const folderPathName = (folderType || "inbox").toLowerCase();
+        const basePath = `email/${folderPathName}`;
+
+        let queryString = `${basePath}?page=${page}&limit=${EMAILS_PER_PAGE}`;
         if (filters.length > 0) {
           queryString += `&filters=${filters.join(",")}`;
         }
         if (search) {
-          // Append search query if it exists
           queryString += `&search=${encodeURIComponent(search)}`;
         }
-        if (folderType) {
-          queryString += `&folderType=${encodeURIComponent(folderType)}`;
-        }
+        // folderType is now part of the path, so it's not needed as a query parameter.
         return queryString;
       },
       providesTags: (

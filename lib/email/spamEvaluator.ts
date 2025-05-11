@@ -75,6 +75,7 @@ Things I do NOT want marked as spam:
       system: systemPrompt,
       prompt: prompt,
     });
+    console.log("Spam evaluation result:", object.spamScore);
     return object as SpamEvaluationResult;
   } catch (error) {
     console.error("Error evaluating email for spam:", error);

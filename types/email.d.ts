@@ -30,6 +30,7 @@ export interface Email {
   starred: boolean;
   folder_id: string;
   has_attachments: boolean;
+  imap_uid?: string | null;
   created_at: string;
   updated_at: string;
 }

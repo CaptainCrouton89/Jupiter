@@ -75,18 +75,6 @@ export function getSupabaseAdminClient(): SupabaseClient<Database> {
 // This can be useful if you have concerns about statefulness of the cached client,
 // though for most operations the cached version is fine.
 export function createNewSupabaseAdminClient(): SupabaseClient<Database> {
-  console.log(
-    "[ADMIN_CLIENT_DEBUG] Trying to create NEW Supabase admin client (non-cached)."
-  );
-  console.log(
-    "[ADMIN_CLIENT_DEBUG] NEXT_PUBLIC_SUPABASE_URL (createNew):",
-    process.env.NEXT_PUBLIC_SUPABASE_URL
-  );
-  console.log(
-    "[ADMIN_CLIENT_DEBUG] SUPABASE_SERVICE_ROLE_KEY (createNew):",
-    process.env.SUPABASE_SERVICE_ROLE_KEY ? "SET (value hidden)" : "NOT SET"
-  );
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

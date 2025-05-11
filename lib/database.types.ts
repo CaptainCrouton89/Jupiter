@@ -148,6 +148,7 @@ export type Database = {
           from_name: string | null
           has_attachments: boolean
           id: string
+          imap_uid: string | null
           message_id: string
           read: boolean
           received_at: string
@@ -166,6 +167,7 @@ export type Database = {
           from_name?: string | null
           has_attachments?: boolean
           id?: string
+          imap_uid?: string | null
           message_id: string
           read?: boolean
           received_at: string
@@ -184,6 +186,7 @@ export type Database = {
           from_name?: string | null
           has_attachments?: boolean
           id?: string
+          imap_uid?: string | null
           message_id?: string
           read?: boolean
           received_at?: string

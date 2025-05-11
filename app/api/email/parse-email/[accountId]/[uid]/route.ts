@@ -65,7 +65,11 @@ export async function GET(
       await client.mailboxOpen("INBOX");
 
       // Fetch and parse the email with the given UID
-      const emailData = await fetchAndParseEmail(client, parseInt(uid, 10));
+      const emailData = await fetchAndParseEmail(
+        client,
+        parseInt(uid, 10),
+        console
+      );
 
       // Return the parsed email data
       return NextResponse.json({

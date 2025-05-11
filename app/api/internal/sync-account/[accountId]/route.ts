@@ -19,6 +19,8 @@ const logger = {
   info: (...args: any[]) => console.log("[SYNC_ACCOUNT_INFO]", ...args),
   warn: (...args: any[]) => console.warn("[SYNC_ACCOUNT_WARN]", ...args),
   error: (...args: any[]) => console.error("[SYNC_ACCOUNT_ERROR]", ...args),
+  // Add a trace level for very verbose debugging, initially a no-op
+  trace: (...args: any[]) => console.log("[SYNC_ACCOUNT_TRACE]", ...args), // Temporarily enable trace for debugging
 };
 
 export const maxDuration = 300; // 5 minutes max for single account sync, increased slightly
@@ -46,8 +48,8 @@ async function getEmailAccountDetails(
     .eq("id", accountId)
     .single<EmailAccountDetails>(); // Specify the expected return type for single()
 
-  console.log("data", data);
-  console.log("error", error);
+  // console.log("data", data); // Removed direct console.log
+  // console.log("error", error); // Removed direct console.log
 
   if (error) {
     logger.error(
@@ -95,7 +97,7 @@ async function getOrCreateFolderId(
     .insert({
       id: newFolderId,
       account_id: accountId,
-      name: folderPath, // IMAP path
+      name: folderPath.toUpperCase(), // IMAP path
       type: "inbox", // Changed from "mailbox" to "inbox" based on user's check constraint
     })
     .select("id")
@@ -144,7 +146,9 @@ async function fetchNewEmailUids(
   } else {
     query.all = true; // Fetches all messages if no lastSyncedUid
   }
-  logger.info(`IMAP search query object: ${JSON.stringify(query)}`);
+  logger.info(
+    `IMAP search: ${query.uid ? `UIDs ${query.uid}` : "all messages"}`
+  );
 
   // Fetch UIDs and sort them immediately to ensure they are processed in order
   // The second argument { uid: true } ensures UIDs are returned.
@@ -166,6 +170,86 @@ async function fetchNewEmailUids(
   return uids;
 }
 
+// Helper function to update sync_logs table
+async function updateSyncLog(
+  supabase: SupabaseClient<Database>,
+  jobId: string,
+  status: string,
+  errorMessage?: string | null,
+  isTerminal: boolean = false,
+  processedCount?: number,
+  totalToProcess?: number
+) {
+  const updatePayload: any = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+  if (errorMessage) {
+    updatePayload.error_message = errorMessage;
+  }
+  if (isTerminal) {
+    updatePayload.completed_at = new Date().toISOString();
+  }
+  if (typeof processedCount === "number") {
+    updatePayload.uids_processed_count = processedCount;
+  }
+  if (typeof totalToProcess === "number" && status === "fetching_uids") {
+    // Only set total_uids_to_process once
+    updatePayload.total_uids_to_process = totalToProcess;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("sync_logs")
+      .update(updatePayload)
+      .eq("job_id", jobId);
+    if (error) {
+      logger.error(
+        `Failed to update sync_log for job ${jobId} to status ${status}:`,
+        error.message
+      );
+    }
+  } catch (e) {
+    logger.error(
+      `Exception while updating sync_log for job ${jobId} to status ${status}:`,
+      e
+    );
+  }
+}
+
+// Helper function to handle sync failures, log them, and return a NextResponse
+async function handleSyncFailure(
+  supabase: SupabaseClient<Database>,
+  logger: any,
+  jobId: string,
+  error: any,
+  httpStatus: number,
+  userMessage: string,
+  processedCount?: number // Optional: count of items processed before failure
+): Promise<NextResponse> {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  logger.error(
+    `Sync failure for job ${jobId}: ${userMessage} - Details: ${errorMessage}`
+  );
+  if (error instanceof Error && error.stack) {
+    logger.error("Stack trace:", error.stack);
+  }
+
+  await updateSyncLog(
+    supabase,
+    jobId,
+    "failed",
+    `${userMessage}: ${errorMessage}`.substring(0, 255), // Ensure error message fits schema
+    true, // isTerminal
+    processedCount
+  );
+
+  return NextResponse.json(
+    { error: userMessage, details: errorMessage },
+    { status: httpStatus }
+  );
+}
+
 const RATE_LIMIT_DELAY_MS = 200; // Example: 200ms delay after processing a batch
 
 export async function POST(
@@ -175,6 +259,7 @@ export async function POST(
   const { accountId } = await params;
   const supabase = await createNewSupabaseAdminClient();
   const jobId = uuidv4(); // Unique ID for this sync run
+  let processedEmailsCount = 0; // Initialize at a higher scope
 
   // Log start of sync job
   await supabase.from("sync_logs").insert({
@@ -186,18 +271,15 @@ export async function POST(
   });
 
   if (!accountId) {
-    await supabase
-      .from("sync_logs")
-      .update({
-        status: "failed",
-        error_message: "Account ID is required",
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("job_id", jobId);
-    return NextResponse.json(
-      { error: "Account ID is required" },
-      { status: 400 }
+    // No need to call updateSyncLog directly, handleSyncFailure will do it.
+    return handleSyncFailure(
+      supabase,
+      logger,
+      jobId,
+      new Error("Account ID is required"), // Create an error object
+      400,
+      "Account ID is required"
+      // processedEmailsCount is 0 here, so default is fine
     );
   }
 
@@ -215,22 +297,37 @@ export async function POST(
     if (accountError) {
       console.error(`Error fetching account ${accountId}:`, accountError);
       if (accountError.code === "PGRST116") {
+        await updateSyncLog(
+          supabase,
+          jobId,
+          "failed",
+          "Account not found",
+          true
+        );
         return NextResponse.json(
           { error: "Account not found" },
           { status: 404 }
         );
       }
-      return NextResponse.json(
-        {
-          error: "Failed to fetch account details",
-          details: accountError.message,
-        },
-        { status: 500 }
+      return handleSyncFailure(
+        supabase,
+        logger,
+        jobId,
+        accountError,
+        500,
+        "Failed to fetch account details"
       );
     }
 
     if (!account) {
-      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+      await updateSyncLog(
+        supabase,
+        jobId,
+        "failed",
+        "Account not found after successful query (should not happen)",
+        true
+      );
+      return NextResponse.json({ error: "Account not found" }, { status: 404 }); // Or use handleSyncFailure
     }
 
     // Ensure password_encrypted exists and is a string before trying to decrypt
@@ -238,9 +335,13 @@ export async function POST(
       !account.password_encrypted ||
       typeof account.password_encrypted !== "string"
     ) {
-      return NextResponse.json(
-        { error: "Encrypted password not found or invalid for account" },
-        { status: 500 }
+      return handleSyncFailure(
+        supabase,
+        logger,
+        jobId,
+        new Error("Encrypted password not found or invalid for account"),
+        500,
+        "Encrypted password not found or invalid for account"
       );
     }
 
@@ -248,49 +349,42 @@ export async function POST(
     try {
       decryptedPassword = decrypt(account.password_encrypted);
     } catch (decryptionError: any) {
-      console.error(
-        `Error decrypting password for account ${accountId}:`,
-        decryptionError
-      );
-      return NextResponse.json(
-        {
-          error: "Failed to decrypt password",
-          details: decryptionError.message,
-        },
-        { status: 500 }
+      return handleSyncFailure(
+        supabase,
+        logger,
+        jobId,
+        decryptionError,
+        500,
+        "Failed to decrypt password"
       );
     }
 
     if (!decryptedPassword) {
-      return NextResponse.json(
-        { error: "Decrypted password is empty" },
-        { status: 500 }
+      return handleSyncFailure(
+        supabase,
+        logger,
+        jobId,
+        new Error("Decrypted password is empty"),
+        500,
+        "Decrypted password is empty"
       );
     }
 
-    console.log(
+    logger.info(
       `Successfully fetched and decrypted credentials for account: ${account.email}`
     );
-    // console.log(`Decrypted Password: ${decryptedPassword}`); // Avoid logging sensitive data
 
     // Subtask 12.2: Implement IMAP Connection and UID Fetching
     let imapClient: ImapFlow | null = null;
     let mailboxLock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | null =
       null;
     let newUids: number[] = [];
-    let processedEmailsCount = 0;
     let failedEmailsCount = 0;
     let maxUidProcessed = account.last_synced_uid || 0;
 
     try {
       // Update sync log: fetching UIDs
-      await supabase
-        .from("sync_logs")
-        .update({
-          status: "fetching_uids",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("job_id", jobId);
+      await updateSyncLog(supabase, jobId, "fetching_uids");
 
       imapClient = new ImapFlow({
         host: account.imap_host,
@@ -300,12 +394,20 @@ export async function POST(
           user: account.email, // Assuming the email is the username for IMAP
           pass: decryptedPassword,
         },
-        logger: console, // ENABLE VERBOSE LOGGING
+        logger: {
+          info: () => {}, // No-op for info
+          debug: () => {}, // No-op for debug
+          warn: (obj) => logger.warn("[IMAP_FLOW_WARN]", JSON.stringify(obj)), // Pass warnings to our logger
+          error: (obj) =>
+            logger.error("[IMAP_FLOW_ERROR]", JSON.stringify(obj)), // Pass errors to our logger
+        },
+        disableAutoIdle: true, // Recommended for scripts
       });
 
-      logger.info(`Attempting IMAP connection for ${account.email}...`); // Changed from console.log
+      // Log connection attempt
+      logger.info(`Attempting IMAP connection for ${account.email}...`);
       await imapClient.connect();
-      logger.info(`IMAP connection successful for ${account.email}.`); // Changed from console.log
+      logger.info(`IMAP connection successful for ${account.email}.`);
 
       // Acquire mailbox lock
       logger.info(
@@ -318,18 +420,19 @@ export async function POST(
       const lastSyncedUidFromDb = account.last_synced_uid || 0;
       newUids = await fetchNewEmailUids(imapClient, lastSyncedUidFromDb);
       logger.info(
-        // Changed from console.log
         `Found ${newUids.length} new email UIDs for account ${account.email}.`
       );
 
       // Update sync_logs with total UIDs to process
-      await supabase
-        .from("sync_logs")
-        .update({
-          total_uids_to_process: newUids.length,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("job_id", jobId);
+      await updateSyncLog(
+        supabase,
+        jobId,
+        "fetching_uids", // Status remains fetching_uids or could be 'processing_emails'
+        null, // No error message
+        false, // Not terminal
+        undefined, // No processed count yet
+        newUids.length // Total to process
+      );
 
       // Subtask 12.3 - Implement Email Fetching, Parsing, and Storage Loop (using newUids)
       if (newUids.length > 0) {
@@ -337,8 +440,10 @@ export async function POST(
         const parsedEmailsInBatch = await fetchAndParseEmails(
           imapClient,
           newUids,
-          10
-        ); // Batch size 10
+          10, // Batch size
+          account.id, // Pass accountId
+          logger // Pass logger
+        );
 
         if (parsedEmailsInBatch.length > 0) {
           logger.info(
@@ -347,6 +452,10 @@ export async function POST(
 
           const inboxEmails: ParsedEmailData[] = [];
           const spamEmails: ParsedEmailData[] = [];
+
+          logger.trace(
+            `[SpamDebug] Processing ${parsedEmailsInBatch.length} emails from IMAP batch.`
+          );
 
           for (const parsedEmail of parsedEmailsInBatch) {
             // Evaluate for Spam
@@ -361,14 +470,28 @@ export async function POST(
             );
 
             logger.info(
-              `Email (messageId: ${
+              `[SpamDebug] Email (MsgID: ${
                 parsedEmail.messageId || "N/A"
-              }) for account ${accountId}: Spam Score - ${spamResult.spamScore}`
+              }, Subject: "${
+                parsedEmail.subject || "N/A"
+              }") for account ${accountId}: Spam Score - ${
+                spamResult.spamScore
+              }`
             );
 
             if (spamResult.spamScore > 0.7) {
+              logger.info(
+                `[SpamDebug] Classified as SPAM. MsgID: ${
+                  parsedEmail.messageId || "N/A"
+                }`
+              );
               spamEmails.push(parsedEmail);
             } else {
+              logger.info(
+                `[SpamDebug] Classified as INBOX. MsgID: ${
+                  parsedEmail.messageId || "N/A"
+                }`
+              );
               inboxEmails.push(parsedEmail);
             }
           }
@@ -385,14 +508,19 @@ export async function POST(
               "INBOX"
             );
             logger.info(
-              `Storing ${inboxEmails.length} emails to INBOX (folderId: ${inboxFolderId}) for account ${accountId}`
+              `[SpamDebug] Storing ${
+                inboxEmails.length
+              } emails to INBOX. Target FolderID: ${inboxFolderId}. MsgIDs: ${inboxEmails
+                .map((e) => e.messageId || "N/A")
+                .join(", ")}`
             );
             const storeResultInbox = await storeEmails(
               supabase,
               account.id,
-              inboxEmails, // Correct: 3rd param is the array of emails
-              inboxFolderId // Correct: 4th param is the folderId
-              // TODO: Add progress callback if storeEmails supports it and it's needed
+              inboxEmails,
+              inboxFolderId,
+              logger, // Pass logger
+              false // isSpamBatch = false for inbox
             );
             currentBatchProcessedCount += storeResultInbox.success;
             currentBatchFailedCount += storeResultInbox.failed;
@@ -419,13 +547,19 @@ export async function POST(
               "Spam"
             ); // Or your designated spam folder name
             logger.info(
-              `Storing ${spamEmails.length} emails to Spam (folderId: ${spamFolderId}) for account ${accountId}`
+              `[SpamDebug] Storing ${
+                spamEmails.length
+              } emails to SPAM. Target FolderID: ${spamFolderId}. MsgIDs: ${spamEmails
+                .map((e) => e.messageId || "N/A")
+                .join(", ")}`
             );
             const storeResultSpam = await storeEmails(
               supabase,
               account.id,
-              spamEmails, // Correct: 3rd param is the array of emails
-              spamFolderId // Correct: 4th param is the folderId
+              spamEmails,
+              spamFolderId,
+              logger, // Pass logger
+              true // isSpamBatch = true for spam
             );
             currentBatchProcessedCount += storeResultSpam.success;
             currentBatchFailedCount += storeResultSpam.failed;
@@ -447,16 +581,14 @@ export async function POST(
 
           // Update sync_logs with processed count for this batch
           // The uids_processed_count in sync_logs should be cumulative for the job.
-          await supabase
-            .from("sync_logs")
-            .update({
-              // Increment uids_processed_count by emails processed in this batch
-              // This requires fetching the current value or using a Supabase function for atomic increment.
-              // For simplicity, let's just set the total processed so far in the job.
-              uids_processed_count: processedEmailsCount,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("job_id", jobId);
+          await updateSyncLog(
+            supabase,
+            jobId,
+            "processing_emails", // A more specific status
+            null, // No error
+            false, // Not terminal
+            processedEmailsCount // Pass current processed count
+          );
 
           // Update last_synced_uid with the maximum UID from the *original newUids batch*
           // if any emails in this batch were successfully processed.
@@ -500,14 +632,7 @@ export async function POST(
         logger.info(
           `No new email UIDs to process for account ${account.email}.`
         );
-        await supabase
-          .from("sync_logs")
-          .update({
-            status: "no_new_emails",
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("job_id", jobId);
+        await updateSyncLog(supabase, jobId, "no_new_emails", null, true);
       }
 
       // If new UIDs were processed, introduce a small delay for rate limiting
@@ -524,14 +649,14 @@ export async function POST(
         .eq("job_id", jobId)
         .single();
       if (currentLog && currentLog.status !== "no_new_emails") {
-        await supabase
-          .from("sync_logs")
-          .update({
-            status: "completed",
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("job_id", jobId);
+        await updateSyncLog(
+          supabase,
+          jobId,
+          "completed",
+          null,
+          true,
+          processedEmailsCount // Final processed count
+        );
       }
     } catch (imapError: any) {
       console.error(
@@ -545,18 +670,14 @@ export async function POST(
             console.error("IMAP logout error during error handling:", logoutErr)
           );
       }
-      await supabase
-        .from("sync_logs")
-        .update({
-          status: "failed",
-          error_message: imapError.message || "IMAP operation failed",
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("job_id", jobId);
-      return NextResponse.json(
-        { error: "IMAP operation failed", details: imapError.message },
-        { status: 500 }
+      return handleSyncFailure(
+        supabase,
+        logger,
+        jobId,
+        imapError,
+        500,
+        "IMAP operation failed",
+        processedEmailsCount
       );
     } finally {
       // Ensure the lock is released and client is logged out
@@ -574,11 +695,11 @@ export async function POST(
         }
       }
       if (imapClient && imapClient.usable) {
-        logger.info(`Closing IMAP connection for ${account.email}...`); // Changed from console.log
+        logger.info(`Closing IMAP connection for ${account.email}...`);
         await imapClient
           .logout()
-          .catch((logoutErr) => logger.error("IMAP logout error:", logoutErr)); // Changed from console.error
-        logger.info(`IMAP connection closed for ${account.email}.`); // Changed from console.log
+          .catch((logoutErr) => logger.error("IMAP logout error:", logoutErr));
+        logger.info(`IMAP connection closed for ${account.email}.`);
       }
     }
 
@@ -595,19 +716,15 @@ export async function POST(
       lastUidProcessed: maxUidProcessed,
     });
   } catch (error: any) {
-    logger.error(`General error in sync for account ${accountId}:`, error);
-    await supabase
-      .from("sync_logs")
-      .update({
-        status: "failed",
-        error_message: error.message || "General sync error",
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("job_id", jobId);
-    return NextResponse.json(
-      { error: "Failed to sync email account", details: error.message },
-      { status: 500 }
+    // logger.error already called by handleSyncFailure
+    return handleSyncFailure(
+      supabase,
+      logger,
+      jobId,
+      error,
+      500,
+      "General sync error",
+      processedEmailsCount
     );
   }
 }
