@@ -27,8 +27,8 @@ export default async function DashboardRootLayout({
 }) {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen flex-col flex-1">
-        <div className="flex flex-1">
+      <div className="flex flex-col flex-1">
+        <div className="flex flex-1 overflow-hidden">
           <Sidebar>
             <SidebarHeader className="p-4">
               <span className="text-lg font-semibold">Jupiter</span>

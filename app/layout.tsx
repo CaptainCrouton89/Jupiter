@@ -23,12 +23,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          "min-h-screen antialiased overscroll-y-none",
-          inter.className
-        )}
-      >
+      <body className={cn("antialiased overscroll-y-none", inter.className)}>
         <StoreProvider>
           <AuthProvider initialUser={user}>
             {children}

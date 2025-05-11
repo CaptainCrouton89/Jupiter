@@ -36,12 +36,12 @@ export const maxDuration = 300; // 5 minutes
 
 export async function GET(request: Request) {
   // 1. Authenticate the cron job request (e.g., using a secret token)
-  const authHeader = request.headers.get("Authorization");
-  const token = authHeader?.split(" ")[1];
-
-  if (token !== process.env.CRON_JOB_SECRET) {
-    console.warn("Unauthorized cron job attempt");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authHeader = request.headers.get("authorization");
+  console.log("authHeader", authHeader);
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response("Unauthorized", {
+      status: 401,
+    });
   }
 
   const supabase = await createClient();

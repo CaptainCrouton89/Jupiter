@@ -16,7 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Toaster, toast } from "sonner"; // Added sonner imports
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +67,9 @@ export default function EmailViewPage() {
   const [email, setEmail] = useState<EmailDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Ref for the iframe to access its properties
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (emailId) {
@@ -134,10 +137,19 @@ export default function EmailViewPage() {
 
   const sanitizeHtml = (htmlContent: string | null | undefined): string => {
     if (!htmlContent) return "";
+    console.log("Original HTML:", htmlContent); // Log before sanitization
     // Ensure DOMPurify runs only on the client-side
     if (typeof window !== "undefined") {
-      return DOMPurify.sanitize(htmlContent, { USE_PROFILES: { html: true } });
+      const sanitized = DOMPurify.sanitize(htmlContent, {
+        USE_PROFILES: { html: true },
+      });
+      console.log("Sanitized HTML:", sanitized); // Log after sanitization
+      return sanitized;
     }
+    console.log(
+      "Sanitized HTML (SSR fallback - no sanitization):",
+      htmlContent
+    ); // Log SSR fallback
     return htmlContent; // Fallback for SSR, though rendering should be client-side
   };
 
@@ -182,105 +194,118 @@ export default function EmailViewPage() {
 
   const hasAttachments = email.attachments && email.attachments.length > 0;
 
-  const sanitizedHtmlBody = sanitizeHtml(email.body_html || email.body_text);
+  // Define sanitizedHtmlBody for the initial render of the iframe
+  const initialSanitizedHtmlBody = email
+    ? sanitizeHtml(email.body_html || email.body_text)
+    : "";
 
   return (
     <div className="flex flex-col h-full">
-      <Toaster position="top-right" /> {/* Added Toaster component */}
-      <div className="flex items-center p-4 border-b">
-        <div className="flex items-center gap-2">
-          {/* Placeholder action buttons - functionality to be implemented */}
-          <Button variant="outline" size="icon" aria-label="Reply">
-            <Reply className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" aria-label="Reply to all">
-            <ReplyAll className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" aria-label="Forward">
-            <CornerDownLeft className="h-4 w-4" />
-          </Button>
+      <Toaster position="top-right" />
+
+      {/* --- Fixed Header Section --- */}
+      <div>
+        <div className="flex items-center p-4 border-b">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" aria-label="Reply">
+              <Reply className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" aria-label="Reply to all">
+              <ReplyAll className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" aria-label="Forward">
+              <CornerDownLeft className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="icon" aria-label="Mark as unread">
+              <MailWarning className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" aria-label="Archive">
+              <Archive className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" aria-label="Move to trash">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="More actions">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Mark as important</DropdownMenuItem>
+                <DropdownMenuItem>Report spam</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>Print email</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="icon" aria-label="Mark as unread">
-            <MailWarning className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" aria-label="Archive">
-            <Archive className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" aria-label="Move to trash">
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="More actions">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Mark as important</DropdownMenuItem>
-              <DropdownMenuItem>Report spam</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Print email</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="px-4">
+          <div className="flex items-center p-2">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-10 w-10">
+                <AvatarImage
+                  src={email.from_avatar_url || undefined}
+                  alt={email.from_name || email.from_email}
+                />
+                <AvatarFallback>
+                  {email.from_name
+                    ? email.from_name.substring(0, 2).toUpperCase()
+                    : email.from_email.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid gap-0.5">
+                <div className="font-semibold truncate">
+                  {email.from_name || email.from_email}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  To: {email.to_email}
+                </div>
+              </div>
+            </div>
+            <div className="ml-auto text-xs text-muted-foreground">
+              {formatDistanceToNow(parseISO(email.received_at), {
+                addSuffix: true,
+              })}
+            </div>
+          </div>
+          <Separator />
+          <div className="p-4 space-y-2">
+            <h1 className="text-2xl font-bold break-words">
+              {email.subject || "(No Subject)"}
+            </h1>
+            {email.tags && email.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {email.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="flex items-center p-2">
-          <div className="flex items-center gap-2">
-            <Avatar className="h-10 w-10">
-              <AvatarImage
-                src={email.from_avatar_url || undefined}
-                alt={email.from_name || email.from_email}
-              />
-              <AvatarFallback>
-                {email.from_name
-                  ? email.from_name.substring(0, 2).toUpperCase()
-                  : email.from_email.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="grid gap-0.5">
-              <div className="font-semibold truncate">
-                {email.from_name || email.from_email}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                To: {email.to_email}
-              </div>
-            </div>
-          </div>
-          <div className="ml-auto text-xs text-muted-foreground">
-            {formatDistanceToNow(parseISO(email.received_at), {
-              addSuffix: true,
-            })}
-          </div>
-        </div>
-        <Separator />
-        <div className="p-4 space-y-2">
-          <h1 className="text-2xl font-bold break-words">
-            {email.subject || "(No Subject)"}
-          </h1>
-          {email.tags && email.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {email.tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-        <Separator />
-        {/* Email Body - Sanitized HTML */}
-        <div
-          className="p-4 prose prose-sm dark:prose-invert break-words overflow-auto whitespace-pre-wrap email-body-content"
-          dangerouslySetInnerHTML={{ __html: sanitizedHtmlBody }}
+      {/* --- End Fixed Header Section --- */}
+
+      {/* --- Scrollable Email Body & Attachments Section --- */}
+      <div className="flex-1 overflow-y-auto">
+        <iframe
+          ref={iframeRef}
+          id="email-body-iframe"
+          className="w-full h-full border-0 email-body-iframe"
+          srcDoc={initialSanitizedHtmlBody}
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+          title={`Email body for ${email.subject || "email"}`}
         />
 
-        {/* Attachments Section */}
+        {/* Attachments Section - moved inside scrollable area */}
         {email.attachments && email.attachments.length > 0 && (
           <>
-            <Separator />
-            <div className="p-4">
+            <Separator className="my-4" />
+            <div className="pt-4">
               <h3 className="text-lg font-semibold mb-2">
                 Attachments ({email.attachments.length})
               </h3>
@@ -304,7 +329,6 @@ export default function EmailViewPage() {
                       size="sm"
                       onClick={async () => {
                         try {
-                          // Assuming att.storage_path is the correct path for the download URL function
                           const { downloadUrl, error } =
                             await getAttachmentDownloadUrl(att.storage_path);
                           if (error || !downloadUrl) {
@@ -315,7 +339,6 @@ export default function EmailViewPage() {
                             );
                             return;
                           }
-                          // Trigger download
                           window.open(downloadUrl, "_blank");
                         } catch (e: any) {
                           toast.error(
@@ -334,20 +357,7 @@ export default function EmailViewPage() {
           </>
         )}
       </div>
-      {/* Reply/Forward quick actions at the bottom - optional */}
-      <div className="p-4 border-t mt-auto">
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Reply className="mr-2 h-4 w-4" /> Reply
-          </Button>
-          <Button variant="outline">
-            <ReplyAll className="mr-2 h-4 w-4" /> Reply All
-          </Button>
-          <Button variant="outline">
-            <CornerDownLeft className="mr-2 h-4 w-4" /> Forward
-          </Button>
-        </div>
-      </div>
+      {/* --- End Scrollable Email Body & Attachments Section --- */}
     </div>
   );
 }

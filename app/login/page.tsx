@@ -27,7 +27,7 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4 bg-muted/40">
+    <div className="flex items-center justify-center min-h-0 p-4 bg-muted/40">
       {isLoginView ? (
         <LoginForm
           onSuccess={handleAuthSuccess}
