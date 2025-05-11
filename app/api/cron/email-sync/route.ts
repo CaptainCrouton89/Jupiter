@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/auth/server"; // Using server client
+import { createNewSupabaseAdminClient } from "@/lib/auth/admin"; // Using server client
 import { NextResponse } from "next/server";
 // Assume logger setup
 // import { logger } from '@/lib/logger';
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   //   });
   // }
 
-  const supabase = await createClient();
+  const supabase = await createNewSupabaseAdminClient();
   let accountsProcessed = 0;
   let accountsFailed = 0;
 

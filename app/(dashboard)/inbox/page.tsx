@@ -271,7 +271,7 @@ export default function InboxPage() {
         </div>
       ) : (
         <div className="rounded-md border flex-grow overflow-y-auto">
-          <Table>
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[30px]"></TableHead>
