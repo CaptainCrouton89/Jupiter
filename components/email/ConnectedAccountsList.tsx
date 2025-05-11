@@ -89,6 +89,11 @@ export function ConnectedAccountsList({
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // State for testing connection
+  const [isTestingConnection, setIsTestingConnection] = useState<string | null>(
+    null
+  ); // Store ID of account being tested
+
   const handleEditClick = (account: AccountForList) => {
     setEditingAccount(account);
     setIsEditModalOpen(true);
@@ -168,6 +173,43 @@ export function ConnectedAccountsList({
     }
   };
 
+  const handleTestConnection = async (
+    accountId: string,
+    accountEmail: string
+  ) => {
+    setIsTestingConnection(accountId);
+    toast.info(`Testing connection for ${accountEmail}...`);
+    try {
+      const response = await fetch(
+        `/api/email/accounts/${accountId}/test-connection`,
+        {
+          method: "POST",
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        let errorMessage = `Failed to connect to ${accountEmail}.`;
+        if (data.message) errorMessage += ` ${data.message}`;
+        if (data.imap?.error) errorMessage += ` IMAP: ${data.imap.error}`;
+        if (data.smtp?.error) errorMessage += ` SMTP: ${data.smtp.error}`;
+        toast.error(errorMessage, { duration: 8000 });
+      } else {
+        toast.success(
+          data.message || `Successfully connected to ${accountEmail}!`
+        );
+        // Optionally refresh data or update a connection status field here if implemented
+        // router.refresh();
+      }
+    } catch (error) {
+      toast.error(
+        `An unexpected error occurred while testing connection for ${accountEmail}.`
+      );
+      console.error("Test connection error:", error);
+    } finally {
+      setIsTestingConnection(null);
+    }
+  };
+
   if (accounts.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8">
@@ -226,22 +268,14 @@ export function ConnectedAccountsList({
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2 pt-4">
-              {/* Placeholder for action buttons */}
-              {/* <Button variant="outline" size="sm" onClick={() => onTestConnection?.(account.id)}>Test</Button> */}
-              {/* <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Actions</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit?.(account)}>Edit</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDelete?.(account.id)} className="text-destructive">
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu> */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTestConnection(account.id, account.email)}
+                disabled={isTestingConnection === account.id}
+              >
+                {isTestingConnection === account.id ? "Testing..." : "Test"}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
