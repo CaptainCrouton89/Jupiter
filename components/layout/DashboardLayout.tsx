@@ -1,5 +1,4 @@
 import React from "react";
-import { Header } from "./Header";
 // import { Sidebar } from "./Sidebar";
 import {
   Sidebar,
@@ -32,7 +31,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen flex-col flex-1">
-        <Header />
         <div className="flex flex-1">
           <Sidebar>
             <SidebarHeader className="p-4">
