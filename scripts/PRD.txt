@@ -1,0 +1,400 @@
+# Product Requirements Document: Next.js & Supabase Email Client
+
+## Overview
+This document outlines the requirements for a modern, fast, and user-friendly email client. The product aims to solve the common frustrations with existing email clients, such as clunky interfaces, slow performance, and inadequate privacy controls. It's designed for individuals and potentially small teams who manage multiple email accounts and seek a streamlined, secure, and efficient email experience. The value lies in its modern technology stack (Next.js, TypeScript, Supabase), which promises a responsive UI, robust backend capabilities, and enhanced type safety, leading to a more reliable and enjoyable email management tool.
+
+---
+
+## Core Features
+
+### Secure User Authentication & Account Management
+- **What it does:** Allows users to securely sign up, log in, and manage their application account. Users can also connect and manage multiple external email accounts (e.g., Gmail, Outlook, custom IMAP/SMTP).
+- **Why it's important:** Essential for security, personalization, and allowing users to consolidate their email communications in one place.
+- **How it works:** Utilizes Supabase Auth for application-level authentication. For external email accounts, it will securely store credentials (ideally OAuth tokens where possible, otherwise encrypted credentials) and use them to interact with email providers via IMAP/SMTP protocols.
+
+### Comprehensive Mailbox Management
+- **What it does:** Enables users to view emails from all connected accounts, organized into standard folders (Inbox, Sent, Drafts, Trash, Spam) and custom folders. It includes features like list views with pagination/infinite scroll and email threading.
+- **Why it's important:** Provides the fundamental interface for users to interact with their emails efficiently.
+- **How it works:** The frontend fetches email metadata and content from the Supabase database, which is populated by a backend service that syncs with the user's email providers via IMAP.
+
+### Full-Cycle Email Operations
+- **What it does:** Supports composing new emails (with a rich text editor), replying, replying to all, forwarding, moving emails between folders, marking as read/unread, starring/flagging, and deleting emails.
+- **Why it's important:** These are the primary actions users perform when managing email.
+- **How it works:**
+  - **Composing/Sending:** User input is captured in the frontend, then sent via an API to a backend service that uses SMTP (via libraries like Nodemailer) to dispatch the email. A copy is saved to the "Sent" folder in the Supabase DB.
+  - **Other Operations:** User actions in the frontend trigger API calls that update the email's status/location in the Supabase database and, where necessary, communicate these changes back to the original IMAP server.
+
+### Attachment Handling
+- **What it does:** Allows users to view, download, and attach files to emails.
+- **Why it's important:** File sharing is a critical aspect of email communication.
+- **How it works:** Attachments from incoming emails are downloaded by the backend sync service and stored in Supabase Storage, with metadata linked to the email in the database. When composing, users can upload files, which are sent to Supabase Storage and then linked to the outgoing email.
+
+### Real-time Notifications
+- **What it does:** Provides users with instant alerts for new emails.
+- **Why it's important:** Keeps users informed without needing to manually refresh or check for new mail.
+- **How it works:** The frontend subscribes to Supabase Realtime channels. When the backend sync service adds a new email to the database, a real-time event is triggered, notifying the client.
+
+### Search Functionality
+- **What it does:** Enables users to search for emails across various fields (sender, recipient, subject, body) and folders.
+- **Why it's important:** Critical for finding specific information quickly within a large volume of emails.
+- **How it works:** The frontend sends search queries to an API that leverages PostgreSQL's search capabilities on the emails table in Supabase.
+
+### User Settings
+- **What it does:** Allows users to manage their connected email accounts, update profile information, and customize basic application preferences (e.g., theme).
+- **Why it's important:** Provides personalization and control over the application.
+- **How it works:** User preferences are stored in the Supabase database (user_settings table) and fetched/updated via API calls from the frontend.
+
+---
+
+## User Experience
+
+### User Personas
+
+- **Priya, the Freelance Consultant**: Manages 3-4 email accounts (personal, business, client-specific). Needs a fast, reliable way to switch between accounts, quickly find client communications, and manage attachments efficiently. Values a clean, distraction-free interface.
+- **David, the Tech Enthusiast**: Uses multiple email providers for different purposes. Seeks a modern, open-source friendly client with good security practices. Interested in features like keyboard shortcuts and potential for future PWA/offline capabilities.
+- **Sarah, the Small Business Owner**: Handles customer inquiries and supplier communications via email. Needs a simple, intuitive client that helps her stay organized and respond promptly. Real-time notifications are crucial.
+
+### Key User Flows
+
+#### Onboarding & Connecting First Email Account
+1. User signs up for the application.
+2. User logs in.
+3. User is prompted to connect an email account.
+4. User selects provider type (Gmail, Outlook, IMAP).
+5. User enters credentials (OAuth flow or server/port/username/password for IMAP).
+6. Account is connected, initial sync begins.
+
+#### Reading and Responding to an Email
+1. User opens the application, views inbox.
+2. User clicks on an email to open it.
+3. User reads the email content and views any attachments.
+4. User clicks "Reply."
+5. User types response in the rich text editor.
+6. User clicks "Send."
+
+#### Composing a New Email with Attachment
+1. User clicks "Compose" button.
+2. User enters recipient(s), subject.
+3. User types email body in rich text editor.
+4. User clicks "Attach File," selects a file.
+5. File uploads and appears as an attachment.
+6. User clicks "Send."
+
+#### Searching for an Email
+1. User types a keyword (e.g., sender name, subject line keyword) into the search bar.
+2. Search results are displayed in real-time or after submission.
+3. User clicks on a search result to open the relevant email.
+
+### UI/UX Considerations
+
+- **Speed and Responsiveness:** Prioritize fast load times, quick transitions, and immediate feedback for user actions.
+- **Intuitive Navigation:** Clear, consistent layout. Easy access to different accounts, folders, and core actions.
+- **Clean Visual Hierarchy:** Uncluttered interface that prioritizes email content.
+- **Accessibility:** Adherence to WCAG guidelines for color contrast, keyboard navigation, and screen reader compatibility.
+- **Error Handling:** Clear, helpful error messages and guidance for recovery.
+- **Mobile-First Responsive Design:** Ensure a seamless experience across desktop, tablet, and mobile devices.
+- **Rich Text Editor:** Provide a user-friendly editor with common formatting options.
+
+---
+
+## Technical Architecture
+
+### System Components
+
+#### Next.js Frontend
+- Built with React and TypeScript.
+- Handles all UI rendering and user interactions.
+- Manages client-side state (React Context, Zustand, or Redux Toolkit).
+- Uses SWR or React Query for efficient data fetching and caching from the API layer.
+- Styled with Tailwind CSS.
+
+#### API Layer
+- Can be a combination of:
+  - **Next.js API Routes:** For general backend logic, request handling, and acting as a proxy to the IMAP/SMTP service if needed.
+  - **Supabase Edge Functions:** For serverless functions, particularly for scheduled tasks (like background email syncing) or specific backend logic close to the database.
+  - **(Recommended) Separate Node.js Service:** A dedicated, potentially containerized service (e.g., on Fly.io, Railway, or a VPS) responsible for all IMAP/SMTP communication. This offers better management of long-running connections, complex email parsing, and dedicated resource allocation for these critical tasks. This service would interact with the Supabase database.
+
+#### Supabase Backend (BaaS)
+- **Authentication:** Supabase Auth for user sign-up, login, JWT management.
+- **Database (PostgreSQL):** Stores all application data (user accounts, email metadata, settings). Row Level Security (RLS) will be heavily enforced.
+- **Storage:** Supabase Storage for securely storing email attachments. RLS will protect access.
+- **Realtime:** Supabase Realtime for pushing live updates (e.g., new email notifications) to the frontend.
+
+### Data Models (Supabase PostgreSQL)
+
+#### users
+- (Provided by Supabase Auth)
+- `id`, `email`, `encrypted_password`, etc.
+
+#### email_accounts
+| Field              | Type                                 | Notes                                   |
+|--------------------|--------------------------------------|-----------------------------------------|
+| id                 | PK, UUID                             |                                         |
+| user_id            | FK to auth.users.id, cascade delete  |                                         |
+| email_address      | TEXT, NOT NULL                       |                                         |
+| provider_type      | ENUM: 'gmail', 'outlook', 'imap', 'smtp_only' |                           |
+| access_token       | TEXT, encrypted, for OAuth           |                                         |
+| refresh_token      | TEXT, encrypted, for OAuth           |                                         |
+| imap_host          | TEXT, encrypted                      |                                         |
+| imap_port          | INTEGER, encrypted                   |                                         |
+| imap_username      | TEXT, encrypted                      |                                         |
+| imap_password      | TEXT, encrypted                      |                                         |
+| smtp_host          | TEXT, encrypted                      |                                         |
+| smtp_port          | INTEGER, encrypted                   |                                         |
+| smtp_username      | TEXT, encrypted                      |                                         |
+| smtp_password      | TEXT, encrypted                      |                                         |
+| last_sync_at      | last_sync_at        | TIMESTAMPZ             |                                         |
+| created_at          | TIMESTAMPZ (default now()) |                                    |
+| updated_at          | TIMESTAMPZ (default now()) |                                    |
+
+#### emails
+| Field              | Type                                 | Notes                                 |
+|--------------------|--------------------------------------|---------------------------------------|
+| id                 | PK, UUID                             |                                       |
+| account_id         | FK to email_accounts.id, cascade delete |                                  |
+| provider_message_id| TEXT, unique per account              |                                       |
+| thread_id          | TEXT, nullable                        | For conversation/grouping             |
+| subject            | TEXT                                 |                                       |
+| from_address       | TEXT                                 |                                       |
+| to_addresses       | JSONB                                | Array of recipients                   |
+| cc_addresses       | JSONB, nullable                      |                                       |
+| bcc_addresses      | JSONB, nullable                      |                                       |
+| sent_at            | TIMESTAMPZ                           |                                       |
+| received_at        | TIMESTAMPZ                           |                                       |
+| body_html          | TEXT, nullable                       |                                       |
+| body_text          | TEXT, nullable                       |                                       |
+| is_read            | BOOLEAN (default FALSE)              |                                       |
+| is_starred         | BOOLEAN (default FALSE)              |                                       |
+| folder_name        | TEXT (e.g., "INBOX", "Sent")         |                                       |
+| has_attachments    | BOOLEAN (default FALSE)              |                                       |
+| raw_source_url     | TEXT, nullable                       | Link to raw email in Supabase Storage |
+| created_at         | TIMESTAMPZ (default now())           |                                       |
+
+#### attachments
+| Field              | Type                                 | Notes                                 |
+|--------------------|--------------------------------------|---------------------------------------|
+| id                 | PK, UUID                             |                                       |
+| email_id           | FK to emails.id, cascade delete      |                                       |
+| file_name          | TEXT                                 |                                       |
+| content_type       | TEXT                                 |                                       |
+| size_bytes         | BIGINT                               |                                       |
+| storage_path       | TEXT (Supabase Storage path)         |                                       |
+| inline             | BOOLEAN (default FALSE)              |                                       |
+| content_id         | TEXT, nullable (for inline images)   |                                       |
+| created_at         | TIMESTAMPZ (default now())           |                                       |
+
+#### folders (optional / user-defined)
+| Field              | Type                                 | Notes                                 |
+|--------------------|--------------------------------------|---------------------------------------|
+| id                 | PK, UUID                             |                                       |
+| account_id         | FK to email_accounts.id              |                                       |
+| name               | TEXT                                 | Folder display name                   |
+| provider_folder_id | TEXT                                 | Identifier in IMAP provider           |
+
+#### user_settings
+| Field                 | Type                                 | Notes                       |
+|-----------------------|--------------------------------------|-----------------------------|
+| user_id               | PK, FK to auth.users.id              |                             |
+| theme                 | ENUM: 'light', 'dark', 'system' (default 'system') |                    |
+| notifications_enabled | BOOLEAN (default TRUE)               |                             |
+| created_at            | TIMESTAMPZ (default now())           |                             |
+| updated_at            | TIMESTAMPZ (default now())           |                             |
+
+
+### APIs and Integrations
+
+- **Internal APIs:** RESTful or GraphQL APIs exposed by Next.js API routes or the separate Node.js service for frontend communication.
+- **Supabase Client SDK:** Used by the frontend and backend services to interact with Supabase (Auth, DB, Storage, Realtime).
+- **IMAP Protocol:** For fetching emails, managing folders, marking read/unread on the server. _Libraries:_ `imapflow`.
+- **SMTP Protocol:** For sending emails. _Libraries:_ `nodemailer`.
+- **OAuth 2.0:** For providers like Gmail and Outlook to securely authenticate and authorize access without storing user passwords directly.
+
+### Infrastructure Requirements
+
+- **Frontend Hosting:** Vercel (ideal for Next.js), Netlify, or similar static/Node.js hosting.
+- **Supabase Project:** Managed service from Supabase.
+- **(Optional but Recommended) Node.js Service Hosting:** Fly.io, Railway, Render, AWS ECS/Fargate, Google Cloud Run, or traditional VPS for the IMAP/SMTP handling service.
+- **Domain Name & DNS Management**
+- **SSL Certificates:** Typically handled by hosting providers.
+
+---
+
+## Development Roadmap
+
+### MVP Requirements (Phase 1 - Getting to a Usable Core):
+
+#### Foundation & User Authentication
+- Next.js project setup (TypeScript, Tailwind CSS).
+- Supabase project setup.
+- User sign-up, login, logout using Supabase Auth.
+- Basic UI shell (sidebar for accounts/folders, main area for email list/content).
+- `email_accounts` table schema defined and RLS setup.
+
+#### Single Email Account Connection (IMAP/SMTP)
+- Backend logic (initially in Supabase Edge Functions or a simple Node.js service) to connect to a generic IMAP server and an SMTP server.
+- Secure storage and retrieval of IMAP/SMTP credentials for one account per user (encrypted in DB).
+- UI for user to input IMAP/SMTP server details and credentials.
+
+#### Core Email Fetching & Display
+- `emails` table schema defined and RLS setup.
+- Backend logic to fetch list of emails from INBOX of the connected account.
+- Store fetched email headers/metadata in the Supabase emails table.
+- Basic UI to list emails (subject, sender, date) from the INBOX.
+- UI to display full email content (plain text initially, then basic HTML rendering — sanitize carefully!).
+
+#### Core Email Sending
+- Basic UI to compose a new email (to, subject, plain text body).
+- Backend logic to send email via SMTP using stored credentials.
+- Save a copy of the sent email to a "Sent" representation in the Supabase emails table.
+
+#### Basic Real-time Indication (Conceptual)
+- Mechanism to manually trigger a "check for new mail."
+- Upon finding new mail and storing it, indicate to the user (e.g., refresh button lights up). (Full Supabase Realtime can be a fast follow).
+
+---
+
+### Future Enhancements (Post-MVP, Iterative):
+
+#### Phase 2: Enhanced Email Features & UX
+- Full Supabase Realtime for new email notifications.
+- Rich Text Editor for composing emails.
+- Reply, Reply All, Forward functionality.
+- Mark as read/unread (syncing with IMAP).
+- Folder Management: View emails from other standard folders (Sent, Drafts, Trash, Spam), sync folder list from IMAP.
+- Basic Attachment Handling: View and download attachments (store in Supabase Storage). Attach files to outgoing emails.
+- `attachments` table schema and RLS.
+
+#### Phase 3: Multi-Account & Polish
+- UI and backend logic to support connecting and managing multiple email accounts.
+- Unified inbox view (optional, user-configurable).
+- Improved UI/UX based on initial feedback.
+- Basic Search Functionality (client-side initially, then server-side).
+- Email Threading/Conversation View.
+
+#### Phase 4: Advanced Features
+- Star/Flag emails.
+- Move emails between folders (syncing with IMAP).
+- Delete and permanently delete emails (syncing with IMAP).
+- Advanced Search Filters (date, sender, attachments, etc.).
+- User Settings: Theme customization, notification preferences.
+- OAuth2 integration for Gmail/Outlook.
+
+#### Phase 5: Nice-to-Haves & Long-Term
+- Contact Management (basic address book).
+- Snooze Emails.
+- Scheduled Send.
+- Templates/Canned Responses.
+- Offline Support (PWA features).
+- Keyboard Shortcuts.
+- Calendar Integration (basic).
+- AI-powered features.
+- Attachment virus scanning.
+
+---
+
+## Logical Dependency Chain
+
+1. **Foundation:**
+   - User Authentication (Supabase Auth)
+   - Database Schema (Core Tables: users, email_accounts, basic emails)
+   - Basic Next.js UI Structure
+
+2. **Core Email Connectivity (Single Account):**
+   - IMAP Connection & Credential Management
+   - SMTP Connection & Credential Management
+   - Frontend Visibility Goal: User can connect one IMAP/SMTP account.
+
+3. **Email Reception & Display:**
+   - IMAP Fetch Logic (Inbox)
+   - Store Emails in DB
+   - Display Email List (Inbox)
+   - Display Full Email Content
+   - Frontend Visibility Goal: User can see their inbox and read emails.
+
+4. **Email Sending:**
+   - Compose UI (Basic)
+   - SMTP Send Logic
+   - Save Sent Email to DB
+   - Frontend Visibility Goal: User can send an email and see it in a "Sent" view.
+
+5. **Iterative Feature Expansion:**
+   - Real-time Updates
+   - Rich Text Editor
+   - Reply/Forward
+   - Attachment Handling
+   - Folder Management
+   - Multi-Account Support
+   - Search
+   - Then, proceed to other advanced features as prioritized.
+
+> The key is to get to a state where a user can connect an account, see their emails, and send an email as quickly as possible (MVP). Each subsequent feature should build upon this working foundation, ensuring the application remains usable at each step.
+
+---
+
+## Risks and Mitigations
+
+### Technical Challenge: IMAP/SMTP Integration Complexity
+- **Risk:** Different email providers have quirks; managing connections, parsing diverse email formats, and handling errors robustly is difficult. Long-running connections for push/idle IMAP can be resource-intensive.
+- **Mitigation:**
+  - Use mature Node.js libraries (`imapflow`, `nodemailer`)
+  - Favor dedicated Node.js service for IMAP/SMTP over serverless functions
+  - Start with generic IMAP/SMTP support, add provider-specific enhancements iteratively
+  - Implement comprehensive logging/error handling from day one
+  - Phased rollout of provider support
+
+### Technical Challenge: Security of Credentials
+### Technical Challenge: Security of Credentials & Data
+- **Risk:** Storing email account credentials (even encrypted) is a significant responsibility. Data breaches could expose sensitive user information.
+- **Mitigation:**
+  - Prioritize OAuth2 for supported providers (Gmail, Outlook) to avoid storing passwords.
+  - For IMAP/SMTP passwords, use strong encryption at rest (e.g., Supabase's pgsodium or application-level encryption with keys managed securely).
+  - Implement strict Row Level Security (RLS) in Supabase for all tables and storage.
+  - Schedule regular security audits and penetration testing (post-MVP).
+  - Educate users on using strong, unique passwords or app-specific passwords for IMAP.
+
+### Risk: Scope Creep / MVP Clarity
+- **Risk:** Trying to build too many features for the initial version, delaying launch and making it difficult to get early feedback.
+- **Mitigation:**
+  - Strictly adhere to the defined MVP requirements focusing on the core loop: connect account → view emails → send email.
+  - Maintain a clear backlog and defer non-essential features to later phases.
+  - Regularly review scope against development progress and user feedback.
+
+### Resource Constraints (Time, Team, Budget)
+- **Risk:** Development may take longer or cost more than anticipated, especially with a small team or limited budget.
+- **Mitigation:**
+  - Use a phased development approach to deliver value incrementally.
+  - Leverage BaaS (Supabase) to reduce backend development overhead.
+  - Focus on open-source libraries and tools where appropriate.
+  - Maintain clear communication about progress and potential roadblocks.
+
+### Scalability of IMAP Syncing
+- **Risk:** As user numbers grow, frequent email syncing for many accounts can put a heavy load on the IMAP/SMTP service and Supabase.
+- **Mitigation:**
+  - Design the sync service for concurrency and efficiency (e.g., connection pooling, optimized IMAP commands).
+  - Implement intelligent sync strategies (e.g., less frequent full syncs, more frequent lightweight new mail checks, backoff strategies for inactive accounts).
+  - Monitor Supabase performance and optimize queries.
+  - Use IMAP IDLE for efficient new mail detection where supported by providers and infrastructure.
+
+### Rate Limiting by Email Providers
+- **Risk:** Email providers impose rate limits on connections and operations. Aggressive syncing can lead to temporary blocks.
+- **Mitigation:**
+  - Implement respectful polling intervals.
+  - Handle rate limit responses gracefully (e.g., exponential backoff and retry).
+  - Distribute sync operations over time if possible.
+
+---
+
+## Appendix
+
+### Original Project Outline
+- Reference to the previous document: `email_client_plan_v1`
+
+### Key Libraries (Indicative)
+- **Frontend:** Next.js, React, TypeScript, Tailwind CSS, SWR/React Query
+- **Backend/Email:** Node.js, imapflow, nodemailer
+- **BaaS:** Supabase SDK
+
+### Further Research
+- Detailed analysis of IMAP IDLE implementation for real-time sync.
+- Comparison of rich text editor libraries for Next.js.
+- Best practices for encrypting credentials using pgsodium in Supabase.
