@@ -201,8 +201,6 @@ export default function EmailViewPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Toaster position="top-right" />
-
       {/* --- Fixed Header Section --- */}
       <div>
         <div className="flex items-center p-4 border-b">

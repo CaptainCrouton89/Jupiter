@@ -13,7 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { File as FileIcon, UploadCloud, X as XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 // Toolbar component for TipTap editor
 // ... existing code ...
@@ -345,7 +345,6 @@ export default function ComposePage() {
 
   return (
     <div className="container mx-auto max-w-4xl p-4 md:p-6">
-      <Toaster position="top-right" />
       <div className="flex items-center justify-between mb-6 pb-4 border-b">
         <h1 className="text-2xl font-semibold">Compose Email</h1>
         <div className="flex items-center gap-2">

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import type { InboxEmail } from "@/lib/store/features/api/emailsApi";
 import { useGetEmailsQuery } from "@/lib/store/features/api/emailsApi"; // Import RTK Query hook
+import { cn } from "@/lib/utils"; // Import cn for class names
 import {
   AlertTriangle,
   Loader2,
@@ -189,7 +190,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Inbox</h1>
         <div className="flex items-center gap-2">
@@ -337,11 +338,20 @@ export default function InboxPage() {
                     {email.from_name || email.from_email}
                   </TableCell>
                   <TableCell role="gridcell">
-                    <div className="flex flex-col">
-                      <span className={!email.read ? "font-semibold" : ""}>
+                    <div className="flex flex-col overflow-hidden">
+                      <span
+                        className={cn(
+                          !email.read && "font-semibold",
+                          "block truncate"
+                        )}
+                        title={email.subject || "(No Subject)"}
+                      >
                         {email.subject || "(No Subject)"}
                       </span>
-                      <span className="text-muted-foreground text-sm truncate max-w-[300px] sm:max-w-[400px] md:max-w-[500px]">
+                      <span
+                        className="text-muted-foreground text-sm block truncate max-w-[300px] sm:max-w-[400px] md:max-w-[500px]"
+                        title={email.preview || "(No preview available)"}
+                      >
                         {email.preview || "(No preview available)"}
                       </span>
                     </div>
