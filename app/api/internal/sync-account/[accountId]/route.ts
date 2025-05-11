@@ -249,7 +249,14 @@ export async function POST(
             );
 
             // Get or create the folder_id (UUID)
-            const currentMailboxPath = imapClient!.mailbox.path;
+            const currentMailbox = imapClient!.mailbox;
+            let currentMailboxPath = "inbox";
+            if (currentMailbox instanceof Boolean) {
+              // do nothing
+            } else if (currentMailbox instanceof Object) {
+              currentMailboxPath = currentMailbox.path;
+            }
+
             const folderUuid = await getOrCreateFolderId(
               supabase,
               accountId,

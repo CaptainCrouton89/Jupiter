@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AlertTriangle, Loader2, Mail, Paperclip, Star } from "lucide-react"; // Added Mail, Loader2 and AlertTriangle
+import { useRouter } from "next/navigation"; // Added useRouter
 import { useEffect, useState } from "react"; // Added useEffect and useState
 
 // Define the structure of the email data expected from the API
@@ -60,6 +61,7 @@ export default function InboxPage() {
   const [emails, setEmails] = useState<InboxEmail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter(); // Initialize router
 
   const fetchEmails = async () => {
     setIsLoading(true);
@@ -149,13 +151,14 @@ export default function InboxPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[30px]"></TableHead>{" "}
+                <TableHead className="w-[30px]"></TableHead>
                 {/* Checkbox/Select */}
-                <TableHead className="w-[30px]"></TableHead> {/* Star */}
-                <TableHead className="w-[30px]"></TableHead> {/* Attachment */}
+                <TableHead className="w-[30px]"></TableHead>
+                {/* Star */}
+                <TableHead className="w-[30px]"></TableHead>
+                {/* Attachment */}
                 <TableHead className="w-[200px]">From</TableHead>
                 <TableHead>Subject</TableHead>
-                {/* Removed one empty TableHead as it seemed to be for spacing that might not be needed or can be handled by Subject column width */}
                 <TableHead className="text-right w-[100px]">Date</TableHead>
               </TableRow>
             </TableHeader>
@@ -168,7 +171,7 @@ export default function InboxPage() {
                       ? "font-medium bg-muted/30 hover:bg-muted/40"
                       : "hover:bg-muted/20"
                   }`}
-                  // TODO: onClick={() => router.push(`/inbox/${email.id}`)} - for navigating to detail view
+                  onClick={() => router.push(`/inbox/${email.id}`)}
                 >
                   <TableCell className="px-2">
                     {/* Placeholder for checkbox for selection */}
