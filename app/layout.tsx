@@ -1,6 +1,7 @@
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { getServerSession } from "@/lib/auth/server";
+import { StoreProvider } from "@/lib/store/provider";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -28,10 +29,12 @@ export default async function RootLayout({
           inter.className
         )}
       >
-        <AuthProvider initialUser={user}>
-          {children}
-          <Toaster />
-        </AuthProvider>
+        <StoreProvider>
+          <AuthProvider initialUser={user}>
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </StoreProvider>
       </body>
     </html>
   );

@@ -9,26 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { InboxEmail } from "@/lib/store/features/api/emailsApi";
+import { useGetEmailsQuery } from "@/lib/store/features/api/emailsApi"; // Import RTK Query hook
 import { AlertTriangle, Loader2, Mail, Paperclip, Star } from "lucide-react"; // Added Mail, Loader2 and AlertTriangle
 import { useRouter } from "next/navigation"; // Added useRouter
-import { useEffect, useState } from "react"; // Added useEffect and useState
+import { useCallback, useEffect, useState } from "react"; // Added useEffect, useState, and useCallback
+import { useInView } from "react-intersection-observer"; // Import useInView
 
-// Define the structure of the email data expected from the API
-// This should match the InboxEmail interface in app/api/email/inbox/route.ts
-export interface InboxEmail {
-  id: string;
-  from_name: string | null;
-  from_email: string;
-  subject: string | null;
-  preview: string | null;
-  received_at: string;
-  read: boolean;
-  starred: boolean;
-  has_attachments: boolean;
-  account_id: string;
-  message_id: string | null;
-}
-
+// Removed InboxEmail interface as it's now imported
 // Removed dummy email data
 
 function formatDate(dateString: string): string {
@@ -57,40 +45,81 @@ function formatDate(dateString: string): string {
   });
 }
 
-export default function InboxPage() {
-  const [emails, setEmails] = useState<InboxEmail[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter(); // Initialize router
+const OBSERVER_THRESHOLD_OFFSET = "-200px"; // How far from the bottom to trigger load (e.g., height of a few items)
 
-  const fetchEmails = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/email/inbox");
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch emails");
+export default function InboxPage() {
+  const router = useRouter();
+  const [currentPageToFetch, setCurrentPageToFetch] = useState(1);
+  const [allDisplayedEmails, setAllDisplayedEmails] = useState<InboxEmail[]>(
+    []
+  );
+  const [showFullPageError, setShowFullPageError] = useState(false);
+
+  // Fetch data for the currentPageToFetch
+  const {
+    data: latestPageData, // Data for the current page being fetched
+    isLoading: isLoadingInitialPage, // True only when fetching page 1 and no data yet
+    isFetching: isFetchingCurrentPage, // True when any page is fetching
+    isError: isErrorCurrentPage,
+    error: currentError,
+    // refetch // We can use this for pull-to-refresh if needed later
+  } = useGetEmailsQuery(currentPageToFetch);
+
+  // Accumulate emails and manage overall status
+  useEffect(() => {
+    if (latestPageData?.emails) {
+      if (currentPageToFetch === 1) {
+        setAllDisplayedEmails(latestPageData.emails);
+      } else {
+        setAllDisplayedEmails((prevEmails) => {
+          // Basic de-duplication in case of overlapping fetches or re-fetches
+          const newEmails = latestPageData.emails.filter(
+            (ne) => !prevEmails.some((pe) => pe.id === ne.id)
+          );
+          return [...prevEmails, ...newEmails];
+        });
       }
-      const data = await response.json();
-      setEmails(data.emails || []);
-    } catch (err: any) {
-      console.error("Error fetching emails:", err);
-      setError(err.message || "An unexpected error occurred.");
-    } finally {
-      setIsLoading(false);
+      setShowFullPageError(false); // Clear full page error if data is received
     }
-  };
+  }, [latestPageData, currentPageToFetch]);
 
   useEffect(() => {
-    fetchEmails();
+    if (isErrorCurrentPage && allDisplayedEmails.length === 0) {
+      setShowFullPageError(true);
+    }
+  }, [isErrorCurrentPage, allDisplayedEmails]);
+
+  const hasMore =
+    latestPageData?.hasNextPage ?? (currentPageToFetch === 1 ? true : false); // Optimistic hasMore for initial state
+  const totalEmails = latestPageData?.totalEmails || allDisplayedEmails.length; // Use total from API if available
+
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: `0px 0px ${OBSERVER_THRESHOLD_OFFSET} 0px`,
+  });
+
+  useEffect(() => {
+    if (inView && hasMore && !isFetchingCurrentPage) {
+      setCurrentPageToFetch((prevPage) => prevPage + 1);
+    }
+  }, [inView, hasMore, isFetchingCurrentPage]);
+
+  const handleRefresh = useCallback(() => {
+    setAllDisplayedEmails([]); // Clear displayed emails
+    setCurrentPageToFetch(1); // Reset to fetch page 1
+    setShowFullPageError(false); // Clear any full page error
+    // RTK Query will automatically refetch for page 1 due to arg change if cache is stale
+    // or use its cache if data for page 1 is considered fresh.
+    // To force it, we might need to use `refetch()` from `useGetEmailsQuery(1)` if we stored it.
   }, []);
 
-  const handleRefresh = () => {
-    fetchEmails(); // Re-fetch emails
-  };
+  // Main loading state: for the very first load of page 1 when no emails are shown
+  const showPrimaryLoader =
+    isLoadingInitialPage &&
+    currentPageToFetch === 1 &&
+    allDisplayedEmails.length === 0;
 
-  if (isLoading) {
+  if (showPrimaryLoader) {
     return (
       <div className="flex flex-col h-full items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -99,14 +128,18 @@ export default function InboxPage() {
     );
   }
 
-  if (error) {
+  if (showFullPageError) {
+    const errorMessage =
+      (currentError as any)?.data?.error ||
+      (currentError as any)?.message ||
+      "An unexpected error occurred.";
     return (
       <div className="flex flex-col h-full items-center justify-center p-8">
         <AlertTriangle className="h-12 w-12 text-destructive" />
         <p className="mt-4 text-lg font-semibold text-destructive">
           Error loading emails
         </p>
-        <p className="mt-2 text-center text-muted-foreground">{error}</p>
+        <p className="mt-2 text-center text-muted-foreground">{errorMessage}</p>
         <Button onClick={handleRefresh} variant="outline" className="mt-6">
           Try Again
         </Button>
@@ -117,37 +150,39 @@ export default function InboxPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Inbox ({emails.length})</h1>
+        <h1 className="text-2xl font-bold">
+          Inbox ({allDisplayedEmails.length} / {totalEmails})
+        </h1>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={isFetchingCurrentPage && currentPageToFetch === 1}
           >
-            {isLoading ? (
+            {isFetchingCurrentPage && currentPageToFetch === 1 ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
             Refresh
           </Button>
-          {/* Placeholder for Archive button functionality */}
           <Button variant="outline" size="sm" disabled>
             Archive
           </Button>
         </div>
       </div>
 
-      {emails.length === 0 ? (
+      {allDisplayedEmails.length === 0 &&
+      !isFetchingCurrentPage &&
+      !isLoadingInitialPage ? (
         <div className="flex flex-col items-center justify-center h-full border rounded-md p-8">
-          <Mail className="h-16 w-16 text-muted-foreground/50" />{" "}
-          {/* You might need to import Mail icon */}
+          <Mail className="h-16 w-16 text-muted-foreground/50" />
           <p className="mt-4 text-xl font-semibold">It's quiet in here</p>
           <p className="mt-2 text-muted-foreground">
             No emails in your inbox yet.
           </p>
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border flex-grow overflow-y-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -163,9 +198,12 @@ export default function InboxPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {emails.map((email) => (
+              {allDisplayedEmails.map((email, index) => (
                 <TableRow
                   key={email.id}
+                  ref={
+                    index === allDisplayedEmails.length - 5 ? loadMoreRef : null
+                  }
                   className={`cursor-pointer ${
                     !email.read
                       ? "font-medium bg-muted/30 hover:bg-muted/40"
@@ -174,10 +212,7 @@ export default function InboxPage() {
                   onClick={() => router.push(`/inbox/${email.id}`)}
                 >
                   <TableCell className="px-2">
-                    {/* Placeholder for checkbox for selection */}
-                    <div className="flex items-center justify-center h-4 w-4 rounded border">
-                      {/* {email.read && <Check className="h-3 w-3 text-primary" />} */}
-                    </div>
+                    <div className="flex items-center justify-center h-4 w-4 rounded border"></div>
                   </TableCell>
                   <TableCell className="px-2">
                     <Star
@@ -186,7 +221,6 @@ export default function InboxPage() {
                           ? "fill-yellow-400 text-yellow-400"
                           : "text-muted-foreground hover:text-yellow-500"
                       }`}
-                      // TODO: onClick={(e) => { e.stopPropagation(); toggleStar(email.id); }}
                     />
                   </TableCell>
                   <TableCell className="px-2">
@@ -212,6 +246,18 @@ export default function InboxPage() {
               ))}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {isFetchingCurrentPage && currentPageToFetch > 1 && (
+        <div className="flex justify-center items-center py-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="ml-2 text-muted-foreground">Loading more emails...</p>
+        </div>
+      )}
+      {!hasMore && allDisplayedEmails.length > 0 && !isFetchingCurrentPage && (
+        <div className="text-center py-4 text-muted-foreground">
+          <p>All emails loaded.</p>
         </div>
       )}
     </div>

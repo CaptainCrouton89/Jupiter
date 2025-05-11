@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/auth/server"; // Assuming server-side Supabase client
 import { Database } from "@/lib/database.types";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"; // Added NextRequest
 
 // Define the structure of the email data we want to return
 export interface InboxEmail {
@@ -26,7 +26,8 @@ function generatePreview(text: string | null, maxLength = 100): string | null {
   return text.substring(0, maxLength) + "...";
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  // Changed to NextRequest
   const supabase: SupabaseClient<Database> = await createClient();
 
   const {
@@ -37,6 +38,21 @@ export async function GET(request: Request) {
   if (userError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Get page and limit from query parameters
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const limit = parseInt(url.searchParams.get("limit") || "100", 10);
+
+  if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
+    return NextResponse.json(
+      { error: "Invalid pagination parameters" },
+      { status: 400 }
+    );
+  }
+
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit - 1;
 
   try {
     // Fetch all email accounts linked to the user
@@ -54,13 +70,33 @@ export async function GET(request: Request) {
     }
 
     if (!userAccounts || userAccounts.length === 0) {
-      return NextResponse.json({ emails: [] }); // No accounts, so no emails
+      return NextResponse.json({
+        emails: [],
+        totalEmails: 0,
+        hasNextPage: false,
+      });
     }
 
     // Explicitly type 'acc'
     const accountIds = userAccounts.map((acc: { id: string }) => acc.id);
 
-    // Fetch emails from the 'emails' table for all linked accounts
+    // Fetch total count of emails for these accounts for pagination metadata
+    const { count: totalEmails, error: countError } = await supabase
+      .from("emails")
+      .select("", { count: "exact", head: true })
+      .in("account_id", accountIds);
+
+    if (countError) {
+      console.error("Error fetching total email count:", countError);
+      return NextResponse.json(
+        { error: "Failed to fetch email count" },
+        { status: 500 }
+      );
+    }
+
+    const totalEmailsCount = totalEmails || 0;
+
+    // Fetch paginated emails
     const { data: emailsData, error: emailsError } = await supabase
       .from("emails")
       .select(
@@ -68,7 +104,7 @@ export async function GET(request: Request) {
       )
       .in("account_id", accountIds)
       .order("received_at", { ascending: false })
-      .limit(50); // Add a sensible limit for now
+      .range(startIndex, endIndex);
 
     if (emailsError) {
       console.error("Error fetching emails:", emailsError);
@@ -80,7 +116,7 @@ export async function GET(request: Request) {
 
     // Explicitly type 'email' based on the select query
     // This type can be more precisely derived from Database types if needed
-    const inboxEmails: InboxEmail[] = emailsData.map((email: any) => ({
+    const inboxEmails: InboxEmail[] = (emailsData || []).map((email: any) => ({
       id: email.id,
       from_name: email.from_name,
       from_email: email.from_email,
@@ -94,7 +130,14 @@ export async function GET(request: Request) {
       message_id: email.message_id,
     }));
 
-    return NextResponse.json({ emails: inboxEmails });
+    const hasNextPage = endIndex < totalEmailsCount - 1;
+
+    return NextResponse.json({
+      emails: inboxEmails,
+      totalEmails: totalEmailsCount,
+      hasNextPage: hasNextPage,
+      currentPage: page,
+    });
   } catch (error) {
     console.error("Unexpected error in inbox API:", error);
     return NextResponse.json(
