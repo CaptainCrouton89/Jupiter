@@ -17,7 +17,9 @@ export async function fetchRecentEmailUids(
   // 1. Get the email account details from Supabase
   const { data: account, error: accountError } = await supabase
     .from("email_accounts")
-    .select("email, password_encrypted, imap_host, imap_port")
+    .select(
+      "email, password_encrypted, imap_host, imap_port, provider, access_token_encrypted"
+    )
     .eq("id", accountId)
     .single();
 
@@ -29,70 +31,100 @@ export async function fetchRecentEmailUids(
     throw new Error("Failed to fetch email account details");
   }
 
-  if (!account.password_encrypted) {
-    throw new Error("Account password not set");
-  }
+  // Log the provider value fetched from the database
+  console.log(
+    `DEBUG: Account provider for ${accountId} is '${
+      account.provider
+    }', type: ${typeof account.provider}`
+  );
 
-  // 2. Decrypt the password
-  const password = decrypt(account.password_encrypted);
+  let authPayload;
+  if (account.provider === "google") {
+    if (!account.access_token_encrypted) {
+      throw new Error("Google account access token not set");
+    }
+    const accessToken = decrypt(account.access_token_encrypted);
+    console.log(
+      `DEBUG: Decrypted access token for ${account.email}: '${
+        accessToken ? "[PRESENT]" : "[EMPTY_OR_NULL]"
+      }', length: ${accessToken?.length || 0}`
+    );
+
+    authPayload = {
+      user: account.email,
+      accessToken: accessToken,
+    };
+    account.imap_host = account.imap_host || "imap.gmail.com";
+    account.imap_port = account.imap_port || 993;
+  } else {
+    if (!account.password_encrypted) {
+      throw new Error("Account password not set for non-OAuth account");
+    }
+    const password = decrypt(account.password_encrypted);
+    authPayload = {
+      user: account.email,
+      pass: password,
+    };
+    if (!account.imap_host || !account.imap_port) {
+      throw new Error("IMAP host or port not set for password-based account");
+    }
+  }
 
   // 3. Connect to the IMAP server
   const imapClient = new ImapFlow({
     host: account.imap_host,
     port: account.imap_port,
-    secure: true, // Assume SSL/TLS for security
-    auth: {
-      user: account.email,
-      pass: password,
-    },
-    // logger: console, // DEBUG: Pass console object for imapflow logging
+    secure: true,
+    auth: authPayload as any,
+    logger: process.env.NODE_ENV === "development" ? console : false,
   });
 
   try {
     // 4. Connect and access the INBOX
-    console.log(`Connecting to IMAP server for account ${accountId}...`);
+    console.log(
+      `Connecting to IMAP server for account ${accountId} (${
+        account.provider || "password-based"
+      })`
+    );
     await imapClient.connect();
 
     console.log(`Opening INBOX for account ${accountId}...`);
     const mailbox = await imapClient.mailboxOpen("INBOX");
     console.log(`INBOX opened with ${mailbox.exists} messages`);
 
-    // 5. Fetch UIDs of the most recent emails (up to the limit)
-    // We're using SEARCH command to find all messages in the INBOX and sort by date (newest first)
     const uidList: number[] = [];
-
-    // Use the sequence set from the last 'limit' messages, or all if fewer than limit
     const start = Math.max(1, mailbox.exists - limit + 1);
     const searchOptions = {
-      seq: `${start}:*`, // From 'start' to end of mailbox
+      seq: `${start}:*`,
     };
 
-    // Perform the search to get UIDs
-    for await (const message of imapClient.fetch(
-      { seq: searchOptions.seq },
-      { uid: true }
-    )) {
+    for await (const message of imapClient.fetch(searchOptions.seq, {
+      uid: true,
+    })) {
       uidList.push(message.uid);
     }
 
-    // Sort UIDs in descending order (newest first)
     uidList.sort((a, b) => b - a);
-
     console.log(`Fetched ${uidList.length} UIDs for account ${accountId}`);
-
-    // 6. Log the results (for now)
-    console.log(`Recent email UIDs for account ${accountId}:`, uidList);
-
     return uidList;
   } catch (error) {
     console.error(`Error fetching emails for account ${accountId}:`, error);
+    if (
+      error instanceof Error &&
+      error.message &&
+      (error.message.includes("AUTHENTICATIONFAILED") ||
+        error.message.includes("invalid credentials"))
+    ) {
+      throw new Error(
+        `Authentication failed for ${account.email}. Please check credentials or re-authenticate.`
+      );
+    }
     throw new Error(
       `Failed to fetch emails: ${
         error instanceof Error ? error.message : String(error)
       }`
     );
   } finally {
-    // 7. Close the connection
     try {
       await imapClient.logout();
       console.log(`Disconnected from IMAP server for account ${accountId}`);

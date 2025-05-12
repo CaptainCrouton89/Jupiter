@@ -19,8 +19,8 @@ export default async function AccountsPage() {
   const { data: accounts, error: accountsError } = await supabase
     .from("email_accounts")
     .select(
-      "id, name, email, imap_host, imap_port, smtp_host, smtp_port, is_active, last_synced_at, last_synced_uid"
-    ) // Added more fields for ConnectedAccountsList
+      "id, name, email, provider, imap_host, imap_port, smtp_host, smtp_port, is_active, last_synced_at, last_synced_uid"
+    ) // Added 'provider' field
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

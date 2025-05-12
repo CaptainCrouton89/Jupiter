@@ -49,55 +49,73 @@ export type Database = {
       }
       email_accounts: {
         Row: {
+          access_token_encrypted: string | null
           created_at: string
           email: string
           id: string
-          imap_host: string
-          imap_port: number
+          imap_host: string | null
+          imap_port: number | null
           is_active: boolean
+          last_oauth_error: string | null
           last_synced_at: string | null
           last_synced_uid: number | null
           name: string | null
-          password_encrypted: string
-          smtp_host: string
-          smtp_port: number
+          password_encrypted: string | null
+          provider: string | null
+          refresh_token_encrypted: string | null
+          scopes: string[] | null
+          smtp_host: string | null
+          smtp_port: number | null
+          token_expires_at: string | null
           updated_at: string
           user_id: string
-          username: string
+          username: string | null
         }
         Insert: {
+          access_token_encrypted?: string | null
           created_at?: string
           email: string
           id?: string
-          imap_host: string
-          imap_port: number
+          imap_host?: string | null
+          imap_port?: number | null
           is_active?: boolean
+          last_oauth_error?: string | null
           last_synced_at?: string | null
           last_synced_uid?: number | null
           name?: string | null
-          password_encrypted: string
-          smtp_host: string
-          smtp_port: number
+          password_encrypted?: string | null
+          provider?: string | null
+          refresh_token_encrypted?: string | null
+          scopes?: string[] | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          token_expires_at?: string | null
           updated_at?: string
           user_id: string
-          username: string
+          username?: string | null
         }
         Update: {
+          access_token_encrypted?: string | null
           created_at?: string
           email?: string
           id?: string
-          imap_host?: string
-          imap_port?: number
+          imap_host?: string | null
+          imap_port?: number | null
           is_active?: boolean
+          last_oauth_error?: string | null
           last_synced_at?: string | null
           last_synced_uid?: number | null
           name?: string | null
-          password_encrypted?: string
-          smtp_host?: string
-          smtp_port?: number
+          password_encrypted?: string | null
+          provider?: string | null
+          refresh_token_encrypted?: string | null
+          scopes?: string[] | null
+          smtp_host?: string | null
+          smtp_port?: number | null
+          token_expires_at?: string | null
           updated_at?: string
           user_id?: string
-          username?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -315,6 +333,7 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          category_preferences: Json | null
           created_at: string
           default_account_id: string | null
           email_signature: string | null
@@ -325,6 +344,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          category_preferences?: Json | null
           created_at?: string
           default_account_id?: string | null
           email_signature?: string | null
@@ -335,6 +355,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          category_preferences?: Json | null
           created_at?: string
           default_account_id?: string | null
           email_signature?: string | null

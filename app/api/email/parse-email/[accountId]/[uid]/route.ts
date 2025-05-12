@@ -32,7 +32,9 @@ export async function GET(
     // Verify the account exists and belongs to the user
     const { data: account, error: accountError } = await supabase
       .from("email_accounts")
-      .select("email, password_encrypted, imap_host, imap_port")
+      .select(
+        "email, password_encrypted, imap_host, imap_port, provider, access_token_encrypted"
+      )
       .eq("id", accountId)
       .eq("user_id", user.id)
       .single();
@@ -44,19 +46,62 @@ export async function GET(
       );
     }
 
-    // Decrypt password
-    const password = decrypt(account.password_encrypted);
+    let authPayload: any;
+    let imapHost: string;
+    let imapPort: number;
+
+    if (account.provider === "google") {
+      if (!account.access_token_encrypted) {
+        return NextResponse.json(
+          { error: "Google account access token not found." },
+          { status: 400 }
+        );
+      }
+      const accessToken = decrypt(account.access_token_encrypted);
+      authPayload = {
+        user: account.email,
+        accessToken: accessToken,
+      };
+      imapHost = account.imap_host || "imap.gmail.com";
+      imapPort = account.imap_port || 993;
+    } else {
+      // Manual IMAP account
+      if (!account.email) {
+        return NextResponse.json(
+          { error: "Account email not found." },
+          { status: 400 }
+        );
+      }
+      if (!account.password_encrypted) {
+        return NextResponse.json(
+          { error: "Account password not set for manual configuration." },
+          { status: 400 }
+        );
+      }
+      if (!account.imap_host || !account.imap_port) {
+        return NextResponse.json(
+          {
+            error: "IMAP server host or port not set for manual configuration.",
+          },
+          { status: 400 }
+        );
+      }
+      const password = decrypt(account.password_encrypted);
+      authPayload = {
+        user: account.email,
+        pass: password,
+      };
+      imapHost = account.imap_host;
+      imapPort = account.imap_port;
+    }
 
     // Connect to IMAP server
     const client = new ImapFlow({
-      host: account.imap_host,
-      port: account.imap_port,
+      host: imapHost,
+      port: imapPort,
       secure: true, // Assume secure connection
-      auth: {
-        user: account.email,
-        pass: password,
-      },
-      // logger: console, // DEBUG: Pass console object for imapflow logging
+      auth: authPayload,
+      logger: process.env.NODE_ENV === "development" ? console : false, // DEBUG: Pass console object for imapflow logging
     });
 
     try {

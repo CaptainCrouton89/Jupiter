@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   // Prepare a base response for setting/clearing cookies on redirect
   // We will redirect, so create a response object to modify its headers for cookie operations.
   const redirectResponse = NextResponse.redirect(
-    new URL("/settings/accounts/connect", req.url)
+    new URL("/accounts/connect", req.url)
   ); // Default redirect
 
   // Clear the state cookie once read, on the outgoing response
@@ -44,10 +44,7 @@ export async function GET(req: NextRequest) {
     console.error("OAuth state mismatch. Possible CSRF attack.");
     redirectResponse.headers.set(
       "Location",
-      new URL(
-        "/settings/accounts/connect?error=state_mismatch",
-        req.url
-      ).toString()
+      new URL("/accounts/connect?error=state_mismatch", req.url).toString()
     );
     return redirectResponse;
   }
@@ -58,7 +55,7 @@ export async function GET(req: NextRequest) {
     redirectResponse.headers.set(
       "Location",
       new URL(
-        `/settings/accounts/connect?error=${error || "oauth_failed"}`,
+        `/accounts/connect?error=${error || "oauth_failed"}`,
         req.url
       ).toString()
     );
@@ -73,10 +70,7 @@ export async function GET(req: NextRequest) {
     console.error("Google OAuth client credentials or redirect URI not set.");
     redirectResponse.headers.set(
       "Location",
-      new URL(
-        "/settings/accounts/connect?error=config_error",
-        req.url
-      ).toString()
+      new URL("/accounts/connect?error=config_error", req.url).toString()
     );
     return redirectResponse;
   }
@@ -103,7 +97,7 @@ export async function GET(req: NextRequest) {
       redirectResponse.headers.set(
         "Location",
         new URL(
-          `/settings/accounts/connect?error=token_exchange_failed&details=${
+          `/accounts/connect?error=token_exchange_failed&details=${
             tokens.error_description || tokens.error || ""
           }`,
           req.url
@@ -123,10 +117,7 @@ export async function GET(req: NextRequest) {
       console.error("No access_token received from Google.");
       redirectResponse.headers.set(
         "Location",
-        new URL(
-          "/settings/accounts/connect?error=no_access_token",
-          req.url
-        ).toString()
+        new URL("/accounts/connect?error=no_access_token", req.url).toString()
       );
       return redirectResponse;
     }
@@ -145,10 +136,7 @@ export async function GET(req: NextRequest) {
       console.error("Failed to fetch user info from Google:", userInfo);
       redirectResponse.headers.set(
         "Location",
-        new URL(
-          "/settings/accounts/connect?error=userinfo_failed",
-          req.url
-        ).toString()
+        new URL("/accounts/connect?error=userinfo_failed", req.url).toString()
       );
       return redirectResponse;
     }
@@ -196,7 +184,8 @@ export async function GET(req: NextRequest) {
       scopes: scopesArray,
       last_oauth_error: null,
       name: accountName, // Update name if it changed in Google profile
-      // Ensure other fields like provider, email, user_id are not in update if they are immutable post-creation
+      provider: "google", // Ensure provider is set on update as well
+      // Ensure other fields like email, user_id are not in update if they are immutable post-creation
     } as Partial<Database["public"]["Tables"]["email_accounts"]["Update"]>;
 
     const { data: existingAccount, error: existingAccountError } =
@@ -215,10 +204,7 @@ export async function GET(req: NextRequest) {
       );
       redirectResponse.headers.set(
         "Location",
-        new URL(
-          "/settings/accounts/connect?error=db_check_error",
-          req.url
-        ).toString()
+        new URL("/accounts/connect?error=db_check_error", req.url).toString()
       );
       return redirectResponse;
     }
@@ -233,7 +219,7 @@ export async function GET(req: NextRequest) {
         redirectResponse.headers.set(
           "Location",
           new URL(
-            "/settings/accounts/connect?error=db_update_failed",
+            "/accounts/connect?error=db_update_failed",
             req.url
           ).toString()
         );
@@ -254,7 +240,7 @@ export async function GET(req: NextRequest) {
         redirectResponse.headers.set(
           "Location",
           new URL(
-            "/settings/accounts/connect?error=db_insert_failed",
+            "/accounts/connect?error=db_insert_failed",
             req.url
           ).toString()
         );
@@ -270,17 +256,14 @@ export async function GET(req: NextRequest) {
 
     redirectResponse.headers.set(
       "Location",
-      new URL("/settings/accounts?success=google_connected", req.url).toString()
+      new URL("/accounts?success=google_connected", req.url).toString()
     );
     return redirectResponse;
   } catch (error) {
     console.error("Unexpected error in Google OAuth callback:", error);
     redirectResponse.headers.set(
       "Location",
-      new URL(
-        "/settings/accounts/connect?error=callback_exception",
-        req.url
-      ).toString()
+      new URL("/accounts/connect?error=callback_exception", req.url).toString()
     );
     return redirectResponse;
   }

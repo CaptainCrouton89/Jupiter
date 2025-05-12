@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link"; // Import Link
 import { redirect } from "next/navigation";
+import { toast } from "sonner";
 
 const RELEVANT_CATEGORIES = [
   "newsletter",
@@ -169,7 +170,7 @@ export default function SettingsPage() {
           .single();
         if (newSettings) setSettingsId(newSettings.id);
       }
-      alert("Settings saved successfully!");
+      toast.success("Settings saved successfully");
     } catch (e: any) {
       console.error("Error saving user settings:", e);
       setError(

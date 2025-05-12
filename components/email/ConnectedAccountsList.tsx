@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/dialog";
 import { Database } from "@/lib/database.types";
 import { EmailConnectionFormValues } from "@/lib/validations/email";
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -228,112 +230,191 @@ export function ConnectedAccountsList({
 
   if (accounts.length === 0) {
     return (
-      <div className="text-center text-muted-foreground py-8">
-        <p>No connected accounts yet.</p>
-        <p>Click the button above to connect your first email account.</p>
-      </div>
+      <>
+        <div className="mb-6 flex items-center">
+          <Link href="/settings" passHref>
+            <Button variant="outline" size="sm">
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Back to Settings
+            </Button>
+          </Link>
+        </div>
+        <div className="text-center text-muted-foreground py-8">
+          <p>No connected accounts yet.</p>
+          <p>Click the button above to connect your first email account.</p>
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      <div className="mb-6 flex items-center">
+        <Link href="/settings" passHref>
+          <Button variant="outline" size="sm">
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back to Settings
+          </Button>
+        </Link>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {accounts.map((account) => (
-          <div key={account.id} className="space-y-4">
-            <Card className="flex flex-col">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle
-                      className="text-lg truncate"
-                      title={account.name || account.email}
-                    >
-                      {account.name || "Unnamed Account"}
-                    </CardTitle>
-                    <CardDescription className="truncate" title={account.email}>
-                      {account.email}
-                    </CardDescription>
+        {accounts.map((account) => {
+          // Log every account object being processed
+          console.log(
+            "Processing account:",
+            JSON.parse(JSON.stringify(account))
+          );
+
+          let accountDetailsJsx: React.ReactNode;
+
+          if (account.provider) {
+            console.log(
+              `Account ${account.email || account.id} (ID: ${
+                account.id
+              }) - Showing provider: '${account.provider}'`
+            );
+            accountDetailsJsx = (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Connected via
+                  </p>
+                  <p className="text-sm text-foreground font-semibold capitalize">
+                    {account.provider}
+                  </p>
+                </div>
+              </div>
+            );
+          } else if (account.imap_host && account.smtp_host) {
+            console.log(
+              `Account ${account.email || account.id} (ID: ${
+                account.id
+              }) - Showing IMAP/SMTP`
+            );
+            accountDetailsJsx = (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    IMAP Server
+                  </p>
+                  <p className="text-sm text-foreground break-all">
+                    {account.imap_host || (
+                      <span className="italic">Not set</span>
+                    )}
+                    :{account.imap_port || <span className="italic">N/A</span>}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    SMTP Server
+                  </p>
+                  <p className="text-sm text-foreground break-all">
+                    {account.smtp_host || (
+                      <span className="italic">Not set</span>
+                    )}
+                    :{account.smtp_port || <span className="italic">N/A</span>}
+                  </p>
+                </div>
+              </div>
+            );
+          } else {
+            console.log(
+              `Account ${account.email || account.id} (ID: ${
+                account.id
+              }) - Showing incomplete/other message. Provider: '${
+                account.provider
+              }', IMAP: '${account.imap_host}', SMTP: '${account.smtp_host}'`
+            );
+            return (
+              <p className="text-muted-foreground italic">
+                Configuration details are incomplete or not applicable.
+              </p>
+            );
+          }
+
+          return (
+            <div key={account.id} className="space-y-4">
+              <Card className="flex flex-col">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle
+                        className="text-lg truncate"
+                        title={account.name || account.email}
+                      >
+                        {account.name || "Unnamed Account"}
+                      </CardTitle>
+                      <CardDescription
+                        className="truncate"
+                        title={account.email}
+                      >
+                        {account.email}
+                      </CardDescription>
+                    </div>
+                    {/* Replace connection status badge with authentication type badge */}
+                    <Badge variant="outline">
+                      {account.provider ? "OAuth 2.0" : "Password / Manual"}
+                    </Badge>
                   </div>
-                  {/* Placeholder for connection status badge */}
-                  <Badge
-                    variant={
-                      account.is_connected === undefined
-                        ? "outline"
-                        : account.is_connected
-                        ? "default"
-                        : "destructive"
+                </CardHeader>
+                <CardContent className="flex-grow pt-4 text-sm">
+                  {accountDetailsJsx}
+                </CardContent>
+                <CardFooter className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() =>
+                      handleTestConnection(account.id, account.email)
+                    }
+                    disabled={isTestingConnection === account.id}
+                  >
+                    {isTestingConnection === account.id ? "Testing..." : "Test"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() =>
+                      setEmailFetchTestAccount(
+                        emailFetchTestAccount === account.id ? null : account.id
+                      )
                     }
                   >
-                    {account.is_connected === undefined
-                      ? "Unknown"
-                      : account.is_connected
-                      ? "Connected"
-                      : "Issue"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p>
-                    IMAP: {account.imap_host}:{account.imap_port}
-                  </p>
-                  <p>
-                    SMTP: {account.smtp_host}:{account.smtp_port}
-                  </p>
-                  {/* We don\'t have last_synced in the select query, and it\'s hypothetical anyway */}
-                  {/* <p>Last synced: {formatDate(account.last_synced)}</p> */}
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    handleTestConnection(account.id, account.email)
-                  }
-                  disabled={isTestingConnection === account.id}
-                >
-                  {isTestingConnection === account.id ? "Testing..." : "Test"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setEmailFetchTestAccount(
-                      emailFetchTestAccount === account.id ? null : account.id
-                    )
-                  }
-                >
-                  {emailFetchTestAccount === account.id
-                    ? "Hide Fetch"
-                    : "Fetch Emails"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEditClick(account)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDeleteClick(account)}
-                  disabled={isDeleting && accountToDelete?.id === account.id}
-                >
-                  {isDeleting && accountToDelete?.id === account.id
-                    ? "Removing..."
-                    : "Remove"}
-                </Button>
-              </CardFooter>
-            </Card>
+                    {emailFetchTestAccount === account.id
+                      ? "Hide Fetch"
+                      : "Fetch Emails"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => handleEditClick(account)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => handleDeleteClick(account)}
+                    disabled={isDeleting && accountToDelete?.id === account.id}
+                  >
+                    {isDeleting && accountToDelete?.id === account.id
+                      ? "Removing..."
+                      : "Remove"}
+                  </Button>
+                </CardFooter>
+              </Card>
 
-            {/* Show TestEmailFetch component when this account is selected */}
-            {emailFetchTestAccount === account.id && (
-              <TestEmailFetch accountId={account.id} />
-            )}
-          </div>
-        ))}
+              {/* Show TestEmailFetch component when this account is selected */}
+              {emailFetchTestAccount === account.id && (
+                <TestEmailFetch accountId={account.id} />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {editingAccount && (
@@ -359,10 +440,10 @@ export function ConnectedAccountsList({
                 // Password should be left blank in the form for editing to avoid showing encrypted
                 // The schema requires it, so user must re-type if changing, or re-type old one if not.
                 password: "",
-                imapServer: editingAccount.imap_host,
-                imapPort: editingAccount.imap_port,
-                smtpServer: editingAccount.smtp_host,
-                smtpPort: editingAccount.smtp_port,
+                imapServer: editingAccount.imap_host ?? undefined,
+                imapPort: editingAccount.imap_port ?? undefined,
+                smtpServer: editingAccount.smtp_host ?? undefined,
+                smtpPort: editingAccount.smtp_port ?? undefined,
                 // Assuming security is SSL/TLS as per current form default, adjust if it's stored and varies
                 security: "SSL/TLS",
               }}

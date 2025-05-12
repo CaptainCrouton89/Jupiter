@@ -57,7 +57,7 @@ export default function ConnectAccountPage() {
         return;
       }
       toast.success(data.message || "Account saved successfully!");
-      router.push("/settings/accounts"); // Redirect to accounts list
+      router.push("/accounts"); // Redirect to accounts list
       router.refresh(); // Refresh server components on the target page
     } catch (error) {
       toast.error("An unexpected error occurred while saving the account.");
