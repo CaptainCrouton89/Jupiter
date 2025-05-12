@@ -1,61 +1,19 @@
 "use client"; // Add use client for hooks
 
-import { Badge } from "@/components/ui/badge"; // Added Badge for category
+import { EmailTable } from "@/components/email/EmailTable"; // Import the new EmailTable component
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; // Added Input for search
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type { InboxEmail } from "@/lib/store/features/api/emailsApi";
 import { useGetEmailsQuery } from "@/lib/store/features/api/emailsApi"; // Import RTK Query hook
-import { cn } from "@/lib/utils"; // Import cn for class names
 import {
   AlertTriangle,
   Loader2,
   Mail,
   Search as SearchIcon,
-  Star,
 } from "lucide-react"; // Added Mail, Loader2 and AlertTriangle
 import { useRouter } from "next/navigation"; // Added useRouter
 import { useCallback, useEffect, useState } from "react"; // Added useEffect, useState, and useCallback
 import { useInView } from "react-intersection-observer"; // Import useInView
-
-// Helper function to determine badge class names based on category
-const getCategoryBadgeClassName = (category: string | undefined): string => {
-  if (!category)
-    return "border-transparent bg-muted text-muted-foreground hover:bg-muted/80"; // Default for undefined
-
-  switch (category.toLowerCase()) {
-    case "newsletter":
-      return "border-transparent bg-blue-100 text-blue-800 hover:bg-blue-200/80 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-900/70";
-    case "marketing":
-      return "border-transparent bg-purple-100 text-purple-800 hover:bg-purple-200/80 dark:bg-purple-900/50 dark:text-purple-300 dark:hover:bg-purple-900/70";
-    case "receipt":
-      return "border-transparent bg-green-100 text-green-800 hover:bg-green-200/80 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/70";
-    case "invoice":
-      return "border-transparent bg-yellow-100 text-yellow-800 hover:bg-yellow-200/80 dark:bg-yellow-900/50 dark:text-yellow-300 dark:hover:bg-yellow-900/70";
-    case "finances":
-      return "border-transparent bg-emerald-100 text-emerald-800 hover:bg-emerald-200/80 dark:bg-emerald-900/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70";
-    case "code-related":
-      return "border-transparent bg-slate-200 text-slate-800 hover:bg-slate-300/80 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-700/80";
-    case "notification":
-      return "border-transparent bg-sky-100 text-sky-800 hover:bg-sky-200/80 dark:bg-sky-900/50 dark:text-sky-300 dark:hover:bg-sky-900/70";
-    case "account-related":
-      return "border-transparent bg-orange-100 text-orange-800 hover:bg-orange-200/80 dark:bg-orange-900/50 dark:text-orange-300 dark:hover:bg-orange-900/70";
-    case "personal":
-      return "border-transparent bg-pink-100 text-pink-800 hover:bg-pink-200/80 dark:bg-pink-900/50 dark:text-pink-300 dark:hover:bg-pink-900/70";
-    case "email-verification":
-      return "border-transparent bg-teal-100 text-teal-800 hover:bg-teal-200/80 dark:bg-teal-900/50 dark:text-teal-300 dark:hover:bg-teal-900/70";
-    case "uncategorizable":
-    default:
-      return "border-transparent bg-gray-200 text-gray-700 hover:bg-gray-300/80 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-700/80";
-  }
-};
 
 // Custom hook for debounce
 function useDebounce<T>(value: T, delay: number): T {
@@ -69,32 +27,6 @@ function useDebounce<T>(value: T, delay: number): T {
     };
   }, [value, delay]);
   return debouncedValue;
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
-  const diffTime = Math.abs(now.getTime() - date.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays <= 7) {
-    return date.toLocaleDateString([], { weekday: "short" });
-  }
-
-  if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
-  }
-
-  return date.toLocaleDateString([], {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 const OBSERVER_THRESHOLD_OFFSET = "-200px"; // How far from the bottom to trigger load (e.g., height of a few items)
@@ -117,12 +49,11 @@ export default function InboxPage() {
     isFetching: isFetchingCurrentPage, // True when any page is fetching
     isError: isErrorCurrentPage,
     error: currentError,
-    // refetch // We can use this for pull-to-refresh if needed later
   } = useGetEmailsQuery({
     page: currentPageToFetch,
     filters: activeFilters,
     search: debouncedSearchQuery,
-  }); // Modified to pass search query
+  });
 
   // Accumulate emails and manage overall status
   useEffect(() => {
@@ -131,7 +62,6 @@ export default function InboxPage() {
         setAllDisplayedEmails(latestPageData.emails);
       } else {
         setAllDisplayedEmails((prevEmails) => {
-          // Basic de-duplication in case of overlapping fetches or re-fetches
           const newEmails = latestPageData.emails.filter(
             (ne) => !prevEmails.some((pe) => pe.id === ne.id)
           );
@@ -149,8 +79,7 @@ export default function InboxPage() {
   }, [isErrorCurrentPage, allDisplayedEmails]);
 
   const hasMore =
-    latestPageData?.hasNextPage ?? (currentPageToFetch === 1 ? true : false); // Optimistic hasMore for initial state
-  const totalEmails = latestPageData?.totalEmails || allDisplayedEmails.length; // Use total from API if available
+    latestPageData?.hasNextPage ?? (currentPageToFetch === 1 ? true : false);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
@@ -168,7 +97,6 @@ export default function InboxPage() {
       const newFilters = prevFilters.includes(filterId)
         ? prevFilters.filter((f) => f !== filterId)
         : [...prevFilters, filterId];
-      // When filters change, reset to page 1 and clear existing emails
       setCurrentPageToFetch(1);
       setAllDisplayedEmails([]);
       setShowFullPageError(false);
@@ -177,21 +105,28 @@ export default function InboxPage() {
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setActiveFilters([]); // Reset filters
-    setAllDisplayedEmails([]); // Clear displayed emails
-    setCurrentPageToFetch(1); // Reset to fetch page 1
-    setShowFullPageError(false); // Clear any full page error
-    // RTK Query will automatically refetch for page 1 due to arg change if cache is stale
-    // or use its cache if data for page 1 is considered fresh.
-    // To force it, we might need to use `refetch()` from `useGetEmailsQuery(1)` if we stored it.
+    setActiveFilters([]);
+    setAllDisplayedEmails([]);
+    setCurrentPageToFetch(1);
+    setShowFullPageError(false);
   }, []);
 
-  // Main loading state: for the very first load of page 1 when no emails are shown
+  const handleStarToggle = useCallback((emailId: string) => {
+    // Placeholder for star toggle logic
+    console.log("Toggle star for email:", emailId);
+    // Implement actual star toggle mutation here
+    setAllDisplayedEmails((prevEmails) =>
+      prevEmails.map((email) =>
+        email.id === emailId ? { ...email, starred: !email.starred } : email
+      )
+    );
+  }, []);
+
   const showPrimaryLoader =
     isLoadingInitialPage &&
     currentPageToFetch === 1 &&
     allDisplayedEmails.length === 0 &&
-    !debouncedSearchQuery; // Don't show primary loader if searching initially
+    !debouncedSearchQuery;
 
   if (showPrimaryLoader) {
     return (
@@ -261,7 +196,6 @@ export default function InboxPage() {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              // When search query changes, reset to page 1 and clear existing emails
               setCurrentPageToFetch(1);
               setAllDisplayedEmails([]);
               setShowFullPageError(false);
@@ -291,132 +225,14 @@ export default function InboxPage() {
         ))}
       </div>
 
-      {allDisplayedEmails.length === 0 &&
-      !isFetchingCurrentPage &&
-      !isLoadingInitialPage ? (
-        <div className="flex flex-col items-center justify-center h-full border rounded-md p-8">
-          <Mail className="h-16 w-16 text-muted-foreground/50" />
-          <p className="mt-4 text-xl font-semibold">It's quiet in here</p>
-          <p className="mt-2 text-muted-foreground">
-            No emails in your inbox yet.
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-md border flex-grow overflow-y-auto">
-          <Table className="w-full table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[30px]"></TableHead>
-                {/* Checkbox/Select */}
-                <TableHead className="w-[30px]"></TableHead>
-                {/* Star */}
-                <TableHead className="w-[25%]">From</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead className="hidden md:table-cell w-[100px]">
-                  Category
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {allDisplayedEmails.map((email, index) => (
-                <TableRow
-                  key={email.id}
-                  ref={
-                    index === allDisplayedEmails.length - 5 ? loadMoreRef : null
-                  }
-                  tabIndex={0}
-                  role="row"
-                  aria-selected={false}
-                  aria-label={`Email from ${
-                    email.from_name || email.from_email
-                  }, Subject: ${
-                    email.subject || "(No Subject)"
-                  }, Received: ${formatDate(email.received_at)}`}
-                  className={`cursor-pointer ${
-                    !email.read
-                      ? "font-medium bg-muted/30 hover:bg-muted/40"
-                      : "hover:bg-muted/20"
-                  }`}
-                  onClick={() => router.push(`/inbox/${email.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      router.push(`/inbox/${email.id}`);
-                    }
-                  }}
-                >
-                  <TableCell className="px-2" role="gridcell">
-                    <div className="flex items-center justify-center h-4 w-4 rounded border"></div>
-                  </TableCell>
-                  <TableCell className="px-2" role="gridcell">
-                    <Star
-                      className={`h-4 w-4 ${
-                        email.starred
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-muted-foreground hover:text-yellow-500"
-                      }`}
-                      aria-hidden="true"
-                    />
-                  </TableCell>
-                  <TableCell
-                    role="gridcell"
-                    className="overflow-hidden break-words whitespace-normal min-w-0"
-                  >
-                    {email.from_name || email.from_email}
-                  </TableCell>
-                  <TableCell role="gridcell">
-                    <div className="flex flex-col overflow-hidden">
-                      <span
-                        className={cn(
-                          !email.read && "font-semibold",
-                          "block truncate"
-                        )}
-                        title={email.subject || "(No Subject)"}
-                      >
-                        {email.subject || "(No Subject)"}
-                      </span>
-                      <span
-                        className="text-muted-foreground text-sm block truncate max-w-[350px] sm:max-w-[450px] md:max-w-[600px] lg:max-w-[700px]"
-                        title={email.preview || "(No preview available)"}
-                      >
-                        {email.preview || "(No preview available)"}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell
-                    className="hidden md:table-cell px-2"
-                    role="gridcell"
-                  >
-                    {email.category && (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "capitalize",
-                          getCategoryBadgeClassName(email.category)
-                        )}
-                      >
-                        {email.category.replace(/-/g, " ")}
-                      </Badge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {isFetchingCurrentPage && currentPageToFetch > 1 && (
-        <div className="flex justify-center items-center py-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="ml-2 text-muted-foreground">Loading more emails...</p>
-        </div>
-      )}
-      {!hasMore && allDisplayedEmails.length > 0 && !isFetchingCurrentPage && (
-        <div className="text-center py-4 text-muted-foreground">
-          <p>All emails loaded.</p>
-        </div>
-      )}
+      <EmailTable
+        emails={allDisplayedEmails}
+        isLoading={isFetchingCurrentPage} // Pass isFetchingCurrentPage for loading more indicator
+        hasMore={hasMore}
+        loadMoreRef={loadMoreRef}
+        folderType="inbox"
+        onStarToggle={handleStarToggle}
+      />
     </div>
   );
 }
