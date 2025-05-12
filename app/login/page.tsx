@@ -17,8 +17,8 @@ export default function LoginPage() {
     (emailConfirmationRequired?: boolean) => {
       if (isLoginView || !emailConfirmationRequired) {
         // If login was successful, or signup was successful without email confirmation,
-        // redirect to dashboard or home.
-        router.push("/"); // Or your desired dashboard route
+        // redirect to accounts page
+        router.push("/accounts");
       }
       // If signup requires email confirmation, we stay on the page (or show a message)
       // The form itself will show a toast message.

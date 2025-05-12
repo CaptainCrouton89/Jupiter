@@ -26,14 +26,24 @@ export async function GET(req: NextRequest) {
   const storedStateCookie = cookieStore.get("google_oauth_state");
   const storedState = storedStateCookie?.value;
 
+  // Get the next path from cookie
+  const nextPathCookie = cookieStore.get("google_oauth_next");
+  const nextPath = nextPathCookie?.value || "/accounts";
+
   // Prepare a base response for setting/clearing cookies on redirect
   // We will redirect, so create a response object to modify its headers for cookie operations.
-  const redirectResponse = NextResponse.redirect(
-    new URL("/accounts/connect", req.url)
-  ); // Default redirect
+  const redirectResponse = NextResponse.redirect(new URL(nextPath, req.url)); // Use the stored next path
 
   // Clear the state cookie once read, on the outgoing response
   redirectResponse.cookies.set("google_oauth_state", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0, // Expire immediately
+    path: "/",
+  });
+
+  // Clear the next path cookie
+  redirectResponse.cookies.set("google_oauth_next", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     maxAge: 0, // Expire immediately
@@ -256,7 +266,7 @@ export async function GET(req: NextRequest) {
 
     redirectResponse.headers.set(
       "Location",
-      new URL("/accounts?success=google_connected", req.url).toString()
+      new URL(`${nextPath}?success=google_connected`, req.url).toString()
     );
     return redirectResponse;
   } catch (error) {

@@ -13,6 +13,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Get the 'next' parameter for post-authentication redirection
+  const searchParams = req.nextUrl.searchParams;
+  const nextPath = searchParams.get("next") || "/accounts";
+
   const state = randomBytes(16).toString("hex");
 
   const scopes = [
@@ -45,6 +49,14 @@ export async function GET(req: NextRequest) {
     secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 15, // 15 minutes
     path: "/", // Important: ensure path allows callback to read it
+  });
+
+  // Store the 'next' path in a cookie for the callback to use
+  response.cookies.set("google_oauth_next", nextPath, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 15, // 15 minutes
+    path: "/",
   });
 
   return response;
