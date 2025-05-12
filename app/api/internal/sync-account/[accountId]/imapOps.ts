@@ -64,16 +64,6 @@ export async function createImapClient(
     imapConfig.secure = true;
   }
 
-  logger.info(
-    `[IMAP_CLIENT_CONFIG] Final IMAP config for ${account.email}:`,
-    JSON.stringify(
-      imapConfig,
-      (key, value) =>
-        key === "xoauth2" || key === "pass" ? "********" : value,
-      2
-    )
-  );
-
   const client = new ImapFlow(imapConfig);
   return client;
 }

@@ -101,19 +101,13 @@ export async function POST(
       );
       authPayload = undefined; // Reset for each attempt
 
-      // Google OAuth Logic with Logging
+      // Google OAuth Logic
       if (
         currentAccountDetails.provider === "google" &&
         currentAccountDetails.access_token_encrypted
       ) {
-        logger.info(
-          `[AuthDebug Google Attempt ${connectionAttempts}] Pre-decryption - Encrypted Token: ${currentAccountDetails.access_token_encrypted}`
-        );
         const decryptedAccessToken = decrypt(
           currentAccountDetails.access_token_encrypted
-        );
-        logger.info(
-          `[AuthDebug Google Attempt ${connectionAttempts}] Post-decryption - Decrypted Token: '${decryptedAccessToken}'`
         );
         if (decryptedAccessToken && decryptedAccessToken.trim() !== "") {
           authPayload = {
@@ -132,7 +126,6 @@ export async function POST(
 
       // Password Auth Logic
       if (!authPayload && currentAccountDetails.password_encrypted) {
-        // Simplified for brevity, assume similar logging/decryption as Google path
         const decryptedPassword = decrypt(
           currentAccountDetails.password_encrypted
         );
