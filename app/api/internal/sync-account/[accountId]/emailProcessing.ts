@@ -145,7 +145,8 @@ export async function processEmailBatch(
       const inboxFolderId = await getOrCreateFolderId(
         supabase,
         account.id,
-        "INBOX"
+        "INBOX",
+        "inbox"
       );
       const storeResultInbox = await storeEmails(
         supabase,
@@ -169,7 +170,8 @@ export async function processEmailBatch(
       const spamFolderId = await getOrCreateFolderId(
         supabase,
         account.id,
-        "Spam"
+        "Spam",
+        "spam"
       );
       const storeResultSpam = await storeEmails(
         supabase,

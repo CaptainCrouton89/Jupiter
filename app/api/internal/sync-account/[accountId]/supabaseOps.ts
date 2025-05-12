@@ -6,12 +6,16 @@ import { logger } from "./logger";
 export interface EmailAccountDetails {
   id: string;
   email: string;
+  name: string | null;
   imap_host: string;
   imap_port: number;
+  smtp_host: string;
+  smtp_port: number;
   password_encrypted: string;
   last_synced_uid: number | null;
   last_synced_at: string | null;
   user_id: string;
+  is_active: boolean | null;
 }
 
 export async function getEmailAccountDetailsFromDb(
@@ -21,7 +25,7 @@ export async function getEmailAccountDetailsFromDb(
   const { data, error } = await supabase
     .from("email_accounts")
     .select(
-      "id, email, imap_host, imap_port, password_encrypted, last_synced_uid, last_synced_at, user_id"
+      "id, email, name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, last_synced_uid, last_synced_at, user_id, is_active"
     )
     .eq("id", accountId)
     .single<EmailAccountDetails>();
@@ -39,7 +43,8 @@ export async function getEmailAccountDetailsFromDb(
 export async function getOrCreateFolderId(
   supabase: SupabaseClient<Database>,
   accountId: string,
-  folderPath: string
+  folderPath: string,
+  folderType?: Database["public"]["Tables"]["folders"]["Row"]["type"]
 ): Promise<string> {
   let { data: existingFolder, error: fetchError } = await supabase
     .from("folders")
@@ -62,6 +67,21 @@ export async function getOrCreateFolderId(
     return existingFolder.id;
   }
 
+  let typeToInsert: Database["public"]["Tables"]["folders"]["Row"]["type"] =
+    "inbox";
+  if (folderType) {
+    typeToInsert = folderType;
+  } else {
+    const upperFolderPath = folderPath.toUpperCase();
+    if (upperFolderPath === "INBOX") typeToInsert = "inbox";
+    else if (upperFolderPath === "SENT") typeToInsert = "sent";
+    else if (upperFolderPath === "DRAFTS") typeToInsert = "drafts";
+    else if (upperFolderPath === "TRASH") typeToInsert = "trash";
+    else if (upperFolderPath === "SPAM") typeToInsert = "spam";
+    else if (upperFolderPath === "ARCHIVE") typeToInsert = "archive";
+    else typeToInsert = "custom";
+  }
+
   const newFolderId = uuidv4();
   const { data: newFolder, error: insertError } = await supabase
     .from("folders")
@@ -69,7 +89,7 @@ export async function getOrCreateFolderId(
       id: newFolderId,
       account_id: accountId,
       name: folderPath.toUpperCase(),
-      type: "inbox",
+      type: typeToInsert,
     })
     .select("id")
     .single();
