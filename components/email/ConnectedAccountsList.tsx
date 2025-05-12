@@ -146,6 +146,17 @@ export function ConnectedAccountsList({
     return false;
   };
 
+  const placeholderInitiateOAuth = (provider: "google" | "microsoft") => {
+    toast.info(
+      `OAuth connection for ${provider} is typically done when adding a new account.`
+    );
+    console.log(
+      `Placeholder: Initiate OAuth for ${provider} from edit form. This might be for re-authentication.`
+    );
+    // This function might be used in the future if re-authentication is needed
+    // or if we allow changing connection type, though that's less common for OAuth.
+  };
+
   const handleDeleteClick = (account: AccountForList) => {
     setAccountToDelete(account);
     setIsDeleteAlertOpen(true);
@@ -340,6 +351,7 @@ export function ConnectedAccountsList({
             <EmailConnectionForm
               onSubmit={handleEditSubmit}
               onTestConnection={placeholderTestConnectionEdit} // Using placeholder for now
+              onInitiateOAuth={placeholderInitiateOAuth} // Add the new prop
               isLoading={isSubmittingEdit}
               initialData={{
                 accountName: editingAccount.name || "",

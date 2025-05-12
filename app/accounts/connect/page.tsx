@@ -57,8 +57,8 @@ export default function ConnectAccountPage() {
         return;
       }
       toast.success(data.message || "Account saved successfully!");
-      router.push("/settings/accounts"); // Redirect to accounts list
-      router.refresh(); // Refresh server components on the target page
+      router.push("/accounts"); // Redirect to the new accounts list page
+      router.refresh();
     } catch (error) {
       toast.error("An unexpected error occurred while saving the account.");
       console.error("Save account error:", error);
@@ -69,13 +69,27 @@ export default function ConnectAccountPage() {
 
   const handleInitiateOAuth = (provider: "google" | "microsoft") => {
     toast.info(`Initiating connection with ${provider}...`);
-    // TODO: Redirect to backend endpoint, e.g., /api/auth/${provider}/initiate
-    // This backend endpoint will then redirect to the OAuth provider.
-    // For now, we just log it.
-    console.log(`Initiating OAuth with ${provider}`);
-    // Example of how you might redirect from the client if your backend handler
-    // is set up to expect a direct navigation:
-    // router.push(`/api/auth/${provider}/initiate`);
+    // Construct the correct callback URL for after OAuth
+    // The callback URL should bring the user back to the accounts page, or show a success message
+    const callbackUrl = `${window.location.origin}/api/auth/google/callback`; // Adjust if microsoft has a different callback
+
+    // Redirect to the backend OAuth initiation endpoint
+    // The backend will then redirect to the OAuth provider
+    // It should include the callback_url so Supabase knows where to go after auth
+    // And potentially a next_url so our callback handler knows where to send the user finally.
+    let redirectTo = `/api/auth/${provider}/initiate`;
+
+    // For Supabase OAuth, redirectTo is often handled by the server-side SDK method itself.
+    // If /api/auth/google/initiate internally calls Supabase client.auth.signInWithOAuth, ensure its redirectTo option is set correctly.
+    // For example, it should point to your /api/auth/google/callback.
+    // The /api/auth/google/callback will then handle the session and redirect to a final page, e.g., /accounts or /settings.
+
+    // If your /api/auth/google/initiate route itself is the one that starts the OAuth flow,
+    // it might construct a URL with query parameters for Supabase, one of which could be `redirect_to_after_auth_completes`.
+    // This is highly dependent on your /api/auth/${provider}/initiate implementation.
+
+    // For now, assuming your backend initiation route handles redirecting to Supabase/Google appropriately.
+    router.push(redirectTo);
   };
 
   return (
@@ -84,7 +98,8 @@ export default function ConnectAccountPage() {
         <CardHeader>
           <CardTitle>Connect New Email Account</CardTitle>
           <CardDescription>
-            Enter your email account details below to connect it to Jupiter.
+            Enter your email account details below or use a provider to connect
+            it to Jupiter.
           </CardDescription>
         </CardHeader>
         <CardContent>

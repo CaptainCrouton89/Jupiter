@@ -30,7 +30,7 @@ import {
   emailConnectionSchema,
 } from "@/lib/validations/email";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ import { toast } from "sonner";
 interface EmailConnectionFormProps {
   onSubmit: (values: EmailConnectionFormValues) => void;
   onTestConnection: (values: EmailConnectionFormValues) => Promise<boolean>;
+  onInitiateOAuth: (provider: "google" | "microsoft") => void;
   isLoading?: boolean;
   initialData?: Partial<EmailConnectionFormValues>; // For editing
 }
@@ -45,11 +46,15 @@ interface EmailConnectionFormProps {
 export function EmailConnectionForm({
   onSubmit,
   onTestConnection,
+  onInitiateOAuth,
   isLoading = false,
   initialData = {},
 }: EmailConnectionFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<
+    "google" | "microsoft" | "manual"
+  >("manual");
 
   const form = useForm<EmailConnectionFormValues>({
     resolver: zodResolver(emailConnectionSchema),
@@ -103,6 +108,14 @@ export function EmailConnectionForm({
     onSubmit(values);
   };
 
+  const handleOAuthConnect = (provider: "google" | "microsoft") => {
+    setSelectedProvider(provider);
+    onInitiateOAuth(provider);
+    // Optionally, you might want to clear or disable manual form fields here
+    // if the user chooses an OAuth provider.
+    // For now, we'll just set the provider and call the handler.
+  };
+
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
@@ -114,10 +127,49 @@ export function EmailConnectionForm({
         <CardDescription>
           {initialData?.emailAddress
             ? "Update the details for your email account."
-            : "Enter the details for your IMAP/SMTP email account."}
+            : "Enter the details for your IMAP/SMTP email account or connect with a provider."}
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+          <Button
+            variant={selectedProvider === "google" ? "default" : "outline"}
+            className="w-full sm:w-auto flex-1"
+            onClick={() => handleOAuthConnect("google")}
+            disabled={isLoading}
+          >
+            <Mail className="mr-2 h-4 w-4" /> Connect with Gmail
+          </Button>
+          <Button
+            variant={selectedProvider === "microsoft" ? "default" : "outline"}
+            className="w-full sm:w-auto flex-1"
+            onClick={() => handleOAuthConnect("microsoft")}
+            disabled={isLoading}
+          >
+            <Mail className="mr-2 h-4 w-4" /> Connect with Outlook
+          </Button>
+        </div>
+
+        {/* Optionally, show a message or separator if a provider is selected */}
+        {(selectedProvider === "google" ||
+          selectedProvider === "microsoft") && (
+          <div className="my-4 text-center text-sm text-muted-foreground">
+            Connecting with{" "}
+            {selectedProvider === "google" ? "Google" : "Microsoft"}... Follow
+            the prompts from the provider.
+            <Button
+              variant="link"
+              onClick={() => setSelectedProvider("manual")}
+              className="p-1 h-auto"
+            >
+              Or, configure manually
+            </Button>
+          </div>
+        )}
+
+        {/* Show manual form only if 'manual' is selected or no provider is chosen yet */}
+        {/* For now, let's always show it and user can ignore if using OAuth */}
+        {/* A better UX would be to hide/show based on selectedProvider */}
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(submitHandler)}

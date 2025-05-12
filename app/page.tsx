@@ -5,7 +5,7 @@ export default async function Home() {
   const { user } = await getServerSession();
 
   if (user) {
-    redirect("/inbox");
+    redirect("/settings");
   } else {
     redirect("/login");
   }
