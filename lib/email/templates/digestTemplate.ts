@@ -99,7 +99,6 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
       font-size: 1.05em;
       margin-bottom: 25px;
       color: #555;
-      font-style: italic;
     }
     .email-summary-item {
       margin-bottom: 25px;
