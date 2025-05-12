@@ -496,12 +496,21 @@ export async function POST(
               spamResult.category === "finances" ||
               spamResult.category === "code-related" ||
               spamResult.category === "notification"
+              // Any other categories that should be treated as spam for this purpose
+              // For now, let's assume these are the ones that go to the 'Spam' folder conceptually,
+              // even if the folder is named 'Spam'.
+              // If the intent is *only* for emails categorized by your new system as potential spam going to a spam folder,
+              // you might need a specific spam category like 'detected-spam' from emailCategorizer or a flag.
+              // Based on current code, these categories are just examples and emails are split into inboxEmails/spamEmails.
+              // Let's refine the condition if 'spam' means something very specific.
+              // For now, let's assume these categories are what you consider 'spam' for auto-read purposes.
             ) {
               logger.info(
-                `[SpamDebug] Classified as SPAM. MsgID: ${
+                `[SpamDebug] Classified as SPAM-like for auto-read. MsgID: ${
                   parsedEmail.messageId || "N/A"
                 }`
               );
+              parsedEmail.isRead = true; // Mark as read if it's going to be treated as spam
               spamEmails.push(parsedEmail);
             } else {
               logger.info(
