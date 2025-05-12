@@ -39,15 +39,20 @@ export default function LoginPage() {
         // redirect to accounts page
         console.log("Redirecting to /accounts");
         toast.success("Redirecting to your accounts...");
-        router.push("/accounts");
 
-        // Set up fallback redirect
-        setShouldRedirectTo("/accounts");
+        // Use a small timeout to ensure state updates are complete
+        setTimeout(() => {
+          console.log("Executing redirect via window.location");
+          window.location.href = "/accounts";
+        }, 500);
+
+        // Previous approach with router.push - commented out for debugging
+        // router.push("/accounts");
       }
       // If signup requires email confirmation, we stay on the page (or show a message)
       // The form itself will show a toast message.
     },
-    [isLoginView, router]
+    [isLoginView]
   );
 
   return (

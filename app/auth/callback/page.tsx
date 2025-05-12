@@ -27,8 +27,16 @@ export default function AuthCallback() {
         return;
       }
 
-      // Check for a redirectTo parameter
-      const redirectTo = searchParams.get("redirectTo") || "/accounts";
+      // Check for a redirectTo parameter, but avoid /settings in production
+      let redirectTo = searchParams.get("redirectTo") || "/accounts";
+
+      // If in production and redirectTo is /settings, redirect to /accounts instead
+      if (redirectTo === "/settings" && process.env.NODE_ENV === "production") {
+        console.log(
+          "Detected /settings redirect in production, using /accounts instead"
+        );
+        redirectTo = "/accounts";
+      }
 
       console.log("redirectTo", redirectTo);
 
@@ -53,12 +61,17 @@ export default function AuthCallback() {
         console.log("User settings ensured for OAuth user:", session.user.id);
 
         // Redirect to the specified page or accounts page after successful sign-in
-        router.push(redirectTo);
+        console.log(
+          `Redirecting to ${redirectTo} after successful OAuth sign-in`
+        );
+
+        // Use window.location.href instead of router.push for more reliable redirect
+        window.location.href = redirectTo;
       } catch (err) {
         console.error("Error ensuring user settings:", err);
         // Still redirect to the destination even if there was an error setting user settings
         // as this is non-critical and we don't want to block the user
-        router.push(redirectTo);
+        window.location.href = redirectTo;
       }
     };
 

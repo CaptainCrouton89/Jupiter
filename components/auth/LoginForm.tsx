@@ -93,7 +93,7 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleLoading(true);
-      const result = await signInWithGoogle("/settings");
+      const result = await signInWithGoogle("/accounts");
       if (!result.success) {
         toast.error(result.error || "Failed to sign in with Google");
       }
