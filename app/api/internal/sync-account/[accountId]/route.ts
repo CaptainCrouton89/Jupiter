@@ -458,6 +458,7 @@ export async function POST(
 
           const inboxEmails: ParsedEmailData[] = [];
           const spamEmails: ParsedEmailData[] = [];
+          const uidsToMarkAsSeenOnServer: number[] = []; // Changed to number[]
 
           logger.trace(
             `[SpamDebug] Processing ${parsedEmailsInBatch.length} emails from IMAP batch.`
@@ -488,6 +489,19 @@ export async function POST(
             // Assign the determined category to the parsedEmail object
             parsedEmail.category = spamResult.category;
 
+            // If an email is programmatically marked as read here, add its UID for IMAP sync
+            if (parsedEmail.isRead && parsedEmail.imapUid) {
+              // Check if already marked read
+              // Ensure imapUid is a number and not already included
+              const numericUid = Number(parsedEmail.imapUid);
+              if (
+                !isNaN(numericUid) &&
+                !uidsToMarkAsSeenOnServer.includes(numericUid)
+              ) {
+                uidsToMarkAsSeenOnServer.push(numericUid);
+              }
+            }
+
             if (
               spamResult.category === "newsletter" ||
               spamResult.category === "marketing" ||
@@ -511,6 +525,15 @@ export async function POST(
                 }`
               );
               parsedEmail.isRead = true; // Mark as read if it's going to be treated as spam
+              if (parsedEmail.imapUid) {
+                const numericUid = Number(parsedEmail.imapUid);
+                if (
+                  !isNaN(numericUid) &&
+                  !uidsToMarkAsSeenOnServer.includes(numericUid)
+                ) {
+                  uidsToMarkAsSeenOnServer.push(numericUid);
+                }
+              }
               spamEmails.push(parsedEmail);
             } else {
               logger.info(
@@ -604,6 +627,37 @@ export async function POST(
           logger.info(
             `Email storage for batch complete. Success: ${currentBatchProcessedCount}, Failed: ${currentBatchFailedCount}`
           );
+
+          // After storing emails, mark specified UIDs as Seen on the IMAP server
+          if (
+            uidsToMarkAsSeenOnServer.length > 0 &&
+            imapClient &&
+            imapClient.usable &&
+            mailboxLock
+          ) {
+            try {
+              logger.info(
+                `IMAP: Attempting to mark ${
+                  uidsToMarkAsSeenOnServer.length
+                } UIDs as \Seen: ${uidsToMarkAsSeenOnServer.join(", ")}`
+              );
+              await imapClient.messageFlagsAdd(
+                uidsToMarkAsSeenOnServer,
+                ["\\Seen"],
+                { uid: true }
+              );
+              logger.info(
+                `IMAP: Successfully marked ${uidsToMarkAsSeenOnServer.length} UIDs as \\Seen.`
+              );
+            } catch (flagErr: any) {
+              logger.error(
+                `IMAP: Failed to mark UIDs as \Seen: ${uidsToMarkAsSeenOnServer.join(
+                  ", "
+                )}. Error: ${flagErr.message}`
+              );
+              // Log error but don't let it fail the entire sync, as DB is already updated.
+            }
+          }
 
           // Update sync_logs with processed count for this batch
           // The uids_processed_count in sync_logs should be cumulative for the job.
