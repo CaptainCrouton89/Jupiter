@@ -45,7 +45,9 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    console.log("Login form submitted with email:", data.email);
     const result = await signIn(data.email, data.password);
+    console.log("Login result:", result);
 
     if (!result.success) {
       if (result.error && result.error.includes("Invalid login credentials")) {
@@ -64,6 +66,7 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
     }
 
     toast.success("Successfully logged in");
+    console.log("Calling onSuccess callback");
     onSuccess?.();
   };
 
