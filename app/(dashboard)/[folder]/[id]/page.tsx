@@ -137,19 +137,89 @@ export default function EmailViewPage() {
   const sanitizeHtml = (htmlContent: string | null | undefined): string => {
     if (!htmlContent) return "";
     console.log("Original HTML:", htmlContent); // Log before sanitization
+
+    // Default styles to be injected
+    const defaultStyles = `
+      <style>
+        body {
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          padding: 1rem;
+          line-height: 1.6;
+          color: #0f172a; /* Equivalent to Tailwind's slate-900 for foreground text */
+          background-color: #ffffff; /* Default white background */
+        }
+        /* Add more default styles as needed */
+        a {
+          color: #2563eb; /* A common blue for links */
+          text-decoration: underline;
+        }
+        p, li, div {
+          margin-bottom: 0.75em;
+        }
+        h1, h2, h3, h4, h5, h6 {
+          margin-top: 1.5em;
+          margin-bottom: 0.5em;
+          font-weight: 600;
+        }
+        h1 { font-size: 2em; }
+        h2 { font-size: 1.5em; }
+        h3 { font-size: 1.17em; }
+        h4 { font-size: 1em; }
+        h5 { font-size: 0.83em; }
+        h6 { font-size: 0.67em; }
+        blockquote {
+          border-left: 4px solid #e2e8f0; /* slate-200 */
+          padding-left: 1em;
+          margin-left: 0;
+          font-style: italic;
+          color: #475569; /* slate-600 */
+        }
+        pre, code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          background-color: #f1f5f9; /* slate-100 */
+          padding: 0.2em 0.4em;
+          border-radius: 0.25rem;
+        }
+        pre {
+          padding: 1em;
+          overflow-x: auto;
+        }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          margin-bottom: 1em;
+        }
+        th, td {
+          border: 1px solid #cbd5e1; /* slate-300 */
+          padding: 0.5em;
+          text-align: left;
+        }
+        th {
+          background-color: #f1f5f9; /* slate-100 */
+        }
+        img {
+          max-width: 100%;
+          height: auto;
+        }
+      </style>
+    `;
+
     // Ensure DOMPurify runs only on the client-side
     if (typeof window !== "undefined") {
       const sanitized = DOMPurify.sanitize(htmlContent, {
         USE_PROFILES: { html: true },
       });
       console.log("Sanitized HTML:", sanitized); // Log after sanitization
-      return sanitized;
+      // Prepend default styles to the sanitized HTML
+      return defaultStyles + sanitized;
     }
     console.log(
       "Sanitized HTML (SSR fallback - no sanitization):",
       htmlContent
     ); // Log SSR fallback
-    return htmlContent; // Fallback for SSR, though rendering should be client-side
+    // For SSR, still prepend styles, though the body might not be fully formed.
+    // The client-side render will eventually take over with full sanitization.
+    return defaultStyles + htmlContent;
   };
 
   if (isLoading) {
