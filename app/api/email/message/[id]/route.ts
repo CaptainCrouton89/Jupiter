@@ -204,8 +204,12 @@ export async function PATCH(
           );
         }
 
-        const imapPassword = decrypt(accountDetails.password_encrypted);
         const imapFolderPath = folderDetails.name;
+
+        if (!accountDetails.password_encrypted) {
+          throw new Error("IMAP password is not set for the account.");
+        }
+        const imapPassword = decrypt(accountDetails.password_encrypted);
 
         if (
           !accountDetails.imap_host ||
