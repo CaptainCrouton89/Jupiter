@@ -7,11 +7,11 @@ export interface EmailAccountDetails {
   id: string;
   email: string;
   name: string | null;
-  imap_host: string;
-  imap_port: number;
-  smtp_host: string;
-  smtp_port: number;
-  password_encrypted: string;
+  imap_host: string | null;
+  imap_port: number | null;
+  smtp_host: string | null;
+  smtp_port: number | null;
+  password_encrypted: string | null;
   last_synced_uid: number | null;
   last_synced_at: string | null;
   user_id: string;
