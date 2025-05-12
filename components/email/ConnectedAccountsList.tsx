@@ -226,7 +226,7 @@ export function ConnectedAccountsList({
 
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {accounts.map((account) => (
           <div key={account.id} className="space-y-4">
             <Card className="flex flex-col">

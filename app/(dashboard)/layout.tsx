@@ -1,6 +1,7 @@
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -9,15 +10,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
-import {
-  AlertOctagon,
-  Archive,
-  FileText,
-  Inbox,
-  Send,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { AlertOctagon, Inbox, Settings } from "lucide-react";
 import Link from "next/link";
 
 export default async function DashboardRootLayout({
@@ -46,7 +39,7 @@ export default async function DashboardRootLayout({
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
+                {/* <SidebarMenuItem>
                   <Link href="/starred">
                     <SidebarMenuButton tooltip="Starred">
                       <Star className="size-4" />
@@ -68,7 +61,6 @@ export default async function DashboardRootLayout({
                       <FileText className="size-4" />
                       <span>Drafts</span>
                       <SidebarMenuBadge>
-                        {/* TODO: Add badge */}
                       </SidebarMenuBadge>
                     </SidebarMenuButton>
                   </Link>
@@ -80,7 +72,7 @@ export default async function DashboardRootLayout({
                       <span>Archive</span>
                     </SidebarMenuButton>
                   </Link>
-                </SidebarMenuItem>
+                </SidebarMenuItem> */}
                 <SidebarMenuItem>
                   <Link href="/spam">
                     <SidebarMenuButton tooltip="Spam">
@@ -92,34 +84,28 @@ export default async function DashboardRootLayout({
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
+                {/* <SidebarMenuItem>
                   <Link href="/trash">
                     <SidebarMenuButton tooltip="Trash">
                       <Trash2 className="size-4" />
                       <span>Trash</span>
                     </SidebarMenuButton>
                   </Link>
-                </SidebarMenuItem>
+                </SidebarMenuItem> */}
               </SidebarMenu>
             </SidebarContent>
-            {/* Example of SidebarFooter if needed later
             <SidebarFooter className="p-2 mt-auto">
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Settings">
-                    <Settings2 className="size-4" />
-                    <span>Settings</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Support">
-                    <LifeBuoy className="size-4" />
-                    <span>Support</span>
-                  </SidebarMenuButton>
+                  <Link href="/settings">
+                    <SidebarMenuButton tooltip="Settings">
+                      <Settings className="size-4" />
+                      <span>Settings</span>
+                    </SidebarMenuButton>
+                  </Link>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarFooter>
-            */}
           </Sidebar>
           <SidebarInset className="p-6">{children}</SidebarInset>
         </div>
