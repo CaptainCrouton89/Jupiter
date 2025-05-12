@@ -17,7 +17,7 @@ export type AuthResponse = {
 };
 
 // Helper function to ensure user settings exist
-async function ensureUserSettings(userId: string): Promise<void> {
+export async function ensureUserSettings(userId: string): Promise<void> {
   try {
     // Check if settings already exist
     const { data: existingSettings, error: fetchError } = await supabase
@@ -86,6 +86,38 @@ export const auth = {
       return {
         success: false,
         error: (error as AuthError).message || "Failed to sign in",
+      };
+    }
+  },
+
+  /**
+   * Sign in with Google OAuth
+   */
+  signInWithGoogle: async (redirectTo?: string): Promise<AuthResponse> => {
+    try {
+      const finalRedirectTo = redirectTo || "/accounts";
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?redirectTo=${finalRedirectTo}`,
+        },
+      });
+
+      if (error) throw error;
+
+      // Note: For OAuth flows, we can't create user settings here since
+      // this call only initiates the OAuth redirect. The settings will
+      // be created in the OAuth callback handler.
+
+      return {
+        success: true,
+        data,
+      };
+    } catch (error) {
+      console.error("Google sign in error:", error);
+      return {
+        success: false,
+        error: (error as AuthError).message || "Failed to sign in with Google",
       };
     }
   },

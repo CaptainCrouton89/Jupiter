@@ -15,7 +15,8 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { signupSchema, type SignupFormData } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EyeIcon, EyeOffIcon, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -28,6 +29,7 @@ export function SignUpForm({ onSuccess, onToggleForm }: SignUpFormProps) {
   const { signUp, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const searchParams = useSearchParams();
 
   const {
     register,
@@ -42,6 +44,25 @@ export function SignUpForm({ onSuccess, onToggleForm }: SignUpFormProps) {
       confirmPassword: "",
     },
   });
+
+  // Handle error or message query parameters
+  useEffect(() => {
+    const error = searchParams.get("error");
+    const message = searchParams.get("message");
+
+    if (error) {
+      const errorMsg =
+        error === "Failed+to+authenticate"
+          ? "Failed to authenticate"
+          : decodeURIComponent(error.replace(/\+/g, " "));
+      setError("root", { message: errorMsg });
+    }
+
+    if (message) {
+      const decodedMessage = decodeURIComponent(message.replace(/\+/g, " "));
+      toast.error(decodedMessage);
+    }
+  }, [searchParams, setError]);
 
   const onSubmit = async (data: SignupFormData) => {
     const result = await signUp(data.email, data.password);

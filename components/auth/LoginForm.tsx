@@ -15,9 +15,8 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { loginSchema, type LoginFormData } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EyeIcon, EyeOffIcon, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -27,9 +26,11 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
-  const { signIn, isLoading } = useAuth();
+  const { signIn, signInWithGoogle, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const {
     register,
@@ -43,6 +44,25 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
       password: "",
     },
   });
+
+  // Handle error or message query parameters
+  useEffect(() => {
+    const error = searchParams.get("error");
+    const message = searchParams.get("message");
+
+    if (error) {
+      const errorMsg =
+        error === "Failed+to+authenticate"
+          ? "Failed to authenticate"
+          : decodeURIComponent(error.replace(/\+/g, " "));
+      setError("root", { message: errorMsg });
+    }
+
+    if (message) {
+      const decodedMessage = decodeURIComponent(message.replace(/\+/g, " "));
+      toast.error(decodedMessage);
+    }
+  }, [searchParams, setError]);
 
   const onSubmit = async (data: LoginFormData) => {
     console.log("Login form submitted with email:", data.email);
@@ -68,6 +88,22 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
     toast.success("Successfully logged in");
     console.log("Calling onSuccess callback");
     onSuccess?.();
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsGoogleLoading(true);
+      const result = await signInWithGoogle("/settings");
+      if (!result.success) {
+        toast.error(result.error || "Failed to sign in with Google");
+      }
+      // No need for onSuccess callback here as the redirect will happen from Google
+    } catch (error) {
+      toast.error("An error occurred during Google sign-in");
+      console.error("Google sign-in error:", error);
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   return (
@@ -161,16 +197,16 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
             </div>
           </div>
 
-          <Link
-            href="/api/auth/google/initiate?next=/accounts"
-            className="w-full"
-            passHref
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2"
+            onClick={handleGoogleSignIn}
+            disabled={isGoogleLoading}
           >
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full flex items-center justify-center gap-2"
-            >
+            {isGoogleLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
               <svg
                 viewBox="0 0 24 24"
                 width="16"
@@ -196,9 +232,9 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
                   />
                 </g>
               </svg>
-              Log in with Google
-            </Button>
-          </Link>
+            )}
+            {isGoogleLoading ? "Signing in..." : "Log in with Google"}
+          </Button>
 
           <div className="text-center text-sm">
             Don&apos;t have an account?{" "}

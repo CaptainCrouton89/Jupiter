@@ -50,6 +50,38 @@ export function useAuth() {
     [setLoading, setError, setUser]
   );
 
+  const signInWithGoogle = useCallback(
+    async (redirectTo?: string) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const finalRedirectTo = redirectTo || "/accounts";
+        const { data, error } = await clientSupabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback?redirectTo=${finalRedirectTo}`,
+          },
+        });
+
+        if (error) {
+          setError(error.message);
+          return { success: false, error: error.message };
+        }
+
+        return { success: true, data };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "An unknown error occurred";
+        setError(message);
+        return { success: false, error: message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setLoading, setError]
+  );
+
   const signUp = useCallback(
     async (email: string, password: string) => {
       try {
@@ -153,6 +185,7 @@ export function useAuth() {
     error,
     isAuthenticated,
     signIn,
+    signInWithGoogle,
     signUp,
     signOut,
     resetPassword,

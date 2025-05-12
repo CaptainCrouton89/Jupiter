@@ -3,7 +3,7 @@
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignUpForm } from "@/components/auth/SignUpForm";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -16,16 +16,16 @@ export default function LoginPage() {
   }, []);
 
   // Effect to handle fallback redirect if router.push doesn't work
-  useEffect(() => {
-    if (shouldRedirectTo) {
-      const redirectTimer = setTimeout(() => {
-        console.log("Fallback redirect triggered to:", shouldRedirectTo);
-        window.location.href = shouldRedirectTo;
-      }, 1000); // Wait 1 second to see if router.push works first
+  // useEffect(() => {
+  //   if (shouldRedirectTo) {
+  //     const redirectTimer = setTimeout(() => {
+  //       console.log("Fallback redirect triggered to:", shouldRedirectTo);
+  //       window.location.href = shouldRedirectTo;
+  //     }, 1000); // Wait 1 second to see if router.push works first
 
-      return () => clearTimeout(redirectTimer);
-    }
-  }, [shouldRedirectTo]);
+  //     return () => clearTimeout(redirectTimer);
+  //   }
+  // }, [shouldRedirectTo]);
 
   const handleAuthSuccess = useCallback(
     (emailConfirmationRequired?: boolean) => {
