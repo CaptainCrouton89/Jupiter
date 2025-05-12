@@ -34,6 +34,15 @@ const logger_placeholder = {
 // This function can be adjusted based on Vercel's recommendations for cron job execution time
 export const maxDuration = 300; // 5 minutes
 
+interface SyncAccountResponse {
+  message: string;
+  email: string;
+  newUidsFetched: number;
+  emailsSuccessfullyStored: number;
+  emailsFailedToStore: number;
+  lastUidEffectivelyProcessed: number;
+}
+
 export async function GET(request: Request) {
   // 1. Authenticate the cron job request (e.g., using a secret token)
   const authHeader = request.headers.get("authorization");
@@ -45,14 +54,21 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createNewSupabaseAdminClient();
-  let accountsProcessed = 0;
-  let accountsFailed = 0;
+
+  // Initialize aggregate counters
+  let totalUsersProcessed = 0;
+  let totalAccountsSuccessfullySynced = 0;
+  let totalAccountsFailedToSync = 0;
+  let totalNewEmailsFetched = 0;
+  let totalEmailsSuccessfullyStored = 0;
+  let totalEmailsFailedToStore = 0;
+  const processedUserIds = new Set<string>();
 
   try {
     // 2. Fetch all active email accounts
     const { data: accounts, error: fetchError } = await supabase
       .from("email_accounts")
-      .select("id, email") // Only select necessary fields
+      .select("id, email, user_id") // Ensure user_id is selected
       .eq("is_active", true); // Assuming an 'is_active' column
 
     if (fetchError) {
@@ -67,8 +83,12 @@ export async function GET(request: Request) {
       console.log("No active email accounts to sync.");
       return NextResponse.json({
         message: "No active email accounts to sync.",
-        accountsProcessed,
-        accountsFailed,
+        totalUsersProcessed,
+        totalAccountsSuccessfullySynced,
+        totalAccountsFailedToSync,
+        totalNewEmailsFetched,
+        totalEmailsSuccessfullyStored,
+        totalEmailsFailedToStore,
       });
     }
 
@@ -79,6 +99,10 @@ export async function GET(request: Request) {
     // 3. For each account, trigger the individual sync endpoint
     //    Consider processing in parallel with a concurrency limit to avoid overwhelming the system/API.
     const syncPromises = accounts.map(async (account) => {
+      if (account.user_id) {
+        // Ensure user_id is present before adding
+        processedUserIds.add(account.user_id);
+      }
       try {
         // Construct the full URL for the internal sync endpoint
         const syncUrl = new URL(
@@ -109,34 +133,57 @@ export async function GET(request: Request) {
           console.error(
             `Failed to trigger sync for account ${account.id}. Status: ${response.status}. Body: ${errorBody}`
           );
-          accountsFailed++;
+          totalAccountsFailedToSync++;
         } else {
-          console.log(`Successfully triggered sync for account ${account.id}`);
-          accountsProcessed++;
+          const result: SyncAccountResponse = await response.json();
+          console.log(
+            `Successfully synced account ${account.id}. Fetched: ${result.newUidsFetched}, Stored: ${result.emailsSuccessfullyStored}`
+          );
+          totalAccountsSuccessfullySynced++;
+          totalNewEmailsFetched += result.newUidsFetched || 0;
+          totalEmailsSuccessfullyStored += result.emailsSuccessfullyStored || 0;
+          totalEmailsFailedToStore += result.emailsFailedToStore || 0;
         }
       } catch (syncError: any) {
         console.error(
           `Error triggering sync for account ${account.id}:`,
           syncError
         );
-        accountsFailed++;
+        totalAccountsFailedToSync++;
       }
     });
 
     await Promise.all(syncPromises); // Wait for all sync triggers to complete (or fail)
 
+    totalUsersProcessed = processedUserIds.size;
+
     console.log(
-      `Cron job finished. Processed: ${accountsProcessed}, Failed: ${accountsFailed}`
+      `Cron job finished. Users: ${totalUsersProcessed}, Accounts OK: ${totalAccountsSuccessfullySynced}, Accounts Fail: ${totalAccountsFailedToSync}, New Fetched: ${totalNewEmailsFetched}, Stored OK: ${totalEmailsSuccessfullyStored}, Store Fail: ${totalEmailsFailedToStore}`
     );
     return NextResponse.json({
-      message: "Cron job executed.",
-      accountsProcessed,
-      accountsFailed,
+      message: "Email sync cron job executed.",
+      totalUsersProcessed,
+      totalAccountsSuccessfullySynced,
+      totalAccountsFailedToSync,
+      totalNewEmailsFetched,
+      totalEmailsSuccessfullyStored,
+      totalEmailsFailedToStore,
+      details: accounts.map((acc) => acc.id), // Optional: list of account IDs processed
     });
   } catch (error: any) {
     console.error("Cron job failed:", error);
     return NextResponse.json(
-      { error: "Cron job failed", details: error.message },
+      {
+        error: "Cron job failed",
+        details: error.message,
+        // Return partial stats if available, or defaults
+        totalUsersProcessed,
+        totalAccountsSuccessfullySynced,
+        totalAccountsFailedToSync,
+        totalNewEmailsFetched,
+        totalEmailsSuccessfullyStored,
+        totalEmailsFailedToStore,
+      },
       { status: 500 }
     );
   }

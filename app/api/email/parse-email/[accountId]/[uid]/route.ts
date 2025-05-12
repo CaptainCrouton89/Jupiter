@@ -1,5 +1,5 @@
-import { decrypt } from "@/lib/auth/encryption";
 import { createClient } from "@/lib/auth/server";
+import { getConnectedImapClient } from "@/lib/email/imapService";
 import { fetchAndParseEmail } from "@/lib/email/parseEmail";
 import { ImapFlow } from "imapflow";
 import { NextResponse } from "next/server";
@@ -18,7 +18,7 @@ export async function GET(
     );
   }
 
-  // Check authorization
+  // 1. Check authorization & verify account ownership by the logged-in user
   const {
     data: { user },
     error: userError,
@@ -28,125 +28,72 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Verify the account belongs to the user before attempting to connect via service
+  const { data: initialAccountCheck, error: checkError } = await supabase
+    .from("email_accounts")
+    .select("id, user_id") // Select minimal fields for check
+    .eq("id", accountId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (checkError || !initialAccountCheck) {
+    return NextResponse.json(
+      { error: "Email account not found or access denied for this user." },
+      { status: 404 }
+    );
+  }
+
+  let imapClient: ImapFlow | null = null; // For the finally block
+
   try {
-    // Verify the account exists and belongs to the user
-    const { data: account, error: accountError } = await supabase
-      .from("email_accounts")
-      .select(
-        "email, password_encrypted, imap_host, imap_port, provider, access_token_encrypted"
-      )
-      .eq("id", accountId)
-      .eq("user_id", user.id)
-      .single();
+    // 2. Get connected client using the new service
+    // The service handles fetching the full account details for connection (including tokens/passwords)
+    const { client: connectedClient, accountDetails } =
+      await getConnectedImapClient(accountId, supabase);
+    imapClient = connectedClient;
 
-    if (accountError || !account) {
-      return NextResponse.json(
-        { error: "Email account not found or access denied" },
-        { status: 404 }
-      );
-    }
+    console.log(
+      `[ParseEmailRoute] Successfully connected for account ${accountDetails.email} via ImapService`
+    );
 
-    let authPayload: any;
-    let imapHost: string;
-    let imapPort: number;
+    // 3. Open INBOX (client is already connected by the service)
+    // The service should ideally return a client that is ready or has methods to easily prepare it.
+    // For now, let's assume getConnectedImapClient returns a connected client but not necessarily with INBOX open.
+    // If mailboxOpen is specific to the task, it should be done here.
+    await imapClient.mailboxOpen("INBOX");
 
-    if (account.provider === "google") {
-      if (!account.access_token_encrypted) {
-        return NextResponse.json(
-          { error: "Google account access token not found." },
-          { status: 400 }
-        );
-      }
-      const accessToken = decrypt(account.access_token_encrypted);
-      authPayload = {
-        user: account.email,
-        accessToken: accessToken,
-      };
-      imapHost = account.imap_host || "imap.gmail.com";
-      imapPort = account.imap_port || 993;
-    } else {
-      // Manual IMAP account
-      if (!account.email) {
-        return NextResponse.json(
-          { error: "Account email not found." },
-          { status: 400 }
-        );
-      }
-      if (!account.password_encrypted) {
-        return NextResponse.json(
-          { error: "Account password not set for manual configuration." },
-          { status: 400 }
-        );
-      }
-      if (!account.imap_host || !account.imap_port) {
-        return NextResponse.json(
-          {
-            error: "IMAP server host or port not set for manual configuration.",
-          },
-          { status: 400 }
-        );
-      }
-      const password = decrypt(account.password_encrypted);
-      authPayload = {
-        user: account.email,
-        pass: password,
-      };
-      imapHost = account.imap_host;
-      imapPort = account.imap_port;
-    }
+    // 4. Fetch and parse the email with the given UID
+    const emailData = await fetchAndParseEmail(
+      imapClient,
+      parseInt(uid, 10),
+      console // Pass a logger if fetchAndParseEmail uses one
+    );
 
-    // Connect to IMAP server
-    const client = new ImapFlow({
-      host: imapHost,
-      port: imapPort,
-      secure: true, // Assume secure connection
-      auth: authPayload,
-      logger: process.env.NODE_ENV === "development" ? console : false, // DEBUG: Pass console object for imapflow logging
+    // 5. Return the parsed email data
+    return NextResponse.json({
+      success: true,
+      email: {
+        messageId: emailData.messageId,
+        subject: emailData.subject,
+        from: emailData.from,
+        to: emailData.to,
+        cc: emailData.cc,
+        date: emailData.date,
+        hasHtml: !!emailData.html,
+        hasText: !!emailData.text,
+        attachmentCount: emailData.attachments.length,
+        attachments: emailData.attachments.map((att) => ({
+          filename: att.filename,
+          contentType: att.contentType,
+          size: att.size,
+        })),
+      },
     });
-
-    try {
-      // Connect and open INBOX
-      await client.connect();
-      await client.mailboxOpen("INBOX");
-
-      // Fetch and parse the email with the given UID
-      const emailData = await fetchAndParseEmail(
-        client,
-        parseInt(uid, 10),
-        console
-      );
-
-      // Return the parsed email data
-      return NextResponse.json({
-        success: true,
-        email: {
-          // Include only essential fields to keep response size reasonable
-          messageId: emailData.messageId,
-          subject: emailData.subject,
-          from: emailData.from,
-          to: emailData.to,
-          cc: emailData.cc,
-          date: emailData.date,
-          hasHtml: !!emailData.html,
-          hasText: !!emailData.text,
-          attachmentCount: emailData.attachments.length,
-          attachments: emailData.attachments.map((att) => ({
-            filename: att.filename,
-            contentType: att.contentType,
-            size: att.size,
-          })),
-        },
-      });
-    } finally {
-      // Ensure the client is properly closed
-      try {
-        await client.logout();
-      } catch (e) {
-        console.error("Error during IMAP logout:", e);
-      }
-    }
   } catch (error) {
-    console.error("Error fetching and parsing email:", error);
+    console.error(
+      `[ParseEmailRoute] Error fetching and parsing email for account ${accountId}, UID ${uid}:`,
+      error
+    );
     return NextResponse.json(
       {
         error: "Failed to fetch and parse email",
@@ -154,5 +101,16 @@ export async function GET(
       },
       { status: 500 }
     );
+  } finally {
+    if (imapClient) {
+      try {
+        await imapClient.logout();
+        console.log(
+          `[ParseEmailRoute] Disconnected from IMAP server for account ${accountId}`
+        );
+      } catch (e) {
+        console.error("[ParseEmailRoute] Error during IMAP logout:", e);
+      }
+    }
   }
 }
