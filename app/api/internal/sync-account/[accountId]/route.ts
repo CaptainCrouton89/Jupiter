@@ -86,6 +86,9 @@ export async function POST(
     let maxUidProcessedOverall = lastSyncedUidFromDb;
 
     if (newUids.length > 0) {
+      logger.info(
+        `[SyncRoute-${currentAccountDetails.email}] Starting email processing. lastSyncedUidFromDb: ${lastSyncedUidFromDb}`
+      );
       const batchResult: ProcessEmailBatchResult = await processEmailBatch(
         supabase,
         imapClient,
@@ -98,16 +101,37 @@ export async function POST(
 
       cumulativeProcessedEmailsCount += batchResult.processedEmailsCount;
       cumulativeFailedEmailsCount += batchResult.failedEmailsCount;
+
+      logger.info(
+        `[SyncRoute-${currentAccountDetails.email}] Batch result: maxUidProcessedInBatch: ${batchResult.maxUidProcessedInBatch}, current maxUidProcessedOverall (before update): ${maxUidProcessedOverall}`
+      );
+
       if (batchResult.maxUidProcessedInBatch > maxUidProcessedOverall) {
         maxUidProcessedOverall = batchResult.maxUidProcessedInBatch;
+        logger.info(
+          `[SyncRoute-${currentAccountDetails.email}] Updated maxUidProcessedOverall to: ${maxUidProcessedOverall} (from batch)`
+        );
       }
 
+      logger.info(
+        `[SyncRoute-${currentAccountDetails.email}] About to check for DB update. maxUidProcessedOverall: ${maxUidProcessedOverall}, lastSyncedUidFromDb: ${lastSyncedUidFromDb}`
+      );
       if (maxUidProcessedOverall > lastSyncedUidFromDb) {
+        logger.info(
+          `[SyncRoute-${currentAccountDetails.email}] Condition met. Calling updateEmailAccountSyncStatus with UID: ${maxUidProcessedOverall}`
+        );
         await updateEmailAccountSyncStatus(
           supabase,
           currentAccountDetails.id,
           maxUidProcessedOverall,
           logger
+        );
+        logger.info(
+          `[SyncRoute-${currentAccountDetails.email}] Successfully called updateEmailAccountSyncStatus.`
+        );
+      } else {
+        logger.warn(
+          `[SyncRoute-${currentAccountDetails.email}] Condition NOT met for DB update. maxUidProcessedOverall (${maxUidProcessedOverall}) is not > lastSyncedUidFromDb (${lastSyncedUidFromDb}). No UID update will occur.`
         );
       }
 

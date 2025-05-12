@@ -427,7 +427,7 @@ Respond with the JSON object matching the schema, containing only the determined
 
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4.1-mini"), // Consider gpt-4o-mini if available and cost-effective
+      model: openai("gpt-4.1-mini"),
       schema: emailCategorizationSchema,
       system: systemPrompt,
       prompt: mainPrompt, // Use the new mainPrompt

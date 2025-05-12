@@ -30,14 +30,24 @@ export async function fetchNewEmailUids(
     `IMAP search: ${query.uid ? `UIDs ${query.uid}` : "all messages"}`
   );
 
-  let uids = await client.search(query, { uid: true });
+  let uidsResults = await client.search(query, { uid: true });
+
+  let uids: number[];
+  if (Array.isArray(uidsResults)) {
+    // Filter out UIDs that are not strictly greater than lastSyncedUid
+    uids = uidsResults.filter((uid) => uid > lastSyncedUid);
+  } else {
+    // Handle cases where search might not return an array (e.g., null or other type)
+    uids = [];
+  }
+
   logger.info(
-    `Raw UIDs from search: ${
-      Array.isArray(uids) ? uids.join(", ") : "Not an array or empty"
-    }`
+    `Raw UIDs from search (after filtering > ${lastSyncedUid}): ${uids.join(
+      ", "
+    )}`
   );
 
-  if (Array.isArray(uids) && uids.length > 0) {
+  if (uids.length > 0) {
     uids.sort((a, b) => a - b);
     logger.info(`Found and sorted UIDs: ${uids.join(", ")}`);
 
@@ -46,8 +56,8 @@ export async function fetchNewEmailUids(
       logger.info(`Limited to the latest 50 UIDs. Count: ${uids.length}`);
     }
   } else {
-    logger.info(`No new UIDs found since: ${lastSyncedUid}`);
-    uids = [];
+    logger.info(`No new UIDs found strictly greater than: ${lastSyncedUid}`);
+    // uids is already [] if it enters here due to the previous uids.length > 0 check
   }
   return uids;
 }

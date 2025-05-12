@@ -216,12 +216,7 @@ export async function GET(request: NextRequest) {
           >);
 
         const accountIds = userEmailAccounts.map((acc) => acc.id);
-        const newsletterContentsToSummarize: {
-          subject: string | null;
-          from: string | null;
-          content: string;
-          category: (typeof RELEVANT_CATEGORIES)[number]; // Add category here
-        }[] = [];
+        let digestsSentThisUser = 0;
 
         for (const category of RELEVANT_CATEGORIES) {
           if (categoryPreferences[category]?.digest) {
@@ -233,12 +228,14 @@ export async function GET(request: NextRequest) {
               accountIds,
               category
             );
+
             if (emailsForCategory.length > 0) {
               logger.info(
                 `Found ${emailsForCategory.length} emails for category ${category} for user ${userId}.`
               );
-              emailsForCategory.forEach((email) => {
-                newsletterContentsToSummarize.push({
+
+              const categorySpecificContents = emailsForCategory.map(
+                (email) => ({
                   subject: email.subject,
                   from: email.from_name || email.from_email,
                   content:
@@ -246,9 +243,58 @@ export async function GET(request: NextRequest) {
                     (email.body_html || "")
                       .replace(/<[^>]+>/g, " ")
                       .substring(0, 5000),
-                  category: category, // Store category
-                });
-              });
+                  receivedAt: email.received_at,
+                  // category: category, // Not strictly needed if generateDigestSummary takes category
+                })
+              );
+
+              // Generate and send digest for THIS category
+              try {
+                logger.info(
+                  `Generating digest for category: ${category} for user ${userId}.`
+                );
+                const digestHtmlSummary = await generateDigestSummary(
+                  categorySpecificContents,
+                  userEmailAccounts[0]?.name || userId, // Pass userName
+                  category // Pass category name
+                );
+
+                const sendFromAccount = userEmailAccounts[0];
+                let sendToEmail = sendFromAccount.email; // Default recipient
+
+                if (userSettings && userSettings.default_account_id) {
+                  const defaultAccount = userEmailAccounts.find(
+                    (acc) => acc.id === userSettings.default_account_id
+                  );
+                  if (defaultAccount) {
+                    sendToEmail = defaultAccount.email;
+                  }
+                }
+
+                const emailSubject = `Your Weekly ${category
+                  .replace("-", " ")
+                  .replace(/\b\w/g, (char) => char.toUpperCase())} Digest`;
+
+                await sendDigestEmail(
+                  sendFromAccount,
+                  sendToEmail,
+                  emailSubject,
+                  digestHtmlSummary
+                );
+                logger.info(
+                  `Digest for category ${category} successfully sent to ${sendToEmail} for user ${userId}.`
+                );
+                digestsSentThisUser++;
+                totalDigestsSent++; // Increment global counter
+              } catch (digestError: any) {
+                logger.error(
+                  `Error generating or sending digest for category ${category} for user ${userId}:`,
+                  digestError.message,
+                  digestError.stack
+                );
+                // Do not increment totalUsersFailed here, as other category digests for this user might succeed.
+                // The overall try-catch for the user will handle if all their digests fail.
+              }
             } else {
               logger.info(
                 `No emails found for category ${category} for user ${userId} in the last 7 days.`
@@ -257,56 +303,15 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        if (newsletterContentsToSummarize.length === 0) {
+        if (digestsSentThisUser > 0) {
+          totalUsersProcessed++; // Count user as processed if at least one digest was sent
+        } else {
           logger.info(
-            `No emails found for any enabled digest category for user ${userId}. Skipping digest.`
+            `No digests generated or sent for user ${userId} as no categories with emails were enabled for digest.`
           );
-          // totalUsersProcessed++; // Count as processed, but no digest sent
-          continue;
+          // Optionally, count this user as "processed but no digest" if needed for stats.
+          // For now, totalUsersProcessed increments only if a digest is sent.
         }
-        logger.info(
-          `Found a total of ${newsletterContentsToSummarize.length} emails across enabled categories to summarize for user ${userId}.`
-        );
-
-        // The generateDigestSummary function might need adjustment if we want per-category summaries
-        // For now, it will generate a single summary from all collected contents.
-        // Consider if a different prompt or structure is needed if multiple categories are digested.
-        const digestHtmlSummary = await generateDigestSummary(
-          newsletterContentsToSummarize.map((item) => ({
-            subject: item.subject,
-            from: item.from,
-            content: item.content,
-            // Optionally pass item.category to generateDigestSummary if it can use it
-          }))
-        );
-
-        const sendFromAccount = userEmailAccounts[0];
-        let sendToEmail = sendFromAccount.email; // Default recipient
-
-        // Use default_account_id from fetched userSettings
-        if (userSettings && userSettings.default_account_id) {
-          const defaultAccount = userEmailAccounts.find(
-            (acc) => acc.id === userSettings.default_account_id
-          );
-          if (defaultAccount) {
-            sendToEmail = defaultAccount.email;
-            logger.info(
-              `Using default account email ${sendToEmail} for user ${userId}.`
-            );
-          }
-        }
-
-        await sendDigestEmail(
-          sendFromAccount, // Send FROM this account
-          sendToEmail, // Send TO this email (could be default or same as from)
-          "Your Weekly Newsletter Digest",
-          digestHtmlSummary
-        );
-        totalDigestsSent++;
-        logger.info(
-          `Weekly digest email successfully sent to ${sendToEmail} for user ${userId}.`
-        );
-        totalUsersProcessed++;
       } catch (userError: any) {
         logger.error(
           `Failed to process digest for user ${userId}:`,
