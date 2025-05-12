@@ -12,6 +12,27 @@ export async function middleware(request: NextRequest) {
     // This will refresh the session if needed
     await supabase.auth.getUser();
 
+    // Add CORS headers for any requests to the Google auth initiate endpoint
+    if (request.nextUrl.pathname.includes("/api/auth/google/initiate")) {
+      response.headers.set("Access-Control-Allow-Origin", "*");
+      response.headers.set(
+        "Access-Control-Allow-Methods",
+        "GET, POST, OPTIONS"
+      );
+      response.headers.set(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization"
+      );
+
+      // For preflight requests
+      if (request.method === "OPTIONS") {
+        return new NextResponse(null, {
+          status: 200,
+          headers: response.headers,
+        });
+      }
+    }
+
     return response;
   } catch (e) {
     // If there's an error, proceed without modifying the response

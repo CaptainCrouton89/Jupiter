@@ -69,27 +69,14 @@ export default function ConnectAccountPage() {
 
   const handleInitiateOAuth = (provider: "google" | "microsoft") => {
     toast.info(`Initiating connection with ${provider}...`);
-    // Construct the correct callback URL for after OAuth
-    // The callback URL should bring the user back to the accounts page, or show a success message
-    const callbackUrl = `${window.location.origin}/api/auth/google/callback`; // Adjust if microsoft has a different callback
 
-    // Redirect to the backend OAuth initiation endpoint
-    // The backend will then redirect to the OAuth provider
-    // It should include the callback_url so Supabase knows where to go after auth
-    // And potentially a next_url so our callback handler knows where to send the user finally.
-    let redirectTo = `/api/auth/${provider}/initiate`;
+    // Build redirect URL with next parameter
+    // This ensures after OAuth we come back to accounts page
+    const redirectUrl = `/api/auth/${provider}/initiate?next=/accounts`;
 
-    // For Supabase OAuth, redirectTo is often handled by the server-side SDK method itself.
-    // If /api/auth/google/initiate internally calls Supabase client.auth.signInWithOAuth, ensure its redirectTo option is set correctly.
-    // For example, it should point to your /api/auth/google/callback.
-    // The /api/auth/google/callback will then handle the session and redirect to a final page, e.g., /accounts or /settings.
-
-    // If your /api/auth/google/initiate route itself is the one that starts the OAuth flow,
-    // it might construct a URL with query parameters for Supabase, one of which could be `redirect_to_after_auth_completes`.
-    // This is highly dependent on your /api/auth/${provider}/initiate implementation.
-
-    // For now, assuming your backend initiation route handles redirecting to Supabase/Google appropriately.
-    router.push(redirectTo);
+    // Use window.location.href for a hard redirect instead of router.push
+    // This prevents client-side navigation which can cause CORS issues
+    window.location.href = redirectUrl;
   };
 
   return (

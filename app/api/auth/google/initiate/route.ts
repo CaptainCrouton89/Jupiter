@@ -20,9 +20,9 @@ export async function GET(req: NextRequest) {
   const state = randomBytes(16).toString("hex");
 
   const scopes = [
+    "https://mail.google.com/", // Full access for IMAP, SMTP, POP3 via XOAUTH2
     "https://www.googleapis.com/auth/userinfo.email", // Get user's email address
     "https://www.googleapis.com/auth/userinfo.profile", // Get user's basic profile info
-    "https://mail.google.com/", // Full access for IMAP, SMTP, POP3 via XOAUTH2
     "https://www.googleapis.com/auth/gmail.readonly", // Read all resources and their metadata
     "https://www.googleapis.com/auth/gmail.modify", // Create, read, update, delete drafts, labels, messages, threads. Send messages.
     "https://www.googleapis.com/auth/gmail.send",
@@ -42,6 +42,11 @@ export async function GET(req: NextRequest) {
 
   // Create the redirect response
   const response = NextResponse.redirect(authorizationUrl);
+
+  // Add CORS headers to allow access from frontend domain
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
 
   // Set the state cookie on the response
   response.cookies.set("google_oauth_state", state, {

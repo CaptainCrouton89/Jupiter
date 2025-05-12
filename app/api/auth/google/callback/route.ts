@@ -34,6 +34,11 @@ export async function GET(req: NextRequest) {
   // We will redirect, so create a response object to modify its headers for cookie operations.
   const redirectResponse = NextResponse.redirect(new URL(nextPath, req.url)); // Use the stored next path
 
+  // Add CORS headers to allow access from frontend domain
+  redirectResponse.headers.set("Access-Control-Allow-Origin", "*");
+  redirectResponse.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  redirectResponse.headers.set("Access-Control-Allow-Headers", "Content-Type");
+
   // Clear the state cookie once read, on the outgoing response
   redirectResponse.cookies.set("google_oauth_state", "", {
     httpOnly: true,
