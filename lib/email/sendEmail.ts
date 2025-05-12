@@ -5,6 +5,7 @@ import nodemailer from "nodemailer";
 // Basic logger placeholder - replace with your actual logger if you have one
 const logger = {
   info: (...args: any[]) => console.log("[sendEmail INFO]", ...args),
+  warn: (...args: any[]) => console.warn("[sendEmail WARN]", ...args),
   error: (...args: any[]) => console.error("[sendEmail ERROR]", ...args),
 };
 
@@ -23,59 +24,115 @@ export async function sendDigestEmail(
   subject: string,
   htmlBody: string
 ): Promise<void> {
-  let decryptedPassword = "";
-  try {
-    if (!userAccount.password_encrypted) {
+  let transporter;
+
+  // Try OAuth for Google first
+  if (userAccount.provider === "google" && userAccount.access_token_encrypted) {
+    try {
+      logger.info(
+        `Attempting to send email via Google OAuth for ${userAccount.email}`
+      );
+      const decryptedAccessToken = decrypt(userAccount.access_token_encrypted);
+      if (!decryptedAccessToken) {
+        throw new Error("Decrypted access token is empty.");
+      }
+
+      transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true, // use SSL
+        auth: {
+          type: "OAuth2",
+          user: userAccount.email,
+          accessToken: decryptedAccessToken,
+          // Optionally, if you have refresh token logic and client ID/secret:
+          // clientId: process.env.GOOGLE_CLIENT_ID,
+          // clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          // refreshToken: userAccount.refresh_token_encrypted ? decrypt(userAccount.refresh_token_encrypted) : undefined,
+        },
+        tls: {
+          rejectUnauthorized: process.env.NODE_ENV === "production", // More secure for production
+        },
+      });
+      logger.info(
+        `Nodemailer transporter configured for Google OAuth for ${userAccount.email}.`
+      );
+    } catch (oauthError: any) {
+      logger.warn(
+        `Google OAuth setup failed for ${userAccount.email}: ${oauthError.message}. Falling back to password auth.`
+      );
+      // Fallback to password auth will be handled if transporter is still undefined
+    }
+  }
+
+  // If not Google OAuth or if Google OAuth setup failed, try password auth
+  if (!transporter) {
+    logger.info(
+      `Attempting to send email via password SMTP for ${userAccount.email}`
+    );
+    let decryptedPassword = "";
+    try {
+      if (!userAccount.password_encrypted) {
+        // If it's an OAuth account and we reached here, it means OAuth failed AND there's no password.
+        if (userAccount.provider) {
+          throw new Error(
+            `OAuth failed and no password_encrypted found for ${userAccount.provider} account ${userAccount.email}. Cannot send email.`
+          );
+        }
+        throw new Error(
+          "Encrypted password is missing from user account details."
+        );
+      }
+      decryptedPassword = decrypt(userAccount.password_encrypted);
+    } catch (error: any) {
+      logger.error(
+        `Failed to decrypt password for ${userAccount.email}: ${error.message}`
+      );
+      throw new Error(`Failed to decrypt password: ${error.message}`);
+    }
+
+    if (!decryptedPassword) {
+      logger.error(`Decrypted password is empty for ${userAccount.email}.`);
+      throw new Error("Decrypted password is empty.");
+    }
+
+    const smtpHost = userAccount.smtp_host;
+    const smtpPort = userAccount.smtp_port;
+
+    if (!smtpHost || !smtpPort) {
+      logger.error(
+        `SMTP host or port is missing for account ${userAccount.email}.`
+      );
       throw new Error(
-        "Encrypted password is missing from user account details."
+        `SMTP configuration (host or port) is missing for account ${userAccount.email}.`
       );
     }
-    decryptedPassword = decrypt(userAccount.password_encrypted);
-  } catch (error: any) {
-    logger.error(
-      `Failed to decrypt password for ${userAccount.email}: ${error.message}`
+
+    transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465 || smtpPort === 587, // True for 465, STARTTLS usually on 587
+      auth: {
+        user: userAccount.email,
+        pass: decryptedPassword,
+      },
+      tls: {
+        rejectUnauthorized: process.env.NODE_ENV === "production", // More secure for production
+      },
+    });
+    logger.info(
+      `Nodemailer transporter configured for password SMTP for ${userAccount.email}.`
     );
-    throw new Error(`Failed to decrypt password: ${error.message}`);
   }
 
-  if (!decryptedPassword) {
-    logger.error(`Decrypted password is empty for ${userAccount.email}.`);
-    throw new Error("Decrypted password is empty.");
-  }
-
-  // Ensure SMTP details are present in EmailAccountDetails or fetch them if necessary.
-  // For now, assuming they are part of the userAccount object passed in.
-  // The EmailAccountDetails from supabaseOps might not have SMTP host/port.
-  // We will need to adjust fetching or the interface if it doesn't.
-  // For the `email_accounts` table used in `getEmailAccountDetailsFromDb`, it does NOT have SMTP fields.
-  // This will need to be addressed. For now, proceeding with placeholder names.
-
-  const smtpHost = userAccount.smtp_host;
-  const smtpPort = userAccount.smtp_port;
-
-  if (!smtpHost || !smtpPort) {
+  if (!transporter) {
     logger.error(
-      `SMTP host or port is missing for account ${userAccount.email}.`
+      `Failed to configure any email transporter for ${userAccount.email}.`
     );
     throw new Error(
-      `SMTP configuration (host or port) is missing for account ${userAccount.email}.`
+      `Could not initialize email transporter for ${userAccount.email}. Check account configuration and logs.`
     );
   }
-
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465 || smtpPort === 587, // True for 465, STARTTLS usually on 587
-    auth: {
-      user: userAccount.email, // or userAccount.username if different
-      pass: decryptedPassword,
-    },
-    tls: {
-      // do not fail on invalid certs if using self-signed or local server
-      // For production, this should ideally be true or configured carefully.
-      rejectUnauthorized: false, // Adjust as per your SMTP server's requirements
-    },
-  });
 
   const mailOptions = {
     from: `"${userAccount.name || userAccount.email}" <${userAccount.email}>`,

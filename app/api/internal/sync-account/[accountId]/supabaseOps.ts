@@ -16,6 +16,10 @@ export interface EmailAccountDetails {
   last_synced_at: string | null;
   user_id: string;
   is_active: boolean | null;
+  provider?: string | null;
+  access_token_encrypted?: string | null;
+  refresh_token_encrypted?: string | null;
+  token_expires_at?: string | null;
 }
 
 export async function getEmailAccountDetailsFromDb(
@@ -25,7 +29,7 @@ export async function getEmailAccountDetailsFromDb(
   const { data, error } = await supabase
     .from("email_accounts")
     .select(
-      "id, email, name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, last_synced_uid, last_synced_at, user_id, is_active"
+      "id, email, name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, last_synced_uid, last_synced_at, user_id, is_active, provider, access_token_encrypted, refresh_token_encrypted, token_expires_at"
     )
     .eq("id", accountId)
     .single<EmailAccountDetails>();

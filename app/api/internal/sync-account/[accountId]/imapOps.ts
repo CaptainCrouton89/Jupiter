@@ -1,52 +1,80 @@
-import { decrypt } from "@/lib/auth/encryption";
 import { ImapFlow } from "imapflow";
 import { logger } from "./logger";
 import { EmailAccountDetails } from "./supabaseOps";
 
 export async function createImapClient(
   account: EmailAccountDetails,
-  decryptedPassword?: string
-): Promise<ImapFlow> {
-  let pass = decryptedPassword;
-  if (!pass) {
-    if (!account.password_encrypted) {
-      logger.error(
-        `Encrypted password not found for account ${account.id} and was not provided directly.`
-      );
-      throw new Error(
-        `Encrypted password not found for account ${account.id} and not provided.`
-      );
-    }
-    try {
-      pass = decrypt(account.password_encrypted);
-    } catch (e: any) {
-      logger.error(`Decryption failed for account ${account.id}: ${e.message}`);
-      throw new Error(
-        `Decryption failed for account ${account.id}: ${e.message}`
-      );
-    }
+  authPayload: {
+    user: string;
+    xoauth2?: string;
+    accessToken?: string;
+    password?: string;
   }
-  if (!pass) {
-    logger.error(`Decrypted password is empty for account ${account.id}.`);
-    throw new Error(`Decrypted password is empty for account ${account.id}.`);
+): Promise<ImapFlow> {
+  let imapAuthConf: {
+    user: string;
+    pass?: string;
+    xoauth2?: string;
+    accessToken?: string;
+  };
+
+  // Check for accessToken first (mimicking fetchEmails.ts behavior for Google)
+  if (authPayload.accessToken) {
+    imapAuthConf = {
+      user: authPayload.user,
+      accessToken: authPayload.accessToken,
+    };
+  } else if (authPayload.xoauth2) {
+    // Then check for xoauth2
+    imapAuthConf = { user: authPayload.user, xoauth2: authPayload.xoauth2 };
+  } else if (authPayload.password) {
+    // Then password
+    imapAuthConf = { user: authPayload.user, pass: authPayload.password };
+  } else {
+    logger.error(
+      `IMAP Auth config error: No valid auth method (accessToken, xoauth2, or password) provided for ${account.email}`
+    );
+    throw new Error(
+      "Invalid authPayload: missing accessToken, xoauth2, or password."
+    );
   }
 
-  const client = new ImapFlow({
+  const imapConfig: any = {
     host: account.imap_host,
     port: account.imap_port,
-    secure: account.imap_port === 993,
-    auth: {
-      user: account.email,
-      pass: pass,
-    },
+    secure: account.imap_port === 993, // Standard for IMAPS
+    auth: imapAuthConf, // Use the explicitly constructed auth config
     logger: {
       info: () => {},
       debug: () => {},
-      warn: (obj) => logger.warn("[IMAP_FLOW_WARN]", JSON.stringify(obj)),
-      error: (obj) => logger.error("[IMAP_FLOW_ERROR]", JSON.stringify(obj)),
+      warn: (obj: any) => logger.warn("[IMAP_FLOW_WARN]", JSON.stringify(obj)),
+      error: (obj: any) =>
+        logger.error("[IMAP_FLOW_ERROR]", JSON.stringify(obj)),
     },
     disableAutoIdle: true,
-  });
+  };
+
+  // Specific settings for Google OAuth2
+  if (
+    account.provider === "google" &&
+    (imapAuthConf.accessToken || imapAuthConf.xoauth2)
+  ) {
+    imapConfig.host = "imap.gmail.com";
+    imapConfig.port = 993;
+    imapConfig.secure = true;
+  }
+
+  logger.info(
+    `[IMAP_CLIENT_CONFIG] Final IMAP config for ${account.email}:`,
+    JSON.stringify(
+      imapConfig,
+      (key, value) =>
+        key === "xoauth2" || key === "pass" ? "********" : value,
+      2
+    )
+  );
+
+  const client = new ImapFlow(imapConfig);
   return client;
 }
 

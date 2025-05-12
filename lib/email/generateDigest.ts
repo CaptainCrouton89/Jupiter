@@ -21,7 +21,7 @@ const individualEmailSummarySchema = z.object({
     .min(1)
     .max(5)
     .describe(
-      "1-5 key bullet points summarizing this single email. Each bullet should be concise."
+      "1-5 key bullet points summarizing this single email. Each bullet should be concise. Number of bullets should be commensurate with the length of the email."
     ),
 });
 type IndividualEmailSummary = z.infer<typeof individualEmailSummarySchema>;
@@ -88,7 +88,7 @@ async function generateIntroHook(
 
   try {
     const { object: intro } = await generateObject({
-      model: openai("gpt-4.1-mini"),
+      model: openai("gpt-4.1"),
       temperature: 0.1,
       schema: introHookSchema,
       system: systemPrompt,

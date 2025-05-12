@@ -5,6 +5,7 @@ import {
 } from "@/lib/email/emailCategorizer";
 import { fetchAndParseEmails, ParsedEmailData } from "@/lib/email/parseEmail";
 import { storeEmails } from "@/lib/email/storeEmails";
+import type { CategoryPreferences } from "@/types/settings";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { ImapFlow } from "imapflow";
 import { markMessagesAsSeen } from "./imapOps";
@@ -16,6 +17,20 @@ import {
 } from "./supabaseOps";
 
 const RATE_LIMIT_DELAY_MS = 200;
+
+// Define CONFIGURABLE_CATEGORIES, mirroring categories for which users can set actions
+const CONFIGURABLE_CATEGORIES = [
+  "newsletter",
+  "marketing",
+  "receipt",
+  "invoice",
+  "finances",
+  "code-related",
+  "notification",
+  "account-related",
+  "personal",
+] as const;
+export type ConfigurableCategory = (typeof CONFIGURABLE_CATEGORIES)[number];
 
 export interface ProcessEmailBatchResult {
   processedEmailsCount: number;
@@ -50,6 +65,42 @@ export async function processEmailBatch(
     };
   }
 
+  // Fetch user settings for this account's user
+  let userCategoryPreferences: CategoryPreferences = {};
+  if (account.user_id) {
+    const { data: userSettings, error: settingsError } = await supabase
+      .from("user_settings")
+      .select("category_preferences")
+      .eq("user_id", account.user_id)
+      .single();
+
+    if (settingsError && settingsError.code !== "PGRST116") {
+      logger.error(
+        `Error fetching user settings for user ${account.user_id} (account ${account.id}):`,
+        settingsError
+      );
+      // Decide if we should proceed with defaults or fail the batch for this user
+    }
+    if (userSettings && userSettings.category_preferences) {
+      userCategoryPreferences =
+        userSettings.category_preferences as CategoryPreferences;
+    } else {
+      logger.info(
+        `No category preferences found for user ${account.user_id}. Using default actions.`
+      );
+      // Ensure userCategoryPreferences is an empty object with the correct type for iteration
+      CONFIGURABLE_CATEGORIES.forEach((cat) => {
+        if (!userCategoryPreferences[cat]) {
+          userCategoryPreferences[cat] = { action: "none", digest: false };
+        }
+      });
+    }
+  } else {
+    logger.warn(
+      `Account ${account.id} does not have a user_id. Cannot fetch category preferences.`
+    );
+  }
+
   logger.info(
     `Fetching and parsing ${newUids.length} emails for account ${account.id}...`
   );
@@ -71,26 +122,38 @@ export async function processEmailBatch(
     const uidsToMarkAsSeenOnServer: number[] = [];
 
     for (const parsedEmail of parsedEmailsData) {
-      const spamEvaluationInput = {
+      const categorizationInput = {
         from: parsedEmail.from,
         subject: parsedEmail.subject,
         textContent: parsedEmail.text,
         htmlContent: parsedEmail.html,
         headers: parsedEmail.headers,
       };
-      const spamResult: EmailCategorizationResult = await categorizeEmail(
-        spamEvaluationInput
-      );
-      parsedEmail.category = spamResult.category;
+      // Categorize the email first
+      const categorizationResult: EmailCategorizationResult =
+        await categorizeEmail(categorizationInput);
+      parsedEmail.category = categorizationResult.category;
 
       logger.info(
         `[CategorizationDebug] Email (MsgID: ${
           parsedEmail.messageId || "N/A"
         }, UID: ${parsedEmail.imapUid || "N/A"}, Subject: "${
           parsedEmail.subject || "N/A"
-        }") for account ${account.id}: Category - ${spamResult.category}`
+        }") for account ${account.id}: Category - ${parsedEmail.category}`
       );
 
+      // Get user preference for this category
+      const emailCategory = parsedEmail.category as ConfigurableCategory; // Assume category is one of these
+      const preference = userCategoryPreferences[emailCategory] || {
+        action: "none",
+        digest: false,
+      };
+
+      logger.info(
+        `[PreferenceDebug] Account ${account.id}, Email UID ${parsedEmail.imapUid}, Category: ${emailCategory}, User Action Preference: ${preference.action}`
+      );
+
+      // If email was already read on server, ensure it's marked as seen later if no other action overrides.
       if (parsedEmail.isRead && parsedEmail.imapUid) {
         const numericUid = Number(parsedEmail.imapUid);
         if (
@@ -101,24 +164,25 @@ export async function processEmailBatch(
         }
       }
 
-      if (
-        [
-          "newsletter",
-          "marketing",
-          "receipt",
-          "invoice",
-          "finances",
-          "code-related",
-          "notification",
-          "spam",
-        ].includes(spamResult.category.toLowerCase())
-      ) {
+      // Apply action based on user preference
+      if (preference.action === "mark_as_spam") {
         logger.info(
-          `[SpamDebug] Email UID ${
-            parsedEmail.imapUid
-          } classified as SPAM-like for auto-read. MsgID: ${
-            parsedEmail.messageId || "N/A"
-          }`
+          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Marking as SPAM based on user preference for category '${emailCategory}'.`
+        );
+        parsedEmail.isRead = true; // Mark as read when moving to spam
+        if (parsedEmail.imapUid) {
+          const numericUid = Number(parsedEmail.imapUid);
+          if (
+            !isNaN(numericUid) &&
+            !uidsToMarkAsSeenOnServer.includes(numericUid)
+          ) {
+            uidsToMarkAsSeenOnServer.push(numericUid);
+          }
+        }
+        spamEmails.push(parsedEmail);
+      } else if (preference.action === "mark_as_read") {
+        logger.info(
+          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Marking as READ based on user preference for category '${emailCategory}'.`
         );
         parsedEmail.isRead = true;
         if (parsedEmail.imapUid) {
@@ -130,13 +194,16 @@ export async function processEmailBatch(
             uidsToMarkAsSeenOnServer.push(numericUid);
           }
         }
-        spamEmails.push(parsedEmail);
+        inboxEmails.push(parsedEmail);
       } else {
+        // Default action: "none" or category not in configurable list, or no preference set.
+        // It goes to inbox. isRead status is preserved from server.
         logger.info(
-          `[SpamDebug] Email UID ${
-            parsedEmail.imapUid
-          } classified as INBOX. MsgID: ${parsedEmail.messageId || "N/A"}`
+          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Taking NO ACTION (to inbox) based on user preference ('${preference.action}') for category '${emailCategory}'. Original isRead: ${parsedEmail.isRead}`
         );
+        // If original category was "spam" from categorizer, and action is "none", it goes to inbox.
+        // This behavior might need review if "spam" from categorizer should always override to spam folder.
+        // For now, user preference for "none" on a category (even if categorizer called it "spam") means inbox.
         inboxEmails.push(parsedEmail);
       }
     }

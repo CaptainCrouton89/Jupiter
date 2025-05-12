@@ -13,6 +13,20 @@ const logger = {
   error: (...args: any[]) => console.error("[WeeklyDigest ERROR]", ...args),
 };
 
+// Define RELEVANT_CATEGORIES, mirroring app/settings/page.tsx
+const RELEVANT_CATEGORIES = [
+  "newsletter",
+  "marketing",
+  "receipt",
+  "invoice",
+  "finances",
+  "code-related",
+  "notification",
+  "account-related",
+  "personal",
+  // "email-verification" and "uncategorizable" are typically not digested
+] as const;
+
 export const maxDuration = 300; // 5 minutes, adjust as needed for AI processing
 
 async function fetchUserEmailAccounts(
@@ -22,7 +36,7 @@ async function fetchUserEmailAccounts(
   const { data, error } = await supabase
     .from("email_accounts")
     .select(
-      "id, email, name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, last_synced_uid, last_synced_at, user_id, is_active"
+      "id, email, name, imap_host, imap_port, smtp_host, smtp_port, password_encrypted, last_synced_uid, last_synced_at, user_id, is_active, provider, access_token_encrypted, refresh_token_encrypted"
     )
     .eq("user_id", userId)
     .eq("is_active", true);
@@ -34,9 +48,10 @@ async function fetchUserEmailAccounts(
   return data || [];
 }
 
-async function fetchNewslettersForUser(
+async function fetchEmailsForCategory(
   supabase: SupabaseClient<Database>,
-  userAccountIds: string[]
+  userAccountIds: string[],
+  categoryName: (typeof RELEVANT_CATEGORIES)[number]
 ): Promise<Tables<"emails">[]> {
   const sevenDaysAgo = new Date(
     Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -51,14 +66,20 @@ async function fetchNewslettersForUser(
 
   if (foldersError) {
     logger.error(
-      `Error fetching folders for accounts ${userAccountIds.join(", ")}:`,
+      `Error fetching folders for accounts ${userAccountIds.join(
+        ", "
+      )} for category ${categoryName}:`,
       foldersError
     );
     return []; // Or throw, depending on desired error handling
   }
 
   if (!folders || folders.length === 0) {
-    logger.info(`No folders found for accounts ${userAccountIds.join(", ")}.`);
+    logger.info(
+      `No folders found for accounts ${userAccountIds.join(
+        ", "
+      )} for category ${categoryName}.`
+    );
     return [];
   }
 
@@ -69,13 +90,15 @@ async function fetchNewslettersForUser(
     .select("*") // Select all fields for now, can be optimized
     .in("account_id", userAccountIds)
     .in("folder_id", folderIds) // Filter by folders belonging to these accounts
-    .eq("category", "newsletter") // Ensure this matches exactly what emailCategorizer uses
+    .eq("category", categoryName) // Use the provided categoryName
     .gte("received_at", sevenDaysAgo)
     .order("received_at", { ascending: false });
 
   if (emailsError) {
     logger.error(
-      `Error fetching newsletters for accounts ${userAccountIds.join(", ")}:`,
+      `Error fetching emails for category ${categoryName} for accounts ${userAccountIds.join(
+        ", "
+      )}:`,
       emailsError
     );
     return [];
@@ -162,45 +185,108 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        const accountIds = userEmailAccounts.map((acc) => acc.id);
-        const newsletters = await fetchNewslettersForUser(supabase, accountIds);
+        // Fetch user settings for category preferences
+        const { data: userSettings, error: userSettingsError } = await supabase
+          .from("user_settings")
+          .select("category_preferences, default_account_id")
+          .eq("user_id", userId)
+          .single();
 
-        if (newsletters.length === 0) {
+        if (userSettingsError) {
+          logger.error(
+            `Error fetching user settings for user ${userId}:`,
+            userSettingsError
+          );
+          totalUsersFailed++;
+          continue;
+        }
+
+        // Ensure categoryPreferences is always a Record, even if empty
+        const categoryPreferences: Record<
+          (typeof RELEVANT_CATEGORIES)[number],
+          { action: string; digest: boolean }
+        > =
+          (userSettings?.category_preferences as Record<
+            (typeof RELEVANT_CATEGORIES)[number],
+            { action: string; digest: boolean }
+          >) ||
+          ({} as Record<
+            (typeof RELEVANT_CATEGORIES)[number],
+            { action: string; digest: boolean }
+          >);
+
+        const accountIds = userEmailAccounts.map((acc) => acc.id);
+        const newsletterContentsToSummarize: {
+          subject: string | null;
+          from: string | null;
+          content: string;
+          category: (typeof RELEVANT_CATEGORIES)[number]; // Add category here
+        }[] = [];
+
+        for (const category of RELEVANT_CATEGORIES) {
+          if (categoryPreferences[category]?.digest) {
+            logger.info(
+              `User ${userId} has digest enabled for category: ${category}. Fetching emails.`
+            );
+            const emailsForCategory = await fetchEmailsForCategory(
+              supabase,
+              accountIds,
+              category
+            );
+            if (emailsForCategory.length > 0) {
+              logger.info(
+                `Found ${emailsForCategory.length} emails for category ${category} for user ${userId}.`
+              );
+              emailsForCategory.forEach((email) => {
+                newsletterContentsToSummarize.push({
+                  subject: email.subject,
+                  from: email.from_name || email.from_email,
+                  content:
+                    email.body_text ||
+                    (email.body_html || "")
+                      .replace(/<[^>]+>/g, " ")
+                      .substring(0, 5000),
+                  category: category, // Store category
+                });
+              });
+            } else {
+              logger.info(
+                `No emails found for category ${category} for user ${userId} in the last 7 days.`
+              );
+            }
+          }
+        }
+
+        if (newsletterContentsToSummarize.length === 0) {
           logger.info(
-            `No newsletters found for user ${userId} in the last 7 days. Skipping digest.`
+            `No emails found for any enabled digest category for user ${userId}. Skipping digest.`
           );
           // totalUsersProcessed++; // Count as processed, but no digest sent
           continue;
         }
         logger.info(
-          `Found ${newsletters.length} newsletters to summarize for user ${userId}.`
+          `Found a total of ${newsletterContentsToSummarize.length} emails across enabled categories to summarize for user ${userId}.`
         );
 
-        const newsletterContentsToSummarize = newsletters.map((email) => ({
-          subject: email.subject,
-          from: email.from_name || email.from_email,
-          content:
-            email.body_text ||
-            (email.body_html || "").replace(/<[^>]+>/g, " ").substring(0, 5000),
-        }));
-
+        // The generateDigestSummary function might need adjustment if we want per-category summaries
+        // For now, it will generate a single summary from all collected contents.
+        // Consider if a different prompt or structure is needed if multiple categories are digested.
         const digestHtmlSummary = await generateDigestSummary(
-          newsletterContentsToSummarize
+          newsletterContentsToSummarize.map((item) => ({
+            subject: item.subject,
+            from: item.from,
+            content: item.content,
+            // Optionally pass item.category to generateDigestSummary if it can use it
+          }))
         );
 
         const sendFromAccount = userEmailAccounts[0];
         let sendToEmail = sendFromAccount.email; // Default recipient
 
-        // Attempt to find user's default email from user_settings
-        const { data: userSetting } = await supabase
-          .from("user_settings")
-          .select("default_account_id")
-          .eq("user_id", userId)
-          .single();
-
-        if (userSetting && userSetting.default_account_id) {
+        // Use default_account_id from fetched userSettings
+        if (userSettings && userSettings.default_account_id) {
           const defaultAccount = userEmailAccounts.find(
-            (acc) => acc.id === userSetting.default_account_id
+            (acc) => acc.id === userSettings.default_account_id
           );
           if (defaultAccount) {
             sendToEmail = defaultAccount.email;
