@@ -1,4 +1,9 @@
-export type CategoryAction = "none" | "mark_as_read" | "mark_as_spam";
+export type CategoryAction =
+  | "none"
+  | "mark_as_read"
+  | "mark_as_spam"
+  | "archive"
+  | "trash";
 
 export interface CategoryPreference {
   action: CategoryAction;

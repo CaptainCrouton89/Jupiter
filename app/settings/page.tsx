@@ -366,6 +366,30 @@ export default function SettingsPage() {
                             </div>
                             <div className="flex items-center space-x-2">
                               <RadioGroupItem
+                                value="archive"
+                                id={`${category}-action-archive`}
+                              />
+                              <Label
+                                htmlFor={`${category}-action-archive`}
+                                className="font-normal text-sm"
+                              >
+                                Archive
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value="trash"
+                                id={`${category}-action-trash`}
+                              />
+                              <Label
+                                htmlFor={`${category}-action-trash`}
+                                className="font-normal text-sm"
+                              >
+                                Trash
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
                                 value="mark_as_spam"
                                 id={`${category}-action-spam`}
                               />

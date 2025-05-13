@@ -181,51 +181,188 @@ export async function getJunkFolderRemoteName(
   }
 }
 
-export async function moveMessagesToJunk(
+export async function getArchiveFolderRemoteName(
+  client: ImapFlow,
+  logger: any
+): Promise<string | null> {
+  try {
+    logger.info("IMAP: Listing mailboxes to find Archive folder...");
+    const mailboxes: import("imapflow").ListResponse[] = await client.list();
+    let archivePath: string | null = null;
+
+    // Look for \Archive attribute
+    for (const mailbox of mailboxes) {
+      if (mailbox.specialUse === "\\Archive") {
+        logger.info(
+          `IMAP: Found Archive folder by specialUse attribute \\Archive: '${mailbox.path}'`
+        );
+        archivePath = mailbox.path;
+        break;
+      }
+    }
+
+    // If not found, try common names
+    if (!archivePath) {
+      const commonArchiveNames = ["archive", "archived", "all mail"]; // Added "All Mail" common for Gmail
+      for (const mailbox of mailboxes) {
+        const mailboxNameLower = mailbox.name.toLowerCase();
+        if (commonArchiveNames.includes(mailboxNameLower)) {
+          logger.info(
+            `IMAP: Found potential Archive folder by common name: '${mailbox.path}' (matches '${mailboxNameLower}')`
+          );
+          archivePath = mailbox.path;
+          break;
+        }
+      }
+    }
+
+    // Check for Gmail specific All Mail folder if still not found
+    if (!archivePath) {
+      const gmailAllMailPattern = /\[gmail\]\/all mail/i; // Matches "[Gmail]/All Mail"
+      for (const mailbox of mailboxes) {
+        if (gmailAllMailPattern.test(mailbox.path)) {
+          logger.info(
+            `IMAP: Found potential Gmail All Mail folder by pattern: '${mailbox.path}'`
+          );
+          archivePath = mailbox.path;
+          break;
+        }
+      }
+    }
+
+    if (archivePath) {
+      logger.info(`IMAP: Using Archive folder: '${archivePath}'`);
+    } else {
+      logger.warn("IMAP: Could not identify an Archive folder on the server.");
+    }
+    return archivePath;
+  } catch (error: any) {
+    logger.error(
+      `IMAP: Error listing mailboxes to find Archive folder: ${error.message}`,
+      error
+    );
+    return null;
+  }
+}
+
+export async function getTrashFolderRemoteName(
+  client: ImapFlow,
+  logger: any
+): Promise<string | null> {
+  try {
+    logger.info("IMAP: Listing mailboxes to find Trash folder...");
+    const mailboxes: import("imapflow").ListResponse[] = await client.list();
+    let trashPath: string | null = null;
+
+    // Look for \Trash attribute
+    for (const mailbox of mailboxes) {
+      if (mailbox.specialUse === "\\Trash") {
+        logger.info(
+          `IMAP: Found Trash folder by specialUse attribute \\Trash: '${mailbox.path}'`
+        );
+        trashPath = mailbox.path;
+        break;
+      }
+    }
+
+    // If not found, try common names
+    if (!trashPath) {
+      const commonTrashNames = [
+        "trash",
+        "deleted items",
+        "bin",
+        "deleted messages",
+      ];
+      for (const mailbox of mailboxes) {
+        const mailboxNameLower = mailbox.name.toLowerCase();
+        if (commonTrashNames.includes(mailboxNameLower)) {
+          logger.info(
+            `IMAP: Found potential Trash folder by common name: '${mailbox.path}' (matches '${mailboxNameLower}')`
+          );
+          trashPath = mailbox.path;
+          break;
+        }
+      }
+    }
+
+    // Check for Gmail specific Trash folder if still not found
+    if (!trashPath) {
+      const gmailTrashPattern = /\[gmail\]\/trash/i; // Matches "[Gmail]/Trash"
+      for (const mailbox of mailboxes) {
+        if (gmailTrashPattern.test(mailbox.path)) {
+          logger.info(
+            `IMAP: Found potential Gmail Trash folder by pattern: '${mailbox.path}'`
+          );
+          trashPath = mailbox.path;
+          break;
+        }
+      }
+    }
+
+    if (trashPath) {
+      logger.info(`IMAP: Using Trash folder: '${trashPath}'`);
+    } else {
+      logger.warn("IMAP: Could not identify a Trash folder on the server.");
+    }
+    return trashPath;
+  } catch (error: any) {
+    logger.error(
+      `IMAP: Error listing mailboxes to find Trash folder: ${error.message}`,
+      error
+    );
+    return null;
+  }
+}
+
+// Refactored function to handle moving messages to any target folder
+export async function moveMessagesToServerFolder(
   client: ImapFlow,
   uids: number[],
-  junkFolderName: string,
-  logger: any // Assuming logger has info, warn, error methods
+  targetFolderName: string,
+  actionName: string, // e.g., "Junk", "Archive", "Trash" for logging
+  logger: any
 ): Promise<number[]> {
   const successfullyMovedUids: number[] = [];
-  if (uids.length === 0 || !client || !client.usable) {
-    logger.info("IMAP: No UIDs to move to Junk or client not usable.");
+  if (uids.length === 0 || !client || !client.usable || !targetFolderName) {
+    if (!targetFolderName)
+      logger.warn(
+        `IMAP: Cannot move messages, target folder name is invalid for action: ${actionName}.`
+      );
+    else
+      logger.info(
+        `IMAP: No UIDs to move to ${actionName} or client not usable.`
+      );
     return successfullyMovedUids;
   }
 
   logger.info(
     `IMAP: Attempting to move ${
       uids.length
-    } UIDs to Junk folder '${junkFolderName}': ${uids.join(", ")}`
+    } UIDs to ${actionName} folder '${targetFolderName}': ${uids.join(", ")}`
   );
 
   for (const uid of uids) {
     try {
-      // Ensure UID is a string for ImapFlow
       const uidString = String(uid);
-      // messageMove moves from the *currently selected mailbox*
-      await client.messageMove(uidString, junkFolderName, { uid: true });
+      // Ensure the client is in the correct state (mailbox selected)
+      // Assuming the lock is already held on INBOX where these UIDs reside
+      await client.messageMove(uidString, targetFolderName, { uid: true });
       logger.info(
-        `IMAP: Successfully moved UID ${uidString} to '${junkFolderName}'.`
+        `IMAP: Successfully moved UID ${uidString} to '${targetFolderName}' (${actionName}).`
       );
       successfullyMovedUids.push(uid);
     } catch (moveError: any) {
-      // It's possible the message doesn't exist (e.g., already moved/deleted)
-      // Or the mailbox doesn't allow moving messages.
-      // ImapFlow might throw an error with a `responseText` like "NO [NONEXISTENT]..."
       logger.warn(
-        `IMAP: Failed to move UID ${uid} to '${junkFolderName}'. Error: ${
+        `IMAP: Failed to move UID ${uid} to '${targetFolderName}' (${actionName}). Error: ${
           moveError.message
         } (Code: ${moveError.code || "N/A"}, Response: ${
           moveError.responseText || "N/A"
         })`
       );
-      // Decide if specific errors should halt the process or be critical.
-      // For now, we log and continue with other UIDs.
     }
   }
   logger.info(
-    `IMAP: Finished moving messages to Junk. Successfully moved ${
+    `IMAP: Finished moving messages to ${actionName}. Successfully moved ${
       successfullyMovedUids.length
     }/${uids.length} UIDs: ${successfullyMovedUids.join(", ")}`
   );

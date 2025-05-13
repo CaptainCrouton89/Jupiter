@@ -9,9 +9,11 @@ import type { CategoryPreferences } from "@/types/settings";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { ImapFlow } from "imapflow";
 import {
+  getArchiveFolderRemoteName,
   getJunkFolderRemoteName,
+  getTrashFolderRemoteName,
   markMessagesAsSeen,
-  moveMessagesToJunk,
+  moveMessagesToServerFolder,
 } from "./imapOps";
 import { logger } from "./logger";
 import {
@@ -57,6 +59,8 @@ export async function processEmailBatch(
   let maxUidProcessedThisBatch = initialMaxUidProcessed;
   const uidsSuccessfullyStoredThisBatch: number[] = [];
   const uidsToMoveToJunk: number[] = [];
+  const uidsToArchive: number[] = [];
+  const uidsToTrash: number[] = [];
 
   if (newUids.length === 0) {
     logger.info(
@@ -178,8 +182,7 @@ export async function processEmailBatch(
         if (parsedEmail.imapUid) {
           const numericUid = Number(parsedEmail.imapUid);
           if (!isNaN(numericUid)) {
-            uidsToMoveToJunk.push(numericUid); // Add to move list
-            // Also add to seen list in case move fails, or move doesn't mark seen
+            uidsToMoveToJunk.push(numericUid);
             if (!uidsToMarkAsSeenOnServer.includes(numericUid)) {
               uidsToMarkAsSeenOnServer.push(numericUid);
             }
@@ -201,9 +204,40 @@ export async function processEmailBatch(
           }
         }
         inboxEmails.push(parsedEmail);
+      } else if (preference.action === "archive") {
+        logger.info(
+          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: ARCHIVING based on user preference for category '${emailCategory}'.`
+        );
+        parsedEmail.isRead = true; // Mark as read for server move/flag consistency
+        if (parsedEmail.imapUid) {
+          const numericUid = Number(parsedEmail.imapUid);
+          if (!isNaN(numericUid)) {
+            uidsToArchive.push(numericUid);
+            // Also add to seen list initially, will be removed if move is successful
+            if (!uidsToMarkAsSeenOnServer.includes(numericUid)) {
+              uidsToMarkAsSeenOnServer.push(numericUid);
+            }
+          }
+        }
+        // DO NOT add to inboxEmails or spamEmails - it's being archived on server
+      } else if (preference.action === "trash") {
+        logger.info(
+          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: TRASHING based on user preference for category '${emailCategory}'.`
+        );
+        parsedEmail.isRead = true; // Mark as read for server move/flag consistency
+        if (parsedEmail.imapUid) {
+          const numericUid = Number(parsedEmail.imapUid);
+          if (!isNaN(numericUid)) {
+            uidsToTrash.push(numericUid);
+            // Also add to seen list initially, will be removed if move is successful
+            if (!uidsToMarkAsSeenOnServer.includes(numericUid)) {
+              uidsToMarkAsSeenOnServer.push(numericUid);
+            }
+          }
+        }
+        // DO NOT add to inboxEmails or spamEmails - it's being trashed on server
       } else {
         // Default action: "none" or category not in configurable list, or no preference set.
-        // It goes to inbox. isRead status is preserved from server.
         logger.info(
           `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Taking NO ACTION (to inbox) based on user preference ('${preference.action}') for category '${emailCategory}'. Original isRead: ${parsedEmail.isRead}`
         );
@@ -221,17 +255,17 @@ export async function processEmailBatch(
       );
       const junkFolderName = await getJunkFolderRemoteName(imapClient, logger);
       if (junkFolderName) {
-        const movedUids = await moveMessagesToJunk(
+        const movedUids = await moveMessagesToServerFolder(
           imapClient,
           uidsToMoveToJunk,
           junkFolderName,
+          "Junk",
           logger
         );
         if (movedUids.length > 0) {
           logger.info(
-            `Successfully moved ${movedUids.length} emails to Junk folder '${junkFolderName}' for account ${account.id}. Removing from seen list.`
+            `Successfully moved ${movedUids.length} emails to Junk folder '${junkFolderName}' for account ${account.id}. Removing from general seen list.`
           );
-          // Remove successfully moved UIDs from the list to mark as seen in INBOX
           uidsToMarkAsSeenOnServer = uidsToMarkAsSeenOnServer.filter(
             (uid) => !movedUids.includes(uid)
           );
@@ -247,7 +281,97 @@ export async function processEmailBatch(
       }
     }
 
-    // Mark remaining necessary emails as seen on server
+    // Move emails marked for Archive to Archive folder on server
+    if (uidsToArchive.length > 0) {
+      logger.info(
+        `ARCHIVE: Processing ${uidsToArchive.length} emails for account ${account.id}. First marking as SEEN.`
+      );
+      // Mark as SEEN in INBOX first
+      await markMessagesAsSeen(imapClient, uidsToArchive);
+      logger.info(
+        `ARCHIVE: Marked ${uidsToArchive.length} UIDs as SEEN in INBOX for account ${account.id}. Now attempting move.`
+      );
+
+      const archiveFolderName = await getArchiveFolderRemoteName(
+        imapClient,
+        logger
+      );
+      if (archiveFolderName) {
+        const movedUids = await moveMessagesToServerFolder(
+          imapClient,
+          uidsToArchive,
+          archiveFolderName,
+          "Archive",
+          logger
+        );
+        if (movedUids.length > 0) {
+          logger.info(
+            `ARCHIVE: Successfully moved ${movedUids.length} emails to Archive folder '${archiveFolderName}' for account ${account.id}. Removing from general seen list.`
+          );
+          // Remove successfully moved (and already marked seen) UIDs from the general list
+          uidsToMarkAsSeenOnServer = uidsToMarkAsSeenOnServer.filter(
+            (uid) => !movedUids.includes(uid)
+          );
+        } else {
+          logger.warn(
+            `ARCHIVE: Failed to move any of the ${uidsToArchive.length} designated archive emails to Archive folder '${archiveFolderName}' for account ${account.id}. They were already marked as SEEN in INBOX.`
+          );
+          // If move failed, they remain in INBOX (and were already marked as seen). The uidsToMarkAsSeenOnServer list
+          // still contains them from the loop, so the final sweep is not strictly needed for these specific UIDs,
+          // but filtering them out if the intent was *only* archive-and-seen is complex if they were also e.g. just 'mark_as_read'.
+          // The current filter is correct: if moved, remove. If not moved, they might be processed by final sweep if still in list.
+        }
+      } else {
+        logger.warn(
+          `ARCHIVE: Could not find Archive folder for account ${account.id}. ${uidsToArchive.length} emails were marked as SEEN in INBOX but not moved.`
+        );
+      }
+    }
+
+    // Move emails marked for Trash to Trash folder on server
+    if (uidsToTrash.length > 0) {
+      logger.info(
+        `TRASH: Processing ${uidsToTrash.length} emails for account ${account.id}. First marking as SEEN.`
+      );
+      // Mark as SEEN in INBOX first
+      await markMessagesAsSeen(imapClient, uidsToTrash);
+      logger.info(
+        `TRASH: Marked ${uidsToTrash.length} UIDs as SEEN in INBOX for account ${account.id}. Now attempting move.`
+      );
+
+      const trashFolderName = await getTrashFolderRemoteName(
+        imapClient,
+        logger
+      );
+      if (trashFolderName) {
+        const movedUids = await moveMessagesToServerFolder(
+          imapClient,
+          uidsToTrash,
+          trashFolderName,
+          "Trash",
+          logger
+        );
+        if (movedUids.length > 0) {
+          logger.info(
+            `TRASH: Successfully moved ${movedUids.length} emails to Trash folder '${trashFolderName}' for account ${account.id}. Removing from general seen list.`
+          );
+          // Remove successfully moved (and already marked seen) UIDs from the general list
+          uidsToMarkAsSeenOnServer = uidsToMarkAsSeenOnServer.filter(
+            (uid) => !movedUids.includes(uid)
+          );
+        } else {
+          logger.warn(
+            `TRASH: Failed to move any of the ${uidsToTrash.length} designated trash emails to Trash folder '${trashFolderName}' for account ${account.id}. They were already marked as SEEN in INBOX.`
+          );
+        }
+      } else {
+        logger.warn(
+          `TRASH: Could not find Trash folder for account ${account.id}. ${uidsToTrash.length} emails were marked as SEEN in INBOX but not moved.`
+        );
+      }
+    }
+
+    // Mark remaining necessary emails as seen on server (e.g. for "mark_as_read" action, or originally read emails, or failed moves that were intended to be seen)
     if (uidsToMarkAsSeenOnServer.length > 0) {
       logger.info(
         `Attempting to mark ${uidsToMarkAsSeenOnServer.length} emails as seen on server for account ${account.id}`
