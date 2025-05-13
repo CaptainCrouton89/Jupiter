@@ -1,11 +1,8 @@
 import { Database } from "@/lib/database.types";
-import {
-  categorizeEmail,
-  EmailCategorizationResult,
-} from "@/lib/email/emailCategorizer";
+import { categorizeEmail } from "@/lib/email/emailCategorizer";
 import { fetchAndParseEmails } from "@/lib/email/parseEmail";
 import { storeEmails } from "@/lib/email/storeEmails";
-import type { CategoryPreferences } from "@/types/settings";
+import type { Category, CategoryPreferences } from "@/types/settings";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { ImapFlow } from "imapflow";
 import {
@@ -134,7 +131,7 @@ export async function processEmailBatch(
         htmlContent: parsedEmail.html,
         headers: parsedEmail.headers,
       };
-      const categorizationResult: EmailCategorizationResult =
+      const categorizationResult: { category: Category } =
         await categorizeEmail(categorizationInput);
       parsedEmail.category = categorizationResult.category;
 

@@ -1,8 +1,31 @@
 import { Category } from "@/types/settings";
 import { openai } from "@ai-sdk/openai"; // Assuming you are using OpenAI
 import { generateObject } from "ai";
+import fs from "fs/promises"; // For logging
+import path from "path"; // For logging
 import { z } from "zod";
 import type { ParsedEmailData } from "./parseEmail"; // Assuming ParsedEmailData is in a sibling file
+
+// Define the log file path (adjust as needed, e.g., outside the lib directory in a dedicated logs folder)
+const categorizationLogPath = path.join(
+  process.cwd(),
+  "email-categorization.log"
+);
+
+// Helper function to append to log file
+async function appendToLog(logEntry: string) {
+  try {
+    if (process.env.NODE_ENV === "development") {
+      const timestamp = new Date().toISOString();
+      await fs.appendFile(
+        categorizationLogPath,
+        `${timestamp} - ${logEntry}\n`
+      );
+    }
+  } catch (err) {
+    console.error("Failed to write to categorization log:", err);
+  }
+}
 
 // Define the schema for the AI's response
 const emailCategorizationSchema = z.object({
@@ -312,6 +335,31 @@ export async function categorizeEmail(
 ): Promise<{ category: Category }> {
   const { from, subject, textContent, htmlContent, headers } = emailData;
 
+  // Prepare a reduced version of emailData for logging and potential AI input reduction
+  // Keep original headers for heuristic calculation, but don't log/send them all
+  const loggedInputData = {
+    from,
+    subject,
+    textContent,
+    // Log only the first ~200 chars of HTML to save log space, we process it separately for AI
+    htmlContentPreview:
+      htmlContent?.substring(0, 200) +
+      (htmlContent && htmlContent.length > 200 ? "..." : ""),
+    // Selectively log only a few potentially useful raw headers, not all
+    loggedHeaders: {
+      From: headers?.["from"] || headers?.["From"],
+      Subject: headers?.["subject"] || headers?.["Subject"],
+      "List-Unsubscribe":
+        headers?.["list-unsubscribe"] || headers?.["List-Unsubscribe"],
+      "X-Mailer": headers?.["x-mailer"] || headers?.["X-Mailer"],
+      "X-Jupiter-Generated":
+        headers?.["x-jupiter-generated"] || headers?.["X-Jupiter-Generated"],
+    },
+  };
+
+  // Log the *reduced* input
+  // await appendToLog(`INPUT: ${JSON.stringify(loggedInputData, null, 2)}`);
+
   // --- Gather Heuristic Signals Early (needed for immediate check) ---
   const relevantHeaders = getRelevantHeaders(headers);
 
@@ -330,16 +378,23 @@ export async function categorizeEmail(
     return { category: "personal" };
   }
 
-  // Prepare email body for AI (similar to before)
+  // Prepare email body for AI - More aggressive cleaning
   let emailBody = textContent || "";
   if (!emailBody && htmlContent) {
-    emailBody = (htmlContent || "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
-      .replace(/<[^>]*>/g, " ")
+    emailBody = htmlContent
+      // Remove <style> blocks
+      .replace(/<style[^>]*>.*?<\/style>/gis, " ")
+      // Remove inline style attributes
+      .replace(/\sstyle=("|').*?\1/gi, "")
+      // Remove script blocks just in case
+      .replace(/<script[^>]*>.*?<\/script>/gis, " ")
+      // Basic HTML tag removal (keep content)
+      .replace(/<[^>]+>/g, " ")
+      // Collapse multiple spaces/newlines
       .replace(/\s+/g, " ")
       .trim();
   }
+  // Still replace URLs after cleaning
   emailBody = emailBody.replace(/https?:\/\/[^\s/$.?#][^\s]*/gi, "[URL]");
 
   // --- Gather Remaining Heuristic Signals ---
@@ -373,10 +428,6 @@ ${from?.address || "N/A"} (Name: ${from?.name || "N/A"})
 ${subject || "N/A"}
 </subject>
 
-<body>
-${emailBody.substring(0, 1000)}...
-</body>
-
 <heuristic_signals>
 Sender Info: Domain: ${senderAnalysis.domain || "N/A"}, Is Common Freemail: ${
     senderAnalysis.isCommonFreemail
@@ -385,7 +436,7 @@ Sender Info: Domain: ${senderAnalysis.domain || "N/A"}, Is Common Freemail: ${
   }
 Unsubscribe Info: Has Opt-Out Mechanism: ${
     unsubscribeInfo.hasLinkOrButton
-  }, List-Unsubscribe Header: ${unsubscribeInfo.listUnsubscribeHeader || "N/A"}
+  }, List-Unsubscribe Header Present: ${!!unsubscribeInfo.listUnsubscribeHeader}
 Tracking Pixel Detected: ${trackingPixelDetected}
 Promotional Keywords Found (sample): [${promotionalKeywords.join(
     ", "
@@ -395,24 +446,28 @@ Styling/Structure: Visually Rich: ${
   }, Uses Layout Tables: ${stylingAnalysis.usesLayoutTables}, Image Count: ${
     stylingAnalysis.imageCount
   }
-Relevant Headers: X-Mailer: ${relevantHeaders.xMailer || "N/A"}, Precedence: ${
-    relevantHeaders.precedence || "N/A"
-  }, Campaign-ID: ${
-    relevantHeaders.campaignId || "N/A"
-  }, X-Jupiter-Generated: ${relevantHeaders.xJupiterGenerated || "N/A"}
+Relevant Headers: X-Mailer Present: ${!!relevantHeaders.xMailer}, Precedence Present: ${!!relevantHeaders.precedence}, Campaign-ID Present: ${!!relevantHeaders.campaignId}
 </heuristic_signals>
 
-Based on all the above information (email content and heuristic signals), categorize this email for Silas Rhyneer, a software engineer. Consider his profession when evaluating categories like 'code-related' or 'notification'. Emails with the 'X-Jupiter-Generated: Digest' header are automatically classified as 'uncategorizable' and should not reach you, but be aware of the header's meaning if analyzing signals.
+<body>
+${emailBody.substring(0, 1500)}${
+    emailBody.length > 1500 ? "(continued...)" : ""
+  }
+</body>
+
+Based on the heuristic signals and the core email content, categorize this email.
   `;
 
   // console.log("Full prompt to AI:", mainPrompt); // Uncomment for debugging full prompt
+
+  // Log the main prompt being sent to the AI
+  await appendToLog(`PROMPT: ${mainPrompt}`);
 
   const systemPrompt = `
 You are an advanced email categorization assistant for Silas Rhyneer, a software engineer.
 Your goal is to accurately categorize incoming emails based on their content and provided heuristic signals.
 Use the heuristic signals as strong indicators to help refine your categorization.
 Respond with the single most likely category. "uncategorizable" should be used only as a last resort if no other category fits well.
-**Important:** Emails containing the header 'X-Jupiter-Generated: Digest' are system-generated digests and MUST be categorized as 'uncategorizable'. You should not receive these for categorization, but be aware of the header.
 
 <categories_explanation>
 - newsletter: Regular updates from a subscribed source (e.g., mailing list, publication).
@@ -443,15 +498,25 @@ Respond with the JSON object matching the schema, containing only the determined
 
   try {
     const { object } = await generateObject({
-      model: openai("gpt-4.1-mini"),
+      model: openai("gpt-4.1-nano"),
       schema: emailCategorizationSchema,
       system: systemPrompt,
       prompt: mainPrompt, // Use the new mainPrompt
     });
     console.log("Email categorization result:", object.category);
+    // Log the output
+    await appendToLog(`OUTPUT: ${JSON.stringify(object, null, 2)}`);
     return object as EmailCategorizationResult;
   } catch (error) {
     console.error("Error categorizing email:", error);
+    // Log the error output
+    const errorOutput = {
+      category: "uncategorizable",
+      error: (error as Error).message,
+    };
+    await appendToLog(
+      `OUTPUT (Error): ${JSON.stringify(errorOutput, null, 2)}`
+    );
     return {
       category: "uncategorizable" as Category,
     };
