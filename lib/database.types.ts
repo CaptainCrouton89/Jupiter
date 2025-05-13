@@ -133,7 +133,6 @@ export type Database = {
           id: string
           imap_uid: string | null
           message_id: string
-          read: boolean
           received_at: string
           starred: boolean
           subject: string
@@ -152,7 +151,6 @@ export type Database = {
           id?: string
           imap_uid?: string | null
           message_id: string
-          read?: boolean
           received_at: string
           starred?: boolean
           subject: string
@@ -171,7 +169,6 @@ export type Database = {
           id?: string
           imap_uid?: string | null
           message_id?: string
-          read?: boolean
           received_at?: string
           starred?: boolean
           subject?: string

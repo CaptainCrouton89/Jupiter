@@ -1,3 +1,4 @@
+import { Category } from "@/types/settings";
 import { openai } from "@ai-sdk/openai"; // Assuming you are using OpenAI
 import { generateObject } from "ai";
 import { z } from "zod";
@@ -8,16 +9,15 @@ const emailCategorizationSchema = z.object({
   category: z
     .enum([
       "newsletter",
+      "code-related",
       "marketing",
       "receipt",
       "invoice",
       "finances",
-      "code-related",
+      "personal",
       "notification",
       "account-related",
-      "personal",
       "email-verification",
-      "uncategorizable",
     ])
     .describe(
       "The category of the email, one of the categories in the <categories> section."
@@ -307,7 +307,7 @@ function isForwardedEmail(
  */
 export async function categorizeEmail(
   emailData: EmailCategorizationInput
-): Promise<EmailCategorizationResult> {
+): Promise<{ category: Category }> {
   const { from, subject, textContent, htmlContent, headers } = emailData;
 
   // Check for forwarding indicators first
@@ -437,7 +437,7 @@ Respond with the JSON object matching the schema, containing only the determined
   } catch (error) {
     console.error("Error categorizing email:", error);
     return {
-      category: "uncategorizable",
+      category: "uncategorizable" as Category,
     };
   }
 }

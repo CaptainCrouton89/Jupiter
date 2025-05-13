@@ -101,25 +101,6 @@ export const emailsAPI = {
   },
 
   /**
-   * Mark an email as read/unread
-   */
-  markAsRead: async (
-    id: string,
-    isRead: boolean = true,
-    supabase: SupabaseClient<Database>
-  ) => {
-    const { data, error } = await supabase
-      .from("emails")
-      .update({ read: isRead })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  },
-
-  /**
    * Star/unstar an email
    */
   toggleStar: async (

@@ -1,7 +1,7 @@
 import { EmailAccountDetails } from "@/app/api/internal/sync-account/[accountId]/supabaseOps"; // For type
 import { createNewSupabaseAdminClient } from "@/lib/auth/admin";
 import { Database, Tables } from "@/lib/database.types";
-import { generateDigestSummary } from "@/lib/email/generateDigest";
+import { generateDigestSummary } from "@/lib/email/digest/generateDigest";
 import { sendDigestEmail } from "@/lib/email/sendEmail";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";

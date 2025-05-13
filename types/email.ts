@@ -18,66 +18,12 @@ export type AttachmentInsert =
 export type AttachmentUpdate =
   Database["public"]["Tables"]["attachments"]["Update"];
 
-export type EmailRecipient =
-  Database["public"]["Tables"]["email_recipients"]["Row"];
-export type EmailRecipientInsert =
-  Database["public"]["Tables"]["email_recipients"]["Insert"];
-export type EmailRecipientUpdate =
-  Database["public"]["Tables"]["email_recipients"]["Update"];
-
 export type UserSettings = Database["public"]["Tables"]["user_settings"]["Row"];
 export type UserSettingsInsert =
   Database["public"]["Tables"]["user_settings"]["Insert"];
 export type UserSettingsUpdate =
   Database["public"]["Tables"]["user_settings"]["Update"];
-
-// Additional helper types not directly from the database
 export interface EmailAddress {
   email: string;
   name?: string | null;
-}
-
-export interface FullEmail extends Omit<Email, "from_name" | "from_email"> {
-  from: EmailAddress;
-  to: EmailAddress[];
-  cc?: EmailAddress[];
-  bcc?: EmailAddress[];
-  account?: EmailAccount;
-  attachments?: Attachment[];
-}
-
-export interface EmailWithRecipients extends Email {
-  recipients: EmailRecipient[];
-  account?: EmailAccount;
-}
-
-export type RecipientType = "to" | "cc" | "bcc";
-
-export type EmailSortCriteria = "date" | "sender" | "subject" | "priority";
-export type SortDirection = "asc" | "desc";
-
-export interface EmailFilter {
-  read?: boolean;
-  starred?: boolean;
-  hasAttachments?: boolean;
-  fromEmail?: string;
-  toEmail?: string;
-  subject?: string;
-  dateFrom?: Date;
-  dateTo?: Date;
-}
-
-export interface PaginationParams {
-  page: number;
-  pageSize: number;
-}
-
-export interface PaginatedResult<T> {
-  data: T[];
-  pagination: {
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  };
 }

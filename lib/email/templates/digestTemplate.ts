@@ -1,10 +1,13 @@
 export interface EmailSummaryItem {
   emailTitle: string; // Original subject or a title for this email's summary
+  emailContent: string; // Original content of the email
   source: string; // Original sender
-  category?: string; // Optional: category for this email
-  summaryType: "sentence" | "bullets"; // Type of summary content
-  content: string | string[]; // Holds the summary sentence or array of bullet points
-  receivedAt?: string; // Added for displaying email date
+  category: string;
+  summaryType: "sentence" | "sentence-only" | "bullets"; // Type of summary content
+  title: string; // Title for this email's summary
+  content?: string;
+  bullets?: string[];
+  receivedAt: string; // Added for displaying email date
 }
 
 export interface DigestEmailData {
@@ -113,6 +116,19 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
       margin-top: 0;
       margin-bottom: 5px;
     }
+    .email-summary-item .summary-title-only { /* Style for sentence-only type */
+      font-size: 1.1em;
+      color: #333; /* Main text color */
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .email-summary-item .summary-content-paragraph { /* Style for sentence type content */
+      font-size: 1em;
+      color: #444;
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
     .email-source {
       font-size: 0.9em;
       color: #7f8c8d; /* Grey for source */
@@ -167,19 +183,35 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
   const emailSummariesHtml = emailSummaries
     .map((item) => {
       let summaryContentHtml = "";
+      let titleHtml = `<h2>${item.title || item.emailTitle}</h2>`; // Default title
+
       if (item.summaryType === "sentence") {
-        summaryContentHtml = `<p>${item.content as string}</p>`;
-      } else if (
-        item.summaryType === "bullets" &&
-        Array.isArray(item.content)
-      ) {
-        summaryContentHtml = `
-          <ul>
-            ${(item.content as string[])
-              .map((point) => `<li>${point}</li>`)
-              .join("")}
-          </ul>
-        `;
+        summaryContentHtml = `<p class="summary-content-paragraph">${
+          item.content || ""
+        }</p>`;
+      } else if (item.summaryType === "sentence-only") {
+        // For sentence-only, the 'title' field IS the sentence. No separate h2.
+        titleHtml = ""; // Clear default h2
+        summaryContentHtml = `<p class="summary-title-only">${
+          item.title || ""
+        }</p>`;
+      } else if (item.summaryType === "bullets") {
+        // The existing Array.isArray(item.content) check was incorrect here as per EmailSummaryItem.
+        // bullets are in item.bullets
+        if (Array.isArray(item.bullets) && item.bullets.length > 0) {
+          summaryContentHtml = `
+            <ul>
+              ${item.bullets.map((point) => `<li>${point}</li>`).join("")}
+            </ul>
+          `;
+        } else {
+          // Fallback if bullets are expected but not present or empty
+          summaryContentHtml = "<p><em>No bullet points available.</em></p>";
+        }
+      } else {
+        // Fallback for unknown or undefined summaryType
+        summaryContentHtml =
+          "<p><em>Summary not available in the expected format.</em></p>";
       }
 
       const dateString = item.receivedAt
@@ -192,7 +224,7 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
 
       return `
         <div class="email-summary-item">
-          <h2>${item.emailTitle}</h2>
+          ${titleHtml}
           <p class="email-source">From: ${item.source}${
         dateString ? ` | Received: ${dateString}` : ""
       }</p>

@@ -68,7 +68,6 @@ export async function storeEmail(
       received_at: parsedEmail.date
         ? new Date(parsedEmail.date).toISOString()
         : new Date().toISOString(),
-      read: parsedEmail.isRead, // Use isRead from ParsedEmailData
       starred: false, // Default to not starred
       has_attachments: parsedEmail.attachments.length > 0,
       body_html: parsedEmail.html,
