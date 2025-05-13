@@ -42,7 +42,7 @@ export async function generateDigestSummary(
   const summaryPromises = emails.map(async (email) => {
     let decryptedContent = "";
     let decryptedSubject = "(Subject Unavailable)";
-    let decryptedSender = "Unknown Sender";
+    const decryptedSender = email.from || "Unknown Sender";
 
     try {
       // Decrypt Subject
@@ -51,15 +51,6 @@ export async function generateDigestSummary(
       }
     } catch (error) {
       console.error(`[Digest] Failed to decrypt email subject:`, error);
-    }
-
-    try {
-      // Decrypt Sender (from)
-      if (email.from && typeof email.from === "string") {
-        decryptedSender = decrypt(email.from);
-      }
-    } catch (error) {
-      console.error(`[Digest] Failed to decrypt sender:`, error);
     }
 
     try {
