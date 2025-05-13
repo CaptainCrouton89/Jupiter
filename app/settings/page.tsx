@@ -5,7 +5,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -20,10 +19,10 @@ import type {
   CategoryPreferences,
 } from "@/types/settings";
 import type { User } from "@supabase/supabase-js";
+import { CheckIcon } from "lucide-react"; // Import CheckIcon
 import Link from "next/link"; // Import Link
 import { redirect } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const RELEVANT_CATEGORIES = [
   "newsletter",
@@ -37,6 +36,9 @@ const RELEVANT_CATEGORIES = [
   "personal",
 ] as const;
 
+// Debounce delay in milliseconds
+const SAVE_DEBOUNCE_DELAY = 1000;
+
 export type UserSettings = Database["public"]["Tables"]["user_settings"]["Row"];
 
 export default function SettingsPage() {
@@ -45,8 +47,16 @@ export default function SettingsPage() {
   const [categoryPreferences, setCategoryPreferences] =
     useState<CategoryPreferences>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [lastChangedCategory, setLastChangedCategory] = useState<string | null>(
+    null
+  );
+  const [lastSavedCategory, setLastSavedCategory] = useState<string | null>(
+    null
+  );
+  const confirmationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchUserSettings = useCallback(async (userId: string) => {
     setIsLoading(true);
@@ -91,6 +101,7 @@ export default function SettingsPage() {
       setCategoryPreferences(initialPrefs);
     } finally {
       setIsLoading(false);
+      setInitialLoadComplete(true);
     }
   }, []);
 
@@ -110,6 +121,101 @@ export default function SettingsPage() {
     getUserAndSettings();
   }, [fetchUserSettings]);
 
+  const savePreferences = useCallback(
+    async (prefsToSave: CategoryPreferences) => {
+      const supabase = await createClient();
+      if (!user?.id) {
+        setError("User not found. Cannot save settings.");
+        return;
+      }
+      setError(null);
+
+      try {
+        const completePrefsToSave: CategoryPreferences = {};
+        RELEVANT_CATEGORIES.forEach((cat) => {
+          completePrefsToSave[cat] = prefsToSave[cat] ?? {
+            action: "none",
+            digest: false,
+          };
+        });
+
+        if (settingsId) {
+          const { error: updateError } = await supabase
+            .from("user_settings")
+            .update({ category_preferences: completePrefsToSave as any })
+            .eq("id", settingsId);
+          if (updateError) throw updateError;
+        } else {
+          const { data: insertedData, error: insertError } = await supabase
+            .from("user_settings")
+            .insert({
+              user_id: user.id,
+              category_preferences: completePrefsToSave as any,
+            })
+            .select("id")
+            .single();
+
+          if (insertError) throw insertError;
+
+          if (insertedData) {
+            setSettingsId(insertedData.id);
+          } else {
+            console.warn("Inserted settings but did not receive ID back.");
+          }
+        }
+
+        // Success indication is now handled by text on the page
+        // and the per-card indicator
+        // Trigger visual confirmation for the last changed category
+        setLastSavedCategory(lastChangedCategory);
+        if (confirmationTimeoutRef.current) {
+          clearTimeout(confirmationTimeoutRef.current); // Clear previous timeout
+        }
+        confirmationTimeoutRef.current = setTimeout(() => {
+          setLastSavedCategory(null); // Clear the indicator
+        }, 3000); // Hide after 3 seconds
+      } catch (e: any) {
+        console.error("Error auto-saving user settings:", e);
+        setError(
+          "Failed to automatically save settings. Please check your connection and try making a change again. Details: " +
+            e.message
+        );
+      }
+    },
+    [user, settingsId, lastChangedCategory]
+  );
+
+  useEffect(() => {
+    if (
+      !initialLoadComplete ||
+      !user ||
+      isLoading ||
+      Object.keys(categoryPreferences).length === 0
+    ) {
+      return;
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      savePreferences(categoryPreferences);
+    }, SAVE_DEBOUNCE_DELAY);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [
+    categoryPreferences,
+    savePreferences,
+    initialLoadComplete,
+    user,
+    isLoading,
+  ]);
+
   const handlePreferenceChange = (
     category: (typeof RELEVANT_CATEGORIES)[number],
     type: "action" | "digest",
@@ -122,59 +228,10 @@ export default function SettingsPage() {
         [type]: value,
       } as CategoryPreference,
     }));
-  };
-
-  const handleSaveChanges = async () => {
-    const supabase = await createClient();
-    if (!user?.id) {
-      setError("User not found. Please log in again.");
-      return;
-    }
-    setIsSaving(true);
-    setError(null);
-    try {
-      const preferencesToSave: CategoryPreferences = {};
-      RELEVANT_CATEGORIES.forEach((cat) => {
-        preferencesToSave[cat] = categoryPreferences[cat] ?? {
-          action: "none",
-          digest: false,
-        };
-      });
-
-      if (settingsId) {
-        const { error: updateError } = await supabase
-          .from("user_settings")
-          .update({ category_preferences: preferencesToSave as any })
-          .eq("id", settingsId);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from("user_settings")
-          .insert({
-            user_id: user.id,
-            category_preferences: preferencesToSave as any,
-          });
-        if (insertError) throw insertError;
-        const { data: newSettings } = await supabase
-          .from("user_settings")
-          .select("id")
-          .eq("user_id", user.id)
-          .single();
-        if (newSettings) setSettingsId(newSettings.id);
-      }
-      toast.success("Settings saved successfully");
-    } catch (e: any) {
-      console.error("Error saving user settings:", e);
-      setError(
-        "Failed to save settings. Please try again. Details: " + e.message
-      );
-    } finally {
-      setIsSaving(false);
-    }
+    setLastChangedCategory(category); // Track the last category changed
   };
 
   if (isLoading && !user) {
-    // Ensure user is loaded before showing page, or if error, still show structure
     return <div className="container mx-auto py-8 text-center">Loading...</div>;
   }
 
@@ -227,9 +284,11 @@ export default function SettingsPage() {
               <CardTitle>Email Category Settings</CardTitle>
               <CardDescription>
                 Manage how emails from different categories are handled and
-                whether you receive weekly digests.
+                whether you receive weekly digests. Changes are saved
+                automatically.
               </CardDescription>
             </CardHeader>
+
             <CardContent className="space-y-6">
               {isLoading && Object.keys(categoryPreferences).length === 0 && (
                 <div className="text-center text-muted-foreground py-4">
@@ -243,12 +302,28 @@ export default function SettingsPage() {
                     digest: false,
                   };
                   return (
-                    <Card key={category} className="shadow-none border">
+                    <Card
+                      key={category}
+                      className="shadow-none border relative"
+                    >
                       <CardHeader className="pb-3">
                         <CardTitle className="capitalize text-lg">
                           {category.replace("-", " ")}
                         </CardTitle>
                       </CardHeader>
+
+                      {/* Save Confirmation Indicator (per card) */}
+                      <div
+                        className={`absolute top-3 right-3 flex items-center space-x-1 text-sm text-green-600 transition-opacity duration-500 ease-in-out ${
+                          lastSavedCategory === category
+                            ? "opacity-100"
+                            : "opacity-0"
+                        }`}
+                      >
+                        <CheckIcon className="h-4 w-4" />
+                        <span>Saved</span>
+                      </div>
+
                       <CardContent className="space-y-4">
                         <div>
                           <Label className="text-sm font-medium">
@@ -327,16 +402,6 @@ export default function SettingsPage() {
                   );
                 })}
             </CardContent>
-            <CardFooter className="mt-2 flex justify-end">
-              <Button
-                onClick={handleSaveChanges}
-                disabled={isSaving || isLoading}
-              >
-                {isSaving
-                  ? "Saving Category Settings..."
-                  : "Save Category Settings"}
-              </Button>
-            </CardFooter>
           </Card>
         </section>
       </div>
