@@ -1,3 +1,4 @@
+import { decrypt } from "@/lib/auth/encryption";
 import {
   DigestEmailData,
   EmailSummaryItem,
@@ -38,16 +39,65 @@ export async function generateDigestSummary(
   }
 
   // Calls to summarizeSingleEmail and generateIntroHook now use the imported versions
-  const summaryPromises = emails.map(
-    (email) => summarizeSingleEmail(email, categoryName) // Imported function
-  );
+  const summaryPromises = emails.map(async (email) => {
+    // Decrypt content before passing to summarizeSingleEmail
+    let decryptedContent = "";
+    let decryptedSubject = "(Subject Unavailable)"; // Default for subject
+
+    try {
+      // Decrypt Subject
+      if (email.subject && typeof email.subject === "string") {
+        decryptedSubject = decrypt(email.subject);
+      } else {
+        console.warn(
+          "[Digest] Email subject for decryption is missing or not a string:",
+          email.subject // Log original subject if possible
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[Digest] Failed to decrypt email subject for original: "${email.subject}":`,
+        error
+      );
+      // Keep decryptedSubject as "(Subject Unavailable)"
+    }
+
+    try {
+      // The `email.content` is expected to be the encrypted string from the database,
+      // as processed by the caller (e.g., weekly-digest/route.ts).
+      if (email.content && typeof email.content === "string") {
+        decryptedContent = decrypt(email.content);
+      } else {
+        console.warn(
+          "[Digest] Email content for decryption is missing, not a string, or empty:",
+          decryptedSubject // Log decrypted subject for context
+        );
+        decryptedContent = "Content unavailable (encryption issue).";
+      }
+    } catch (error) {
+      console.error(
+        `[Digest] Failed to decrypt email content for "${decryptedSubject}":`,
+        error
+      );
+      decryptedContent =
+        "Content could not be decrypted. It may be corrupted or the encryption key is incorrect.";
+    }
+
+    const emailForSummary: EmailContent = {
+      subject: decryptedSubject, // Use decrypted subject
+      from: email.from,
+      content: decryptedContent, // Use the decrypted content
+      receivedAt: email.receivedAt,
+    };
+    return summarizeSingleEmail(emailForSummary, categoryName);
+  });
   const settledSummaries = await Promise.allSettled(summaryPromises);
 
   const emailSummaries: EmailSummaryItem[] = [];
 
   settledSummaries.forEach((result, index) => {
     if (result.status === "fulfilled" && result.value) {
-      const originalEmail = emails[index];
+      const originalEmail = emails[index]; // originalEmail.subject is encrypted here
       let summaryData = result.value as IndividualEmailSummary;
 
       const summaryType =
@@ -59,10 +109,15 @@ export async function generateDigestSummary(
 
       let currentSummaryItem: EmailSummaryItem = {
         title: summaryData.title,
-        emailTitle: originalEmail.subject || "Untitled Email",
-        emailContent: originalEmail.content,
+        emailTitle: summaryData.title,
+        emailContent:
+          "summaryContent" in summaryData && summaryData.summaryContent
+            ? summaryData.summaryContent
+            : "summaryBullets" in summaryData && summaryData.summaryBullets
+            ? summaryData.summaryBullets.join("\\n")
+            : "Content not directly available in summary object",
         source: originalEmail.from || "Unknown Sender",
-        summaryType: summaryType,
+        summaryType: summaryType as "sentence" | "sentence-only" | "bullets",
         content:
           "summaryContent" in summaryData
             ? summaryData.summaryContent

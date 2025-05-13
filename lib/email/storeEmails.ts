@@ -1,3 +1,4 @@
+import { encrypt } from "@/lib/auth/encryption";
 import { Database } from "@/lib/database.types";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
@@ -58,22 +59,20 @@ export async function storeEmail(
       id: uuidv4(),
       account_id: accountId,
       message_id: messageId,
-      imap_uid: parsedEmail.imapUid ? String(parsedEmail.imapUid) : null, // Store IMAP UID as string
-      // These are supposed to be inserted into email_recipients table, not emails table
-      // But we'll store them in the email for now
+      imap_uid: parsedEmail.imapUid ? String(parsedEmail.imapUid) : null,
       from_email: parsedEmail.from?.address || "unknown@example.com",
       from_name: parsedEmail.from?.name,
-      // Optional fields as per database schema
-      subject: parsedEmail.subject || "(No Subject)",
+      subject: parsedEmail.subject
+        ? encrypt(parsedEmail.subject)
+        : encrypt("(No Subject)"),
       received_at: parsedEmail.date
         ? new Date(parsedEmail.date).toISOString()
         : new Date().toISOString(),
-      starred: false, // Default to not starred
+      starred: false,
       has_attachments: parsedEmail.attachments.length > 0,
-      body_html: parsedEmail.html,
-      body_text: parsedEmail.text,
-      category: parsedEmail.category, // Save the AI-determined category
-      // The conversation_id will be handled separately
+      body_html: parsedEmail.html ? encrypt(parsedEmail.html) : null,
+      body_text: parsedEmail.text ? encrypt(parsedEmail.text) : null,
+      category: parsedEmail.category,
     };
 
     // Insert the email into the database

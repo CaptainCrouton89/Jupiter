@@ -155,7 +155,7 @@ export default function PrivacyPolicyPage() {
         </h2>
         <p>
           If you have any questions about this Privacy Policy, please contact us
-          at [Your Contact Email or Method].
+          at silas@rhyneerconsulting.com.
         </p>
       </article>
 

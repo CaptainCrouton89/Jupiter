@@ -3,7 +3,7 @@ export interface EmailSummaryItem {
   emailContent: string; // Original content of the email
   source: string; // Original sender
   category: string;
-  summaryType: "sentence" | "sentence-only" | "bullets"; // Type of summary content
+  summaryType: "sentence" | "sentence-only" | "bullets";
   title: string; // Title for this email's summary
   content?: string;
   bullets?: string[];
@@ -208,6 +208,12 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
           // Fallback if bullets are expected but not present or empty
           summaryContentHtml = "<p><em>No bullet points available.</em></p>";
         }
+      } else if (item.summaryType === "title-only") {
+        // For title-only, the 'title' field IS the title. No separate h2.
+        titleHtml = ""; // Clear default h2
+        summaryContentHtml = `<p class="summary-title-only">${
+          item.title || ""
+        }</p>`;
       } else {
         // Fallback for unknown or undefined summaryType
         summaryContentHtml =
