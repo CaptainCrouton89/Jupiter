@@ -1,4 +1,3 @@
-import { decrypt } from "@/lib/auth/encryption";
 import {
   DigestEmailData,
   EmailSummaryItem,
@@ -38,45 +37,35 @@ export async function generateDigestSummary(
     return getDigestHtmlTemplate(noNewsData);
   }
 
-  // Calls to summarizeSingleEmail and generateIntroHook now use the imported versions
+  // emails are now expected to have decrypted content and subject
   const summaryPromises = emails.map(async (email) => {
-    let decryptedContent = "";
-    let decryptedSubject = "(Subject Unavailable)";
-    const decryptedSender = email.from || "Unknown Sender";
-
-    try {
-      // Decrypt Subject
-      if (email.subject && typeof email.subject === "string") {
-        decryptedSubject = decrypt(email.subject);
-      }
-    } catch (error) {
-      console.error(`[Digest] Failed to decrypt email subject:`, error);
-    }
-
-    try {
-      if (email.content && typeof email.content === "string") {
-        decryptedContent = decrypt(email.content);
-      } else {
-        console.warn(
-          "[Digest] Email content missing or not a string:",
-          decryptedSubject
-        );
-        decryptedContent = "Content unavailable (encryption issue).";
-      }
-    } catch (error) {
-      console.error(
-        `[Digest] Failed to decrypt email content for "${decryptedSubject}":`,
-        error
-      );
-      decryptedContent = "Content could not be decrypted.";
-    }
-
+    // Directly use the provided subject and content, assuming they are decrypted
     const emailForSummary: EmailContent = {
-      subject: decryptedSubject,
-      from: decryptedSender,
-      content: decryptedContent,
+      subject: email.subject || "(Subject Unavailable)", // Use directly, provide fallback
+      from: email.from || "Unknown Sender",
+      content: email.content, // Use directly
       receivedAt: email.receivedAt,
     };
+    // If content is empty after cleaning (e.g. was only an image, or decryption failed upstream and placeholder used)
+    // we might want to skip summarizing or handle it gracefully in summarizeSingleEmail
+    if (
+      !emailForSummary.content ||
+      emailForSummary.content.trim() === "" ||
+      emailForSummary.content.trim() === "[URL]"
+    ) {
+      // Skip summarizing if content is effectively empty or just a placeholder
+      // This might return a specific marker or null to be filtered later
+      console.warn(
+        `[Digest] Skipping summary for email with empty/placeholder content. Subject: ${emailForSummary.subject}`
+      );
+      // Return a structure that indicates this email should be skipped or handled as having no summarizable content
+      return {
+        title: emailForSummary.subject || "(Title Unavailable)",
+        summaryContent: "This email contained no summarizable text content.",
+        category: categoryName,
+        // no summaryBullets implies it's a sentence-only or skipped summary
+      } as IndividualEmailSummary; // Adjust type assertion as needed based on IndividualEmailSummary structure
+    }
     return summarizeSingleEmail(emailForSummary, categoryName);
   });
   const settledSummaries = await Promise.allSettled(summaryPromises);
@@ -85,7 +74,7 @@ export async function generateDigestSummary(
 
   settledSummaries.forEach((result, index) => {
     if (result.status === "fulfilled" && result.value) {
-      const originalEmail = emails[index]; // originalEmail.subject is encrypted here
+      const originalEmail = emails[index];
       let summaryData = result.value as IndividualEmailSummary;
 
       const summaryType =
@@ -96,8 +85,8 @@ export async function generateDigestSummary(
           : "sentence-only";
 
       let currentSummaryItem: EmailSummaryItem = {
-        title: summaryData.title,
-        emailTitle: summaryData.title,
+        title: summaryData.title, // This should come from summarizeSingleEmail now
+        emailTitle: summaryData.title, // Use the title from the summary
         emailContent:
           "summaryContent" in summaryData && summaryData.summaryContent
             ? summaryData.summaryContent
