@@ -24,12 +24,13 @@ export default function PrivacyPolicyPage() {
         <p>
           Welcome to Jupiter Mail (&quot;we&quot;, &quot;us&quot;, or
           &quot;our&quot;). This Privacy Policy explains how we handle your
-          email data when you use our application. We are committed to
+          information when you use our application. We are committed to
           protecting your privacy and ensuring you understand how your
-          information is used to provide our services.
+          information is collected, used, and safeguarded to provide our
+          services.
         </p>
 
-        <h2 id="how-it-works">How Jupiter Mail Handles Your Emails</h2>
+        <h2 id="how-it-works">1. How Jupiter Mail Works</h2>
         <p>
           Jupiter Mail is designed to help you manage your email inbox more
           effectively. Our core functionalities related to email handling
@@ -38,113 +39,215 @@ export default function PrivacyPolicyPage() {
         <ul>
           <li>
             <strong>Automated Email Actions:</strong> Based on settings you
-            configure for different email categories, Jupiter Mail can perform
-            actions on your emails. This includes:
+            configure for different email categories (e.g., newsletters,
+            marketing, notifications), Jupiter Mail can perform actions on your
+            emails. This includes:
             <ul>
               <li>
-                <strong>Marking Emails as Read:</strong> If you choose this
-                option for a category, incoming emails classified under that
-                category can be automatically marked as read in your email
-                account.
-              </li>
-              <li>
-                <strong>Marking Emails for Spam:</strong> If you choose this
-                option for a category, emails classified under that category can
-                be marked as spam. This action typically moves the email to your
-                spam folder, depending on your email provider's behavior.
+                Marking Emails as Read, Archiving, Trashing, or Marking as Spam:
+                These actions are performed based on your explicit consent and
+                configuration within the application settings.
               </li>
             </ul>
-            These actions are performed based on your explicit consent and
-            configuration within the application settings.
           </li>
           <li>
             <strong>Weekly Digest Emails:</strong> For email categories you
             select, Jupiter Mail can compile and send you a weekly digest. This
             digest summarizes the emails that were classified into those chosen
-            categories during the week, providing you with an overview without
-            needing to go through each email individually.
+            categories during the week.
           </li>
         </ul>
         <p>
           To provide these services, Jupiter Mail requires access to your email
-          account(s) that you connect. We access email content (headers, body)
-          to categorize them and to generate summaries for digest emails.
-          Actions like marking as read or spam are performed via standard email
-          protocols (e.g., IMAP) as directed by your settings.
+          account(s) that you connect.
         </p>
 
-        <h2
-          id="information-we-access"
-          className="mt-10 mb-4 text-2xl font-semibold tracking-tight text-gray-800 dark:text-gray-200"
-        >
-          Information We Access
-        </h2>
+        <h2 id="information-we-collect">2. Information We Collect and Use</h2>
         <p>
-          To perform the functionalities described above, we need to access:
+          To provide and improve Jupiter Mail, we access and use the following
+          types of information:
         </p>
         <ul>
-          <li>Email headers (sender, recipient, subject, date)</li>
-          <li>Email body content (text and HTML)</li>
           <li>
-            List of your email folders and email UIDs/IDs for synchronization
+            <strong>Email Content:</strong>
+            <ul>
+              <li>
+                Email headers (sender, recipient, subject, date) to categorize
+                and process emails.
+              </li>
+              <li>
+                Email body content (text and HTML) for categorization,
+                performing actions you've configured (like identifying content
+                for rules), and generating summaries for digests.
+              </li>
+              <li>
+                List of your email folders and email UIDs/IDs for
+                synchronization and performing actions.
+              </li>
+            </ul>
+          </li>
+          <li>
+            <strong>Authentication Tokens:</strong> When you connect your email
+            account (e.g., via Google OAuth), we securely store the
+            authentication tokens required to access your emails on your behalf.
+            We do not store your actual email account password.
+          </li>
+          <li>
+            <strong>User Settings and Preferences:</strong> We store your
+            configured settings, such as rules for email categories, digest
+            preferences, and other customizations, to personalize your
+            experience.
           </li>
         </ul>
         <p>
           We use this information solely for the purpose of providing the email
-          management features of Jupiter Mail, such as categorization,
-          performing actions you've configured, and generating digests. We do
-          not sell your personal data or email content.
+          management features of Jupiter Mail.
         </p>
 
-        <h2
-          id="data-storage-and-security"
-          className="mt-10 mb-4 text-2xl font-semibold tracking-tight text-gray-800 dark:text-gray-200"
-        >
-          Data Storage and Security
+        <h2 id="data-storage-security-retention">
+          3. Data Storage, Security, and Retention
         </h2>
-        <p>
-          Your email account credentials (like passwords or OAuth tokens) are
-          stored securely, encrypted at rest. Email content that is processed
-          for categorization or digests may be temporarily cached but is not
-          stored long-term beyond what is necessary for the functioning of the
-          service and providing your email digests. You retain ownership of your
-          email data at all times.
-        </p>
+        <h3 className="text-xl font-semibold !mt-6 !mb-3">Security Measures</h3>
         <p>
           We implement industry-standard security measures to protect your
-          information. However, no system is completely secure, and we cannot
-          guarantee the absolute security of your data.
+          information. Your email account authentication tokens and user
+          settings are stored securely and encrypted at rest. Our database and
+          authentication services are provided by Supabase, which employs robust
+          security practices.
+        </p>
+        <p>
+          However, no system is completely secure, and we cannot guarantee the
+          absolute security of your data. You are responsible for maintaining
+          the security of your own accounts and devices.
         </p>
 
-        <h2
-          id="your-choices"
-          className="mt-10 mb-4 text-2xl font-semibold tracking-tight text-gray-800 dark:text-gray-200"
-        >
-          Your Choices
-        </h2>
-        <p>You have control over how Jupiter Mail handles your emails:</p>
+        <h3 className="text-xl font-semibold !mt-6 !mb-3">
+          Email Content Processing
+        </h3>
+        <p>
+          Email content processed for categorization or digest generation is
+          handled by third-party AI models (such as those provided by OpenAI).
+          This processing is done to deliver the core features of our service.
+        </p>
+
+        <h3 className="text-xl font-semibold !mt-6 !mb-3">Data Retention</h3>
         <ul>
           <li>
-            You can configure settings for each email category, including
-            whether to mark emails as read, spam, or receive weekly digests.
+            <strong>Processed Email Content:</strong> To protect your privacy
+            and minimize data storage, any email body content that Jupiter Mail
+            processes for features like categorization or digest summaries is
+            automatically and permanently purged from our systems within 14 days
+            of processing. We only retain the metadata and summaries necessary
+            for your digests as configured.
           </li>
           <li>
-            You can connect or disconnect email accounts from Jupiter Mail at
-            any time. Disconnecting an account will stop further processing of
-            emails from that account.
+            <strong>Account Information and Settings:</strong> Your account
+            information (like your user ID and connected email addresses, but
+            not email content) and your configured settings are retained as long
+            as your Jupiter Mail account is active. If you delete your account
+            or disconnect an email service, we will delete this information in
+            accordance with our policies, typically within a reasonable
+            timeframe unless retention is required for legal or operational
+            reasons (e.g., resolving disputes).
+          </li>
+          <li>
+            <strong>Authentication Tokens:</strong> These are retained as long
+            as your email account is actively connected to Jupiter Mail and are
+            deleted when you disconnect the account.
+          </li>
+        </ul>
+        <p>You retain ownership of your email data at all times.</p>
+
+        <h2 id="third-party-services">4. Third-Party Services</h2>
+        <p>
+          We utilize third-party services to provide Jupiter Mail. These
+          services have their own privacy policies, and we encourage you to
+          review them:
+        </p>
+        <ul>
+          <li>
+            <strong>Supabase:</strong> Used for database hosting, user
+            authentication, and backend infrastructure. Their privacy policy can
+            be found at{" "}
+            <a
+              href="https://supabase.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              supabase.com/privacy
+            </a>
+            .
+          </li>
+          <li>
+            <strong>OpenAI (or similar AI providers):</strong> Used for
+            AI-powered email categorization and summarization. OpenAI&apos;s
+            privacy policy can be found at{" "}
+            <a
+              href="https://openai.com/policies/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              openai.com/policies/privacy-policy
+            </a>
+            . We aim to use providers that align with strong data privacy and
+            security principles.
           </li>
         </ul>
 
-        <h2
-          id="changes-to-this-policy"
-          className="mt-10 mb-4 text-2xl font-semibold tracking-tight text-gray-800 dark:text-gray-200"
-        >
-          Changes to This Privacy Policy
-        </h2>
+        <h2 id="your-rights-choices">5. Your Rights and Choices</h2>
+        <p>You have control over your information and how it&apos;s used:</p>
+        <ul>
+          <li>
+            <strong>Access, Correction, and Deletion:</strong> You may have the
+            right to access, correct, or request deletion of your personal
+            information held by Jupiter Mail. Please contact us to make such
+            requests.
+          </li>
+          <li>
+            <strong>Manage Preferences:</strong> You can configure settings for
+            each email category, including actions and digest preferences,
+            directly within the application.
+          </li>
+          <li>
+            <strong>Disconnect Accounts:</strong> You can connect or disconnect
+            email accounts from Jupiter Mail at any time through the settings.
+            Disconnecting an account will stop further processing of emails from
+            that account by Jupiter Mail. Associated authentication tokens will
+            be deleted.
+          </li>
+          <li>
+            <strong>Withdraw Consent:</strong> Where we rely on your consent to
+            process information (e.g., for accessing your email account), you
+            can withdraw that consent at any time by disconnecting your account
+            or adjusting your settings.
+          </li>
+          <li>
+            <strong>Object to Processing:</strong> You may have the right to
+            object to certain types of processing.
+          </li>
+        </ul>
         <p>
-          We may update this Privacy Policy from time to time. We will notify
-          you of any significant changes by posting the new Privacy Policy on
-          this page and updating the &quot;Last Updated&quot; date.
+          Please note that some choices may affect our ability to provide
+          certain features of the service.
+        </p>
+
+        <h2 id="childrens-privacy">6. Children&apos;s Privacy</h2>
+        <p>
+          Jupiter Mail is not directed to individuals under the age of 13 (or a
+          higher age if stipulated by applicable law). We do not knowingly
+          collect personal information from children. If we become aware that a
+          child has provided us with personal information, we will take steps to
+          delete such information.
+        </p>
+
+        <h2 id="changes-to-this-policy">7. Changes to This Privacy Policy</h2>
+        <p>
+          We may update this Privacy Policy from time to time to reflect changes
+          in our practices or for other operational, legal, or regulatory
+          reasons. We will notify you of any significant changes by posting the
+          new Privacy Policy on this page and updating the &quot;Last
+          Updated&quot; date. We encourage you to review this Privacy Policy
+          periodically.
         </p>
 
         <h2
