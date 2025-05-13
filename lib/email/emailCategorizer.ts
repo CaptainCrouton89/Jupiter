@@ -215,6 +215,7 @@ function getRelevantHeaders(headers?: Record<string, string | string[]>): {
   precedence?: string;
   campaignId?: string; // e.g., X-Campaign-ID, X-Mailgun-Campaign-Id
   messageId?: string;
+  xJupiterGenerated?: string;
 } {
   if (!headers) return {};
   const getHeader = (name: string) => {
@@ -230,6 +231,7 @@ function getRelevantHeaders(headers?: Record<string, string | string[]>): {
       getHeader("X-Mailgun-Campaign-Id") ||
       getHeader("X-SES-CONFIGURATION-SET"), // Add more as discovered
     messageId: getHeader("Message-ID"),
+    xJupiterGenerated: getHeader("X-Jupiter-Generated"),
   };
 }
 
@@ -310,6 +312,18 @@ export async function categorizeEmail(
 ): Promise<{ category: Category }> {
   const { from, subject, textContent, htmlContent, headers } = emailData;
 
+  // --- Gather Heuristic Signals Early (needed for immediate check) ---
+  const relevantHeaders = getRelevantHeaders(headers);
+
+  // --- Immediate Check for Jupiter-Generated Emails ---
+  if (relevantHeaders.xJupiterGenerated === "Digest") {
+    console.log(
+      "Jupiter-generated digest email detected, categorizing as uncategorizable."
+    );
+    return { category: "uncategorizable" };
+  }
+  // --- End Immediate Check ---
+
   // Check for forwarding indicators first
   if (isForwardedEmail(subject, textContent, htmlContent)) {
     console.log("Forwarded email detected, categorizing as personal.");
@@ -328,13 +342,12 @@ export async function categorizeEmail(
   }
   emailBody = emailBody.replace(/https?:\/\/[^\s/$.?#][^\s]*/gi, "[URL]");
 
-  // --- Gather Heuristic Signals ---
+  // --- Gather Remaining Heuristic Signals ---
   const trackingPixelDetected = hasTrackingPixel(htmlContent);
   const unsubscribeInfo = getUnsubscribeInfo(htmlContent, textContent, headers);
   const promotionalKeywords = extractPromotionalKeywords(emailBody, subject, 5);
   const senderAnalysis = analyzeSender(from, headers);
   const stylingAnalysis = analyzeStylingAndStructure(htmlContent);
-  const relevantHeaders = getRelevantHeaders(headers);
 
   const heuristicSignalsForLogging = {
     trackingPixelDetected,
@@ -384,10 +397,12 @@ Styling/Structure: Visually Rich: ${
   }
 Relevant Headers: X-Mailer: ${relevantHeaders.xMailer || "N/A"}, Precedence: ${
     relevantHeaders.precedence || "N/A"
-  }, Campaign-ID: ${relevantHeaders.campaignId || "N/A"}
+  }, Campaign-ID: ${
+    relevantHeaders.campaignId || "N/A"
+  }, X-Jupiter-Generated: ${relevantHeaders.xJupiterGenerated || "N/A"}
 </heuristic_signals>
 
-Based on all the above information (email content and heuristic signals), categorize this email for Silas Rhyneer, a software engineer. Consider his profession when evaluating categories like 'code-related' or 'notification'.
+Based on all the above information (email content and heuristic signals), categorize this email for Silas Rhyneer, a software engineer. Consider his profession when evaluating categories like 'code-related' or 'notification'. Emails with the 'X-Jupiter-Generated: Digest' header are automatically classified as 'uncategorizable' and should not reach you, but be aware of the header's meaning if analyzing signals.
   `;
 
   // console.log("Full prompt to AI:", mainPrompt); // Uncomment for debugging full prompt
@@ -397,6 +412,7 @@ You are an advanced email categorization assistant for Silas Rhyneer, a software
 Your goal is to accurately categorize incoming emails based on their content and provided heuristic signals.
 Use the heuristic signals as strong indicators to help refine your categorization.
 Respond with the single most likely category. "uncategorizable" should be used only as a last resort if no other category fits well.
+**Important:** Emails containing the header 'X-Jupiter-Generated: Digest' are system-generated digests and MUST be categorized as 'uncategorizable'. You should not receive these for categorization, but be aware of the header.
 
 <categories_explanation>
 - newsletter: Regular updates from a subscribed source (e.g., mailing list, publication).
@@ -419,7 +435,7 @@ Respond with the single most likely category. "uncategorizable" should be used o
   - Signals: Less likely to have formal unsubscribe, tracking pixels, or be visually rich (unless it's an e-card). Sender is often a person's name or a common freemail domain. Usually unique content, not template-based.
 - email-verification: A specific type of email asking the user to click a link to confirm their email address, typically during a new account sign-up.
   - Signals: Keywords "verify your email", "confirm your address". Usually a single call to action (a link). Often plain.
-- uncategorizable: Use as a LAST RESORT if no other category accurately describes the email, even considering the heuristic signals.
+- uncategorizable: Use as a LAST RESORT if no other category accurately describes the email, even considering the heuristic signals. Also use for emails identified as system-generated digests via the 'X-Jupiter-Generated' header.
 </categories_explanation>
 
 Respond with the JSON object matching the schema, containing only the determined category.

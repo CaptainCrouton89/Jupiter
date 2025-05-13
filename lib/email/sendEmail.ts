@@ -148,6 +148,9 @@ export async function sendDigestEmail(
     to: toEmail,
     subject: subject,
     html: htmlBody,
+    headers: {
+      "X-Jupiter-Generated": "Digest",
+    },
   };
 
   let attempts = 0;
