@@ -2,6 +2,7 @@ import { Category } from "@/types/settings";
 import { openai } from "@ai-sdk/openai"; // Assuming you are using OpenAI
 import { generateObject } from "ai";
 import fs from "fs/promises"; // For logging
+import { convert as htmlToText } from "html-to-text"; // Added import
 import path from "path"; // For logging
 import { z } from "zod";
 import type { ParsedEmailData } from "./parseEmail"; // Assuming ParsedEmailData is in a sibling file
@@ -378,24 +379,65 @@ export async function categorizeEmail(
     return { category: "personal" };
   }
 
-  // Prepare email body for AI - More aggressive cleaning
-  let emailBody = textContent || "";
-  if (!emailBody && htmlContent) {
-    emailBody = htmlContent
-      // Remove <style> blocks
-      .replace(/<style[^>]*>.*?<\/style>/gis, " ")
-      // Remove inline style attributes
-      .replace(/\sstyle=("|').*?\1/gi, "")
-      // Remove script blocks just in case
-      .replace(/<script[^>]*>.*?<\/script>/gis, " ")
-      // Basic HTML tag removal (keep content)
-      .replace(/<[^>]+>/g, " ")
-      // Collapse multiple spaces/newlines
-      .replace(/\s+/g, " ")
-      .trim();
+  // Prepare email body for AI
+  let emailBody = "";
+  let contentSource = ""; // For logging
+
+  if (htmlContent) {
+    contentSource = "htmlContent";
+    emailBody = htmlToText(htmlContent, {
+      wordwrap: false, // Disable wordwrap
+      preserveNewlines: false, // Let the library handle block elements for newlines
+      baseElements: { selectors: ["body"], returnDomByDefault: true }, // Process body content primarily
+      selectors: [
+        { selector: "a", options: { ignoreHref: true } },
+        { selector: "img", format: "skip" },
+        { selector: "style", format: "skip" },
+        { selector: "script", format: "skip" },
+        // Ensure common block elements create appropriate spacing
+        {
+          selector: "p",
+          options: { leadingLineBreaks: 1, trailingLineBreaks: 1 },
+        },
+        {
+          selector: "div",
+          options: { leadingLineBreaks: 1, trailingLineBreaks: 1 },
+        },
+        { selector: "br", format: "lineBreak" },
+        // Add others like h1-h6, lists if needed, but defaults might suffice
+      ],
+      // Removed empty formatters object
+    });
+
+    // Comprehensive cleanup: Remove characters that are NOT letters, numbers, punctuation, symbols, or standard whitespace.
+    // This targets control chars, format chars (ZWNJ, ZWJ, etc.), and other non-renderables.
+    // The 'u' flag is crucial for Unicode property escapes.
+    emailBody = emailBody.replace(/[^\p{L}\p{N}\p{P}\p{S}\s]/gu, "");
+
+    // After library conversion, do some final whitespace cleanup
+    // 1. Normalize various Unicode space characters that survived the previous step (e.g., part of \s) to a regular space
+    emailBody = emailBody.replace(
+      /[\s\u00A0\u2000-\u200A\u202F\u205F\u3000]+/g,
+      " "
+    );
+    // 2. Collapse multiple standard spaces (now that Unicode spaces are normalized) into a single space
+    emailBody = emailBody.replace(/ {2,}/g, " ");
+    // 3. Condense multiple newlines (3 or more) into exactly two newlines, just in case.
+    emailBody = emailBody.replace(/(\r\n|\r|\n){3,}/g, "\n\n");
+
+    // Trim any leading/trailing whitespace left by the conversion and cleaning
+    emailBody = emailBody.trim();
+  } else if (textContent) {
+    contentSource = "textContent";
+    emailBody = textContent.trim(); // Just trim textContent
+  } else {
+    contentSource = "neither";
   }
+
+  await appendToLog(`INFO: Using ${contentSource} for email body generation.`);
+
   // Still replace URLs after cleaning
-  emailBody = emailBody.replace(/https?:\/\/[^\s/$.?#][^\s]*/gi, "[URL]");
+  emailBody = emailBody.replace(/https?:\/\/[^\s\/$.?#][^\s]*/gi, "[URL]");
 
   // --- Gather Remaining Heuristic Signals ---
   const trackingPixelDetected = hasTrackingPixel(htmlContent);

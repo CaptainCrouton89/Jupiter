@@ -80,6 +80,9 @@ importers:
       '@types/dompurify':
         specifier: ^3.2.0
         version: 3.2.0
+      '@types/html-to-text':
+        specifier: ^9.0.4
+        version: 9.0.4
       '@types/node':
         specifier: ^22.15.17
         version: 22.15.17
@@ -143,6 +146,9 @@ importers:
       helmet:
         specifier: ^8.1.0
         version: 8.1.0
+      html-to-text:
+        specifier: ^9.0.5
+        version: 9.0.5
       imapflow:
         specifier: ^1.0.186
         version: 1.0.186
@@ -1365,6 +1371,9 @@ packages:
   '@types/dompurify@3.2.0':
     resolution: {integrity: sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg==}
     deprecated: This is a stub types definition. dompurify provides its own type definitions, so you do not need this installed.
+
+  '@types/html-to-text@9.0.4':
+    resolution: {integrity: sha512-pUY3cKH/Nm2yYrEmDlPR1mR7yszjGx4DrwPjQ702C4/D5CwHuZTgZdIdwPkRbcuhs7BAh2L5rg3CL5cbRiGTCQ==}
 
   '@types/imapflow@1.0.21':
     resolution: {integrity: sha512-7ZqYx+PX2bKs4DLP/tUlCWjlmIFJh6wBNte+94TTurUzIL2wlldJcXJEwzxMfhP6T6ppKY/XFTIcYoWh/vsrUg==}
@@ -4243,6 +4252,8 @@ snapshots:
   '@types/dompurify@3.2.0':
     dependencies:
       dompurify: 3.2.5
+
+  '@types/html-to-text@9.0.4': {}
 
   '@types/imapflow@1.0.21':
     dependencies:
