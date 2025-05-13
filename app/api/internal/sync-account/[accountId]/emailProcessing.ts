@@ -8,7 +8,11 @@ import { storeEmails } from "@/lib/email/storeEmails";
 import type { CategoryPreferences } from "@/types/settings";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { ImapFlow } from "imapflow";
-import { markMessagesAsSeen } from "./imapOps";
+import {
+  getJunkFolderRemoteName,
+  markMessagesAsSeen,
+  moveMessagesToJunk,
+} from "./imapOps";
 import { logger } from "./logger";
 import {
   EmailAccountDetails,
@@ -52,6 +56,7 @@ export async function processEmailBatch(
   let failedEmailsThisBatch = 0;
   let maxUidProcessedThisBatch = initialMaxUidProcessed;
   const uidsSuccessfullyStoredThisBatch: number[] = [];
+  const uidsToMoveToJunk: number[] = [];
 
   if (newUids.length === 0) {
     logger.info(
@@ -119,7 +124,7 @@ export async function processEmailBatch(
 
     const inboxEmails: ParsedEmailData[] = [];
     const spamEmails: ParsedEmailData[] = [];
-    const uidsToMarkAsSeenOnServer: number[] = [];
+    let uidsToMarkAsSeenOnServer: number[] = [];
 
     for (const parsedEmail of parsedEmailsData) {
       const categorizationInput = {
@@ -169,14 +174,15 @@ export async function processEmailBatch(
         logger.info(
           `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Marking as SPAM based on user preference for category '${emailCategory}'.`
         );
-        parsedEmail.isRead = true; // Mark as read when moving to spam
+        parsedEmail.isRead = true; // Mark as read in our DB record
         if (parsedEmail.imapUid) {
           const numericUid = Number(parsedEmail.imapUid);
-          if (
-            !isNaN(numericUid) &&
-            !uidsToMarkAsSeenOnServer.includes(numericUid)
-          ) {
-            uidsToMarkAsSeenOnServer.push(numericUid);
+          if (!isNaN(numericUid)) {
+            uidsToMoveToJunk.push(numericUid); // Add to move list
+            // Also add to seen list in case move fails, or move doesn't mark seen
+            if (!uidsToMarkAsSeenOnServer.includes(numericUid)) {
+              uidsToMarkAsSeenOnServer.push(numericUid);
+            }
           }
         }
         spamEmails.push(parsedEmail);
@@ -206,6 +212,51 @@ export async function processEmailBatch(
         // For now, user preference for "none" on a category (even if categorizer called it "spam") means inbox.
         inboxEmails.push(parsedEmail);
       }
+    }
+
+    // Move emails marked as Spam to Junk folder on server
+    if (uidsToMoveToJunk.length > 0) {
+      logger.info(
+        `Attempting to find Junk folder and move ${uidsToMoveToJunk.length} emails for account ${account.id}`
+      );
+      const junkFolderName = await getJunkFolderRemoteName(imapClient, logger);
+      if (junkFolderName) {
+        const movedUids = await moveMessagesToJunk(
+          imapClient,
+          uidsToMoveToJunk,
+          junkFolderName,
+          logger
+        );
+        if (movedUids.length > 0) {
+          logger.info(
+            `Successfully moved ${movedUids.length} emails to Junk folder '${junkFolderName}' for account ${account.id}. Removing from seen list.`
+          );
+          // Remove successfully moved UIDs from the list to mark as seen in INBOX
+          uidsToMarkAsSeenOnServer = uidsToMarkAsSeenOnServer.filter(
+            (uid) => !movedUids.includes(uid)
+          );
+        } else {
+          logger.warn(
+            `Failed to move any of the ${uidsToMoveToJunk.length} designated spam emails to Junk folder '${junkFolderName}' for account ${account.id}.`
+          );
+        }
+      } else {
+        logger.warn(
+          `Could not find Junk folder for account ${account.id}. Cannot move ${uidsToMoveToJunk.length} emails server-side.`
+        );
+      }
+    }
+
+    // Mark remaining necessary emails as seen on server
+    if (uidsToMarkAsSeenOnServer.length > 0) {
+      logger.info(
+        `Attempting to mark ${uidsToMarkAsSeenOnServer.length} emails as seen on server for account ${account.id}`
+      );
+      await markMessagesAsSeen(imapClient, uidsToMarkAsSeenOnServer);
+    } else {
+      logger.info(
+        `No emails need to be marked as seen on server for account ${account.id}.`
+      );
     }
 
     if (inboxEmails.length > 0) {
@@ -261,10 +312,6 @@ export async function processEmailBatch(
     logger.info(
       `Email storage for batch complete for account ${account.id}. Success: ${processedEmailsThisBatch}, Failed: ${failedEmailsThisBatch}`
     );
-
-    if (uidsToMarkAsSeenOnServer.length > 0) {
-      await markMessagesAsSeen(imapClient, uidsToMarkAsSeenOnServer);
-    }
 
     const newTotalProcessedForJob =
       currentTotalProcessedCountForJob + processedEmailsThisBatch;
