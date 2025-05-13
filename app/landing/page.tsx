@@ -1,10 +1,84 @@
 "use client"; // Or remove if it becomes a server component with static content
 
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Lock, RefreshCw, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, RefreshCw, Zap } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+
+// Define an interface for the card states
+interface CardStates {
+  triage: boolean;
+  briefings: boolean;
+  security: boolean;
+}
 
 export default function LandingPage() {
+  const [flippedCards, setFlippedCards] = useState<CardStates>({
+    triage: false,
+    briefings: false,
+    security: false,
+  });
+
+  const handleFlip = (clickedCardKey: keyof CardStates) => {
+    setFlippedCards((prevFlippedStates) => {
+      const nextFlippedStateForClickedCard = !prevFlippedStates[clickedCardKey];
+
+      // If the card is being flipped to its back (opened)
+      if (nextFlippedStateForClickedCard) {
+        const newState: CardStates = {
+          triage: false,
+          briefings: false,
+          security: false,
+        };
+        newState[clickedCardKey] = true; // Open the clicked card
+        return newState;
+      } else {
+        // If the card is being flipped to its front (closed)
+        // Only close the clicked card, others remain as they were (which should be closed due to the logic above)
+        return {
+          ...prevFlippedStates,
+          [clickedCardKey]: false,
+        };
+      }
+    });
+  };
+
+  const featureCardsData = [
+    {
+      key: "triage" as keyof CardStates,
+      icon: <Zap className="text-orange-600" />,
+      title: "Automated Inbox Triage",
+      descriptionFront:
+        "Never manually sort email again. Jupiter AI intelligently archives, trashes, or marks as read, instantly.",
+      descriptionBack:
+        "Jupiter Mail's AI doesn't just categorize; it acts. Set rules to auto-archive, instantly trash spam, or mark routine emails as read. Configure custom actions for senders or keywords. Imagine an inbox that practically manages itself, freeing up hours of your week. This is smart automation that adapts to your workflow.",
+      initialHeight: "sm:min-h-[300px] min-h-[360px]", // Adjusted for more front content
+      expandedHeight: "max-h-[700px]", // Adjusted for potentially more back content
+    },
+    {
+      key: "briefings" as keyof CardStates,
+      icon: <RefreshCw className="text-orange-600" />,
+      title: "Curated Weekly Briefings",
+      descriptionFront:
+        "Stay informed, not overwhelmed. Get concise digests of important emails, tailored to your chosen categories.",
+      descriptionBack:
+        "Cut through the noise. Our Weekly Briefings are more than summaries; they're personalized intelligence reports for your inbox. Choose which categories matter most—project updates, newsletters, financial alerts—and receive a focused digest. Customize the level of detail and delivery time. Stay on top of what's crucial, effortlessly.",
+      initialHeight: "sm:min-h-[300px] min-h-[360px]",
+      expandedHeight: "max-h-[700px]",
+    },
+    {
+      key: "security" as keyof CardStates,
+      icon: <Lock className="text-orange-600" />,
+      title: "Ironclad Security & Privacy",
+      descriptionFront:
+        "Your data is sacred. Emails are encrypted and auto-purged after two weeks. Period.",
+      descriptionBack:
+        "We believe your communication is yours alone. Jupiter Mail employs robust end-to-end encryption for all emails stored on our servers. Our auto-purge protocol permanently deletes emails after two weeks—no exceptions. This means minimal data footprint and maximum peace of mind. Your privacy isn't a feature; it's a foundation.",
+      initialHeight: "sm:min-h-[300px] min-h-[360px]",
+      expandedHeight: "max-h-[700px]",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-100 via-amber-50 to-orange-50 text-slate-800">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -63,44 +137,76 @@ export default function LandingPage() {
           </h2>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-sm border border-orange-100 hover:shadow-md transition-shadow">
-              <div className="bg-orange-100 p-3 rounded-full w-12 h-12 flex items-center justify-center mb-6">
-                <Zap className="text-orange-600" />
-              </div>
-              <h3 className="text-xl font-semibold mb-3">
-                Automated Inbox Triage
-              </h3>
-              <p className="text-slate-600">
-                Never manually sort email again. Jupiter AI intelligently
-                archives, trashes, or marks as read, instantly.
-              </p>
-            </div>
+            {featureCardsData.map((card) => (
+              <div
+                key={card.key}
+                className={`relative group [perspective:1000px] transition-all duration-500 ease-in-out rounded-2xl ${
+                  flippedCards[card.key]
+                    ? card.expandedHeight
+                    : card.initialHeight
+                } group-hover:scale-[1.02] group-hover:shadow-xl cursor-pointer`}
+              >
+                <div
+                  className={`relative w-full h-full transition-transform duration-700 ease-in-out [transform-style:preserve-3d] ${
+                    flippedCards[card.key] ? "[transform:rotateY(180deg)]" : ""
+                  }`}
+                >
+                  {/* Card Front */}
+                  <div
+                    className="absolute w-full h-full bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-sm border border-orange-100 [backface-visibility:hidden] flex flex-col justify-between"
+                    onClick={(e) => {
+                      if (!flippedCards[card.key]) {
+                        e.stopPropagation();
+                        handleFlip(card.key);
+                      }
+                    }}
+                  >
+                    <div>
+                      <div className="bg-orange-100 p-3 rounded-full w-12 h-12 flex items-center justify-center mb-6">
+                        {card.icon}
+                      </div>
+                      <h3 className="text-xl font-semibold mb-3">
+                        {card.title}
+                      </h3>
+                      <p className="text-slate-600 text-[0.92rem] leading-relaxed">
+                        {card.descriptionFront}
+                      </p>
+                    </div>
+                    <div
+                      className={`mt-4 text-sm text-orange-500 group-hover:text-orange-700 font-medium transition-colors duration-300 flex items-center self-start ${
+                        flippedCards[card.key] ? "invisible" : ""
+                      }`}
+                    >
+                      Learn More <ArrowRight className="ml-1 w-4 h-4" />
+                    </div>
+                  </div>
 
-            <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-sm border border-orange-100 hover:shadow-md transition-shadow">
-              <div className="bg-orange-100 p-3 rounded-full w-12 h-12 flex items-center justify-center mb-6">
-                <RefreshCw className="text-orange-600" />
+                  {/* Card Back */}
+                  <div
+                    className="absolute w-full h-full bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-orange-100 [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col justify-between overflow-y-auto cursor-pointer"
+                    onClick={(e) => {
+                      if (flippedCards[card.key]) {
+                        e.stopPropagation();
+                        handleFlip(card.key);
+                      }
+                    }}
+                  >
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4 text-orange-700">
+                        {card.title}
+                      </h3>
+                      <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
+                        {card.descriptionBack}
+                      </p>
+                    </div>
+                    {/* "Back" visual indicator - not a button itself anymore */}
+                    <div className="mt-auto pt-4 text-sm text-orange-500 group-hover:text-orange-700 font-medium transition-colors duration-300 self-start flex items-center">
+                      <ArrowLeft className="mr-1 w-4 h-4" /> Back
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold mb-3">
-                Curated Weekly Briefings
-              </h3>
-              <p className="text-slate-600">
-                Stay informed, not overwhelmed. Get concise digests of important
-                emails, tailored to your chosen categories.
-              </p>
-            </div>
-
-            <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-sm border border-orange-100 hover:shadow-md transition-shadow">
-              <div className="bg-orange-100 p-3 rounded-full w-12 h-12 flex items-center justify-center mb-6">
-                <Lock className="text-orange-600" />
-              </div>
-              <h3 className="text-xl font-semibold mb-3">
-                Ironclad Security & Privacy
-              </h3>
-              <p className="text-slate-600">
-                Your data is sacred. Emails are encrypted and auto-purged after
-                two weeks. Period.
-              </p>
-            </div>
+            ))}
           </div>
         </section>
 
