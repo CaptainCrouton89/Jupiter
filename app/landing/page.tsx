@@ -5,7 +5,16 @@ import {
   FeatureCard,
   CardStates as FeatureCardStates,
 } from "@/components/ui/FeatureCard"; // Import the new component and its state type
-import { ArrowRight, Lock, RefreshCw, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  Brain,
+  Coffee,
+  Lock,
+  Mail,
+  RefreshCw,
+  SlidersHorizontal,
+  Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -74,6 +83,33 @@ export default function LandingPage() {
         "We prioritize your privacy. Any email data processed and temporarily stored by Jupiter Mail is encrypted on our secure servers. More importantly, we enforce a strict 14-day data retention policy: all processed email content is automatically and permanently purged from our systems after two weeks. This data minimization is fundamental to our design, ensuring your information isn't held longer than absolutely necessary.",
       initialHeight: "min-h-[340px]",
       expandedHeight: "min-h-[340px]",
+    },
+  ];
+
+  const howItWorksSteps = [
+    {
+      icon: <Mail className="w-10 h-10 text-orange-600" />,
+      title: "1. Connect Your Email",
+      description:
+        "Securely link your Google account in seconds. We use industry-standard encryption to protect your credentials.",
+    },
+    {
+      icon: <SlidersHorizontal className="w-10 h-10 text-orange-600" />,
+      title: "2. Customize Your Rules",
+      description:
+        "Tell Jupiter Mail how to handle different email categories (like newsletters or notifications) and which ones to include in your weekly digest.",
+    },
+    {
+      icon: <Brain className="w-10 h-10 text-orange-600" />,
+      title: "3. AI Takes Over",
+      description:
+        "Our intelligent system automatically triages your inbox based on your rules and compiles concise weekly briefings, saving you hours.",
+    },
+    {
+      icon: <Coffee className="w-10 h-10 text-orange-600" />,
+      title: "4. Enjoy Your Focus",
+      description:
+        "Experience a calmer, more organized inbox. Spend less time managing email and more time on what matters.",
     },
   ];
 
@@ -152,6 +188,31 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* How It Works Section */}
+        <section className="py-16 md:py-24">
+          <h2 className="text-3xl font-bold text-center mb-16 text-slate-800">
+            Getting Started is Simple
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12">
+            {howItWorksSteps.map((step, index) => (
+              <div
+                key={index}
+                className="flex flex-col items-center text-center"
+              >
+                <div className="bg-white/70 backdrop-blur-sm p-5 rounded-full inline-block mb-6 shadow-md border border-orange-100">
+                  {step.icon}
+                </div>
+                <h3 className="text-xl font-semibold mb-3 text-slate-700">
+                  {step.title}
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* CTA Section */}
         <section className="py-16 md:py-20 mb-12">
           <div className="bg-gradient-to-r from-orange-500 to-amber-600 rounded-3xl p-10 md:p-16 text-white text-center shadow-xl">
@@ -180,6 +241,9 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <p className="mb-4">
             &copy; {new Date().getFullYear()} Jupiter Mail. All rights reserved.
+          </p>
+          <p className="mb-4 text-sm">
+            We are committed to your privacy and data security. Learn more:
           </p>
           <div className="flex justify-center gap-6">
             <Link
