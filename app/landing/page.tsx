@@ -253,7 +253,7 @@ export default function LandingPage() {
               Privacy Policy
             </Link>
             <Link
-              href="#"
+              href="/terms"
               className="hover:text-orange-600 transition-colors underline"
             >
               Terms of Service
