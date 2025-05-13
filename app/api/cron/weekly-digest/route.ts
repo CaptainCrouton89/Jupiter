@@ -57,39 +57,10 @@ async function fetchEmailsForCategory(
     Date.now() - 7 * 24 * 60 * 60 * 1000
   ).toISOString();
 
-  // First, get all folder IDs for the given account IDs
-  // We don't filter by folder name here, just get all folders and then filter emails by category.
-  const { data: folders, error: foldersError } = await supabase
-    .from("folders")
-    .select("id")
-    .in("account_id", userAccountIds);
-
-  if (foldersError) {
-    logger.error(
-      `Error fetching folders for accounts ${userAccountIds.join(
-        ", "
-      )} for category ${categoryName}:`,
-      foldersError
-    );
-    return []; // Or throw, depending on desired error handling
-  }
-
-  if (!folders || folders.length === 0) {
-    logger.info(
-      `No folders found for accounts ${userAccountIds.join(
-        ", "
-      )} for category ${categoryName}.`
-    );
-    return [];
-  }
-
-  const folderIds = folders.map((f) => f.id);
-
   const { data: emails, error: emailsError } = await supabase
     .from("emails")
     .select("*") // Select all fields for now, can be optimized
     .in("account_id", userAccountIds)
-    .in("folder_id", folderIds) // Filter by folders belonging to these accounts
     .eq("category", categoryName) // Use the provided categoryName
     .gte("received_at", sevenDaysAgo)
     .order("received_at", { ascending: false });

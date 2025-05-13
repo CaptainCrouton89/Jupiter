@@ -1,6 +1,5 @@
 import { Database } from "@/lib/database.types";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { v4 as uuidv4 } from "uuid";
 import { logger } from "./logger";
 
 export interface EmailAccountDetails {
@@ -42,84 +41,6 @@ export async function getEmailAccountDetailsFromDb(
     return null;
   }
   return data;
-}
-
-export async function getOrCreateFolderId(
-  supabase: SupabaseClient<Database>,
-  accountId: string,
-  folderPath: string,
-  folderType?: Database["public"]["Tables"]["folders"]["Row"]["type"]
-): Promise<string> {
-  let { data: existingFolder, error: fetchError } = await supabase
-    .from("folders")
-    .select("id")
-    .eq("account_id", accountId)
-    .eq("name", folderPath)
-    .single();
-
-  if (fetchError && fetchError.code !== "PGRST116") {
-    logger.error(
-      `Error fetching folder ${folderPath} for account ${accountId}:`,
-      fetchError.message
-    );
-    throw new Error(
-      `Failed to fetch folder ${folderPath}: ${fetchError.message}`
-    );
-  }
-
-  if (existingFolder) {
-    return existingFolder.id;
-  }
-
-  let typeToInsert: Database["public"]["Tables"]["folders"]["Row"]["type"] =
-    "inbox";
-  if (folderType) {
-    typeToInsert = folderType;
-  } else {
-    const upperFolderPath = folderPath.toUpperCase();
-    if (upperFolderPath === "INBOX") typeToInsert = "inbox";
-    else if (upperFolderPath === "SENT") typeToInsert = "sent";
-    else if (upperFolderPath === "DRAFTS") typeToInsert = "drafts";
-    else if (upperFolderPath === "TRASH") typeToInsert = "trash";
-    else if (upperFolderPath === "SPAM") typeToInsert = "spam";
-    else if (upperFolderPath === "ARCHIVE") typeToInsert = "archive";
-    else typeToInsert = "custom";
-  }
-
-  const newFolderId = uuidv4();
-  const { data: newFolder, error: insertError } = await supabase
-    .from("folders")
-    .insert({
-      id: newFolderId,
-      account_id: accountId,
-      name: folderPath.toUpperCase(),
-      type: typeToInsert,
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    logger.error(
-      `Error creating folder ${folderPath} for account ${accountId}:`,
-      insertError.message
-    );
-    throw new Error(
-      `Failed to create folder ${folderPath}: ${insertError.message}`
-    );
-  }
-
-  if (!newFolder) {
-    logger.error(
-      `Failed to create folder ${folderPath} for account ${accountId} - no data returned after insert.`
-    );
-    throw new Error(
-      `Failed to create folder ${folderPath} - no data returned.`
-    );
-  }
-  logger.info(
-    `Created folder ${folderPath} with ID ${newFolder.id} for account ${accountId}`
-  );
-  return newFolder.id;
 }
 
 export async function updateSyncLog(

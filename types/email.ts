@@ -12,10 +12,6 @@ export type Email = Database["public"]["Tables"]["emails"]["Row"];
 export type EmailInsert = Database["public"]["Tables"]["emails"]["Insert"];
 export type EmailUpdate = Database["public"]["Tables"]["emails"]["Update"];
 
-export type Folder = Database["public"]["Tables"]["folders"]["Row"];
-export type FolderInsert = Database["public"]["Tables"]["folders"]["Insert"];
-export type FolderUpdate = Database["public"]["Tables"]["folders"]["Update"];
-
 export type Attachment = Database["public"]["Tables"]["attachments"]["Row"];
 export type AttachmentInsert =
   Database["public"]["Tables"]["attachments"]["Insert"];
@@ -47,7 +43,6 @@ export interface FullEmail extends Omit<Email, "from_name" | "from_email"> {
   cc?: EmailAddress[];
   bcc?: EmailAddress[];
   account?: EmailAccount;
-  folder?: Folder;
   attachments?: Attachment[];
 }
 
@@ -55,15 +50,6 @@ export interface EmailWithRecipients extends Email {
   recipients: EmailRecipient[];
   account?: EmailAccount;
 }
-
-export type FolderType =
-  | "inbox"
-  | "sent"
-  | "drafts"
-  | "trash"
-  | "spam"
-  | "archive"
-  | "custom";
 
 export type RecipientType = "to" | "cc" | "bcc";
 
@@ -79,7 +65,6 @@ export interface EmailFilter {
   subject?: string;
   dateFrom?: Date;
   dateTo?: Date;
-  folderId?: string;
 }
 
 export interface PaginationParams {

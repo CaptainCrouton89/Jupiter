@@ -1,4 +1,4 @@
-import type { EmailAccount, Folder, UserSettings } from "@/types/email";
+import type { EmailAccount, UserSettings } from "@/types/email";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "./database.types";
 /**
@@ -87,36 +87,6 @@ export const emailAccountsAPI = {
  */
 export const emailsAPI = {
   /**
-   * Get emails for a specific folder
-   */
-  getByFolder: async (
-    folderId: string,
-    { page = 1, limit = 50 }: { page?: number; limit?: number },
-    supabase: SupabaseClient<Database>
-  ) => {
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    const { data, error, count } = await supabase
-      .from("emails")
-      .select("*, account_id(*)", { count: "exact" })
-      .eq("folder_id", folderId)
-      .order("received_at", { ascending: false })
-      .range(from, to);
-
-    if (error) throw error;
-    return {
-      data,
-      pagination: {
-        total: count || 0,
-        page,
-        pageSize: limit,
-        totalPages: Math.ceil((count || 0) / limit),
-      },
-    };
-  },
-
-  /**
    * Get a single email by ID
    */
   getById: async (id: string, supabase: SupabaseClient<Database>) => {
@@ -168,45 +138,6 @@ export const emailsAPI = {
     return data;
   },
 };
-
-/**
- * Folders API
- */
-export const foldersAPI = {
-  /**
-   * Get all folders for an account
-   */
-  getByAccount: async (
-    accountId: string,
-    supabase: SupabaseClient<Database>
-  ) => {
-    const { data, error } = await supabase
-      .from("folders")
-      .select("*")
-      .eq("account_id", accountId);
-
-    if (error) throw error;
-    return data;
-  },
-
-  /**
-   * Create a new folder
-   */
-  create: async (
-    folder: Omit<Folder, "id" | "created_at" | "updated_at">,
-    supabase: SupabaseClient<Database>
-  ) => {
-    const { data, error } = await supabase
-      .from("folders")
-      .insert([folder])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  },
-};
-
 /**
  * User Settings API
  */

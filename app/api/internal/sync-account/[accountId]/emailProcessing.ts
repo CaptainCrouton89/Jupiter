@@ -3,7 +3,7 @@ import {
   categorizeEmail,
   EmailCategorizationResult,
 } from "@/lib/email/emailCategorizer";
-import { fetchAndParseEmails, ParsedEmailData } from "@/lib/email/parseEmail";
+import { fetchAndParseEmails } from "@/lib/email/parseEmail";
 import { storeEmails } from "@/lib/email/storeEmails";
 import type { CategoryPreferences } from "@/types/settings";
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -16,11 +16,7 @@ import {
   moveMessagesToServerFolder,
 } from "./imapOps";
 import { logger } from "./logger";
-import {
-  EmailAccountDetails,
-  getOrCreateFolderId,
-  updateSyncLog,
-} from "./supabaseOps";
+import { EmailAccountDetails, updateSyncLog } from "./supabaseOps";
 
 const RATE_LIMIT_DELAY_MS = 200;
 
@@ -42,7 +38,6 @@ export interface ProcessEmailBatchResult {
   processedEmailsCount: number;
   failedEmailsCount: number;
   maxUidProcessedInBatch: number;
-  uidsSuccessfullyStoredThisBatch: number[];
 }
 
 export async function processEmailBatch(
@@ -57,10 +52,10 @@ export async function processEmailBatch(
   let processedEmailsThisBatch = 0;
   let failedEmailsThisBatch = 0;
   let maxUidProcessedThisBatch = initialMaxUidProcessed;
-  const uidsSuccessfullyStoredThisBatch: number[] = [];
   const uidsToMoveToJunk: number[] = [];
   const uidsToArchive: number[] = [];
   const uidsToTrash: number[] = [];
+  let uidsToMarkAsSeenOnServer: number[] = []; // Initialize
 
   if (newUids.length === 0) {
     logger.info(
@@ -70,7 +65,6 @@ export async function processEmailBatch(
       processedEmailsCount: 0,
       failedEmailsCount: 0,
       maxUidProcessedInBatch: initialMaxUidProcessed,
-      uidsSuccessfullyStoredThisBatch: [],
     };
   }
 
@@ -108,6 +102,12 @@ export async function processEmailBatch(
     logger.warn(
       `Account ${account.id} does not have a user_id. Cannot fetch category preferences.`
     );
+    // Ensure default preferences if no user
+    CONFIGURABLE_CATEGORIES.forEach((cat) => {
+      if (!userCategoryPreferences[cat]) {
+        userCategoryPreferences[cat] = { action: "none", digest: false };
+      }
+    });
   }
 
   logger.info(
@@ -123,12 +123,8 @@ export async function processEmailBatch(
 
   if (parsedEmailsData.length > 0) {
     logger.info(
-      `Processing ${parsedEmailsData.length} parsed emails for categorization and storage for account ${account.id}...`
+      `Processing ${parsedEmailsData.length} parsed emails for categorization, server actions, and DB storage for account ${account.id}...`
     );
-
-    const inboxEmails: ParsedEmailData[] = [];
-    const spamEmails: ParsedEmailData[] = [];
-    let uidsToMarkAsSeenOnServer: number[] = [];
 
     for (const parsedEmail of parsedEmailsData) {
       const categorizationInput = {
@@ -138,7 +134,6 @@ export async function processEmailBatch(
         htmlContent: parsedEmail.html,
         headers: parsedEmail.headers,
       };
-      // Categorize the email first
       const categorizationResult: EmailCategorizationResult =
         await categorizeEmail(categorizationInput);
       parsedEmail.category = categorizationResult.category;
@@ -151,9 +146,8 @@ export async function processEmailBatch(
         }") for account ${account.id}: Category - ${parsedEmail.category}`
       );
 
-      // Get user preference for this category
-      const emailCategory = parsedEmail.category as ConfigurableCategory; // Assume category is one of these
-      const preference = userCategoryPreferences[emailCategory] || {
+      const emailCategory = parsedEmail.category as ConfigurableCategory;
+      const preference = userCategoryPreferences[emailCategory] ?? {
         action: "none",
         digest: false,
       };
@@ -162,93 +156,78 @@ export async function processEmailBatch(
         `[PreferenceDebug] Account ${account.id}, Email UID ${parsedEmail.imapUid}, Category: ${emailCategory}, User Action Preference: ${preference.action}`
       );
 
-      // If email was already read on server, ensure it's marked as seen later if no other action overrides.
-      if (parsedEmail.isRead && parsedEmail.imapUid) {
-        const numericUid = Number(parsedEmail.imapUid);
-        if (
-          !isNaN(numericUid) &&
-          !uidsToMarkAsSeenOnServer.includes(numericUid)
-        ) {
-          uidsToMarkAsSeenOnServer.push(numericUid);
-        }
+      const numericUid = parsedEmail.imapUid
+        ? Number(parsedEmail.imapUid)
+        : null;
+      const initialIsRead = parsedEmail.isRead; // Store initial read status
+
+      // Determine DB read status and collect UIDs for server actions
+      let markSeenOnServer = false;
+
+      switch (preference.action) {
+        case "mark_as_spam":
+          logger.info(
+            `[ActionDebug] UID ${numericUid}: Marking as SPAM based on preference.`
+          );
+          parsedEmail.isRead = true; // Set DB status
+          if (numericUid) {
+            uidsToMoveToJunk.push(numericUid);
+            markSeenOnServer = true; // Mark seen for spam
+          }
+          break;
+        case "mark_as_read":
+          logger.info(
+            `[ActionDebug] UID ${numericUid}: Marking as READ based on preference.`
+          );
+          parsedEmail.isRead = true; // Set DB status
+          markSeenOnServer = true; // Mark seen on server
+          break;
+        case "archive":
+          logger.info(
+            `[ActionDebug] UID ${numericUid}: ARCHIVING based on preference.`
+          );
+          parsedEmail.isRead = true; // Set DB status
+          if (numericUid) {
+            uidsToArchive.push(numericUid);
+            markSeenOnServer = true; // Mark seen before archive
+          }
+          break;
+        case "trash":
+          logger.info(
+            `[ActionDebug] UID ${numericUid}: TRASHING based on preference.`
+          );
+          parsedEmail.isRead = true; // Set DB status
+          if (numericUid) {
+            uidsToTrash.push(numericUid);
+            markSeenOnServer = true; // Mark seen before trash
+          }
+          break;
+        case "none":
+        default:
+          logger.info(
+            `[ActionDebug] UID ${numericUid}: Taking NO ACTION (to store) based on preference ('${preference.action}'). Original isRead: ${initialIsRead}`
+          );
+          // Preserve original parsedEmail.isRead from server
+          // Only mark seen on server if it was already read there
+          if (initialIsRead) {
+            markSeenOnServer = true;
+          }
+          break;
       }
 
-      // Apply action based on user preference
-      if (preference.action === "mark_as_spam") {
-        logger.info(
-          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Marking as SPAM based on user preference for category '${emailCategory}'.`
-        );
-        parsedEmail.isRead = true; // Mark as read in our DB record
-        if (parsedEmail.imapUid) {
-          const numericUid = Number(parsedEmail.imapUid);
-          if (!isNaN(numericUid)) {
-            uidsToMoveToJunk.push(numericUid);
-            if (!uidsToMarkAsSeenOnServer.includes(numericUid)) {
-              uidsToMarkAsSeenOnServer.push(numericUid);
-            }
-          }
-        }
-        spamEmails.push(parsedEmail);
-      } else if (preference.action === "mark_as_read") {
-        logger.info(
-          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Marking as READ based on user preference for category '${emailCategory}'.`
-        );
-        parsedEmail.isRead = true;
-        if (parsedEmail.imapUid) {
-          const numericUid = Number(parsedEmail.imapUid);
-          if (
-            !isNaN(numericUid) &&
-            !uidsToMarkAsSeenOnServer.includes(numericUid)
-          ) {
-            uidsToMarkAsSeenOnServer.push(numericUid);
-          }
-        }
-        inboxEmails.push(parsedEmail);
-      } else if (preference.action === "archive") {
-        logger.info(
-          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: ARCHIVING based on user preference for category '${emailCategory}'.`
-        );
-        parsedEmail.isRead = true; // Mark as read for server move/flag consistency
-        if (parsedEmail.imapUid) {
-          const numericUid = Number(parsedEmail.imapUid);
-          if (!isNaN(numericUid)) {
-            uidsToArchive.push(numericUid);
-            // Also add to seen list initially, will be removed if move is successful
-            if (!uidsToMarkAsSeenOnServer.includes(numericUid)) {
-              uidsToMarkAsSeenOnServer.push(numericUid);
-            }
-          }
-        }
-        // DO NOT add to inboxEmails or spamEmails - it's being archived on server
-      } else if (preference.action === "trash") {
-        logger.info(
-          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: TRASHING based on user preference for category '${emailCategory}'.`
-        );
-        parsedEmail.isRead = true; // Mark as read for server move/flag consistency
-        if (parsedEmail.imapUid) {
-          const numericUid = Number(parsedEmail.imapUid);
-          if (!isNaN(numericUid)) {
-            uidsToTrash.push(numericUid);
-            // Also add to seen list initially, will be removed if move is successful
-            if (!uidsToMarkAsSeenOnServer.includes(numericUid)) {
-              uidsToMarkAsSeenOnServer.push(numericUid);
-            }
-          }
-        }
-        // DO NOT add to inboxEmails or spamEmails - it's being trashed on server
-      } else {
-        // Default action: "none" or category not in configurable list, or no preference set.
-        logger.info(
-          `[ActionDebug] Email UID ${parsedEmail.imapUid} for account ${account.id}: Taking NO ACTION (to inbox) based on user preference ('${preference.action}') for category '${emailCategory}'. Original isRead: ${parsedEmail.isRead}`
-        );
-        // If original category was "spam" from categorizer, and action is "none", it goes to inbox.
-        // This behavior might need review if "spam" from categorizer should always override to spam folder.
-        // For now, user preference for "none" on a category (even if categorizer called it "spam") means inbox.
-        inboxEmails.push(parsedEmail);
+      // Add to list for server action if needed and not already added
+      if (
+        numericUid &&
+        markSeenOnServer &&
+        !uidsToMarkAsSeenOnServer.includes(numericUid)
+      ) {
+        uidsToMarkAsSeenOnServer.push(numericUid);
       }
     }
 
-    // Move emails marked as Spam to Junk folder on server
+    // --- Perform Server-Side Actions FIRST --- //
+
+    // Move emails marked as Spam
     if (uidsToMoveToJunk.length > 0) {
       logger.info(
         `Attempting to find Junk folder and move ${uidsToMoveToJunk.length} emails for account ${account.id}`
@@ -264,24 +243,24 @@ export async function processEmailBatch(
         );
         if (movedUids.length > 0) {
           logger.info(
-            `Successfully moved ${movedUids.length} emails to Junk folder '${junkFolderName}' for account ${account.id}. Removing from general seen list.`
+            `SPAM: Successfully moved ${movedUids.length} emails to Junk folder '${junkFolderName}'. Removing from general seen list.`
           );
           uidsToMarkAsSeenOnServer = uidsToMarkAsSeenOnServer.filter(
             (uid) => !movedUids.includes(uid)
           );
         } else {
           logger.warn(
-            `Failed to move any of the ${uidsToMoveToJunk.length} designated spam emails to Junk folder '${junkFolderName}' for account ${account.id}.`
+            `SPAM: Failed to move any of the ${uidsToMoveToJunk.length} designated spam emails.`
           );
         }
       } else {
         logger.warn(
-          `Could not find Junk folder for account ${account.id}. Cannot move ${uidsToMoveToJunk.length} emails server-side.`
+          `SPAM: Could not find Junk folder. Cannot move ${uidsToMoveToJunk.length} emails server-side.`
         );
       }
     }
 
-    // Move emails marked for Archive to Archive folder on server
+    // Move emails marked for Archive
     if (uidsToArchive.length > 0) {
       logger.info(
         `ARCHIVE: Processing ${uidsToArchive.length} emails for account ${account.id}. First marking as SEEN.`
@@ -306,29 +285,24 @@ export async function processEmailBatch(
         );
         if (movedUids.length > 0) {
           logger.info(
-            `ARCHIVE: Successfully moved ${movedUids.length} emails to Archive folder '${archiveFolderName}' for account ${account.id}. Removing from general seen list.`
+            `ARCHIVE: Successfully moved ${movedUids.length} emails to Archive folder '${archiveFolderName}'. Removing from general seen list.`
           );
-          // Remove successfully moved (and already marked seen) UIDs from the general list
           uidsToMarkAsSeenOnServer = uidsToMarkAsSeenOnServer.filter(
             (uid) => !movedUids.includes(uid)
           );
         } else {
           logger.warn(
-            `ARCHIVE: Failed to move any of the ${uidsToArchive.length} designated archive emails to Archive folder '${archiveFolderName}' for account ${account.id}. They were already marked as SEEN in INBOX.`
+            `ARCHIVE: Failed to move any of the ${uidsToArchive.length} designated archive emails. They were marked as SEEN in INBOX.`
           );
-          // If move failed, they remain in INBOX (and were already marked as seen). The uidsToMarkAsSeenOnServer list
-          // still contains them from the loop, so the final sweep is not strictly needed for these specific UIDs,
-          // but filtering them out if the intent was *only* archive-and-seen is complex if they were also e.g. just 'mark_as_read'.
-          // The current filter is correct: if moved, remove. If not moved, they might be processed by final sweep if still in list.
         }
       } else {
         logger.warn(
-          `ARCHIVE: Could not find Archive folder for account ${account.id}. ${uidsToArchive.length} emails were marked as SEEN in INBOX but not moved.`
+          `ARCHIVE: Could not find Archive folder. ${uidsToArchive.length} emails were marked as SEEN in INBOX but not moved.`
         );
       }
     }
 
-    // Move emails marked for Trash to Trash folder on server
+    // Move emails marked for Trash
     if (uidsToTrash.length > 0) {
       logger.info(
         `TRASH: Processing ${uidsToTrash.length} emails for account ${account.id}. First marking as SEEN.`
@@ -353,88 +327,57 @@ export async function processEmailBatch(
         );
         if (movedUids.length > 0) {
           logger.info(
-            `TRASH: Successfully moved ${movedUids.length} emails to Trash folder '${trashFolderName}' for account ${account.id}. Removing from general seen list.`
+            `TRASH: Successfully moved ${movedUids.length} emails to Trash folder '${trashFolderName}'. Removing from general seen list.`
           );
-          // Remove successfully moved (and already marked seen) UIDs from the general list
           uidsToMarkAsSeenOnServer = uidsToMarkAsSeenOnServer.filter(
             (uid) => !movedUids.includes(uid)
           );
         } else {
           logger.warn(
-            `TRASH: Failed to move any of the ${uidsToTrash.length} designated trash emails to Trash folder '${trashFolderName}' for account ${account.id}. They were already marked as SEEN in INBOX.`
+            `TRASH: Failed to move any of the ${uidsToTrash.length} designated trash emails. They were marked as SEEN in INBOX.`
           );
         }
       } else {
         logger.warn(
-          `TRASH: Could not find Trash folder for account ${account.id}. ${uidsToTrash.length} emails were marked as SEEN in INBOX but not moved.`
+          `TRASH: Could not find Trash folder. ${uidsToTrash.length} emails were marked as SEEN in INBOX but not moved.`
         );
       }
     }
 
-    // Mark remaining necessary emails as seen on server (e.g. for "mark_as_read" action, or originally read emails, or failed moves that were intended to be seen)
+    // Mark remaining necessary emails as seen on server
     if (uidsToMarkAsSeenOnServer.length > 0) {
       logger.info(
-        `Attempting to mark ${uidsToMarkAsSeenOnServer.length} emails as seen on server for account ${account.id}`
+        `Attempting to mark ${uidsToMarkAsSeenOnServer.length} remaining emails as seen on server for account ${account.id}`
       );
       await markMessagesAsSeen(imapClient, uidsToMarkAsSeenOnServer);
     } else {
       logger.info(
-        `No emails need to be marked as seen on server for account ${account.id}.`
+        `No remaining emails need to be marked as seen on server for account ${account.id}.`
       );
     }
 
-    if (inboxEmails.length > 0) {
-      const inboxFolderId = await getOrCreateFolderId(
-        supabase,
-        account.id,
-        "INBOX",
-        "inbox"
-      );
-      const storeResultInbox = await storeEmails(
-        supabase,
-        account.id,
-        inboxEmails,
-        inboxFolderId,
-        logger,
-        false
-      );
-      processedEmailsThisBatch += storeResultInbox.success;
-      failedEmailsThisBatch += storeResultInbox.failed;
-      if (storeResultInbox.errors.length > 0) {
-        logger.error(
-          `Errors storing INBOX emails for account ${account.id}:`,
-          storeResultInbox.errors
-        );
-      }
-    }
+    // --- Now Proceed with DB Storage --- //
 
-    if (spamEmails.length > 0) {
-      const spamFolderId = await getOrCreateFolderId(
-        supabase,
-        account.id,
-        "Spam",
-        "spam"
-      );
-      const storeResultSpam = await storeEmails(
-        supabase,
-        account.id,
-        spamEmails,
-        spamFolderId,
-        logger,
-        true
-      );
-      processedEmailsThisBatch += storeResultSpam.success;
-      failedEmailsThisBatch += storeResultSpam.failed;
-      if (storeResultSpam.errors.length > 0) {
-        logger.error(
-          `Errors storing SPAM emails for account ${account.id}:`,
-          storeResultSpam.errors
-        );
-      }
+    logger.info(
+      `Storing ${parsedEmailsData.length} emails in the database for account ${account.id}`
+    );
+    const storeResult = await storeEmails(
+      supabase,
+      account.id,
+      parsedEmailsData,
+      logger
+    );
+    processedEmailsThisBatch = storeResult.success;
+    failedEmailsThisBatch = storeResult.failed;
+    if (storeResult.errors.length > 0) {
+      logger.error(`Errors storing emails for account ${account.id}:`, {
+        count: storeResult.errors.length,
+        firstError: storeResult.errors[0],
+      });
     }
 
     logger.info(
-      `Email storage for batch complete for account ${account.id}. Success: ${processedEmailsThisBatch}, Failed: ${failedEmailsThisBatch}`
+      `Database storage for batch complete for account ${account.id}. Stored: ${processedEmailsThisBatch}, Failed: ${failedEmailsThisBatch}`
     );
 
     const newTotalProcessedForJob =
@@ -448,20 +391,19 @@ export async function processEmailBatch(
       newTotalProcessedForJob
     );
 
-    if (processedEmailsThisBatch > 0 && newUids.length > 0) {
-      const highestUidInAttemptedBatch = newUids[newUids.length - 1];
-      if (highestUidInAttemptedBatch > maxUidProcessedThisBatch) {
-        maxUidProcessedThisBatch = highestUidInAttemptedBatch;
-      }
-    } else if (
-      newUids.length > 0 &&
-      processedEmailsThisBatch === 0 &&
-      failedEmailsThisBatch > 0
-    ) {
+    // Determine max UID processed in this batch
+    const actionsAttempted =
+      uidsToMoveToJunk.length > 0 ||
+      uidsToArchive.length > 0 ||
+      uidsToTrash.length > 0 ||
+      uidsToMarkAsSeenOnServer.length > 0 ||
+      processedEmailsThisBatch > 0 ||
+      failedEmailsThisBatch > 0;
+    if (actionsAttempted && newUids.length > 0) {
       const highestUidAttemptedInThisBatch = newUids[newUids.length - 1];
       if (highestUidAttemptedInThisBatch > maxUidProcessedThisBatch) {
-        logger.warn(
-          `All ${newUids.length} emails in current UID batch failed. Advancing last_synced_uid past this batch to ${highestUidAttemptedInThisBatch} to avoid retries.`
+        logger.info(
+          `Actions attempted or emails stored/failed for UIDs up to ${highestUidAttemptedInThisBatch}. Advancing max UID for batch.`
         );
         maxUidProcessedThisBatch = highestUidAttemptedInThisBatch;
       }
@@ -491,6 +433,5 @@ export async function processEmailBatch(
     processedEmailsCount: processedEmailsThisBatch,
     failedEmailsCount: failedEmailsThisBatch,
     maxUidProcessedInBatch: maxUidProcessedThisBatch,
-    uidsSuccessfullyStoredThisBatch,
   };
 }

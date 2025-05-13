@@ -206,7 +206,8 @@ export async function getConnectedImapClient(
         (connectionError.message?.includes("AUTHENTICATIONFAILED") ||
           connectionError.message?.includes("AuthError") ||
           connectionError.message?.includes("No password configured") || // As seen with stale tokens
-          connectionError.message?.includes("Invalid credentials"))
+          connectionError.message?.includes("Invalid credentials") ||
+          connectionError.message === "Command failed")
       ) {
         logger.info(
           `[ImapService] Attempting Google token refresh for ${currentAccountDetails.email}`

@@ -16,9 +16,7 @@ export async function storeEmail(
   supabase: SupabaseClient<Database>,
   accountId: string,
   parsedEmail: ParsedEmailData,
-  folderId: string = "INBOX", // Default folder
-  logger: any, // Added logger parameter
-  isSpam: boolean = false // Added isSpam parameter
+  logger: any // Added logger parameter
 ): Promise<{ success: boolean; emailId?: string; error?: string }> {
   try {
     // Check if email already exists by message-id to prevent duplicates
@@ -59,7 +57,6 @@ export async function storeEmail(
     const emailData: EmailInsert = {
       id: uuidv4(),
       account_id: accountId,
-      folder_id: folderId,
       message_id: messageId,
       imap_uid: parsedEmail.imapUid ? String(parsedEmail.imapUid) : null, // Store IMAP UID as string
       // These are supposed to be inserted into email_recipients table, not emails table
@@ -130,7 +127,7 @@ export async function storeEmail(
     }
 
     logger.info(
-      `[storeEmail] Successfully stored email (ID: ${emailId}, MessageID: ${messageId}) for account ${accountId}. Spam: ${isSpam}`
+      `[storeEmail] Successfully stored email (ID: ${emailId}, MessageID: ${messageId}) for account ${accountId}.`
     );
     return { success: true, emailId };
   } catch (error) {
@@ -157,9 +154,7 @@ export async function storeEmails(
   supabase: SupabaseClient<Database>,
   accountId: string,
   parsedEmails: ParsedEmailData[],
-  folderId: string = "INBOX",
   logger: any, // Added logger parameter
-  isSpamBatch: boolean = false, // Added isSpamBatch parameter for context
   onProgress?: (current: number, total: number) => void
 ): Promise<{ success: number; failed: number; errors: string[] }> {
   const results = {
@@ -174,9 +169,7 @@ export async function storeEmails(
       supabase,
       accountId,
       email,
-      folderId,
-      logger, // Pass logger
-      isSpamBatch // Pass isSpam context
+      logger // Pass logger
     );
 
     if (result.success) {

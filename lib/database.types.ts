@@ -119,41 +119,6 @@ export type Database = {
         }
         Relationships: []
       }
-      email_recipients: {
-        Row: {
-          created_at: string
-          email: string
-          email_id: string
-          id: string
-          name: string | null
-          type: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          email_id: string
-          id?: string
-          name?: string | null
-          type: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          email_id?: string
-          id?: string
-          name?: string | null
-          type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "email_recipients_email_id_fkey"
-            columns: ["email_id"]
-            isOneToOne: false
-            referencedRelation: "emails"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       emails: {
         Row: {
           account_id: string
@@ -162,7 +127,6 @@ export type Database = {
           category: string
           conversation_id: string | null
           created_at: string
-          folder_id: string
           from_email: string
           from_name: string | null
           has_attachments: boolean
@@ -182,7 +146,6 @@ export type Database = {
           category?: string
           conversation_id?: string | null
           created_at?: string
-          folder_id: string
           from_email: string
           from_name?: string | null
           has_attachments?: boolean
@@ -202,7 +165,6 @@ export type Database = {
           category?: string
           conversation_id?: string | null
           created_at?: string
-          folder_id?: string
           from_email?: string
           from_name?: string | null
           has_attachments?: boolean
@@ -221,58 +183,6 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "email_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "emails_folder_id_fkey"
-            columns: ["folder_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      folders: {
-        Row: {
-          account_id: string
-          created_at: string
-          id: string
-          name: string
-          parent_id: string | null
-          type: string
-          updated_at: string
-        }
-        Insert: {
-          account_id: string
-          created_at?: string
-          id?: string
-          name: string
-          parent_id?: string | null
-          type: string
-          updated_at?: string
-        }
-        Update: {
-          account_id?: string
-          created_at?: string
-          id?: string
-          name?: string
-          parent_id?: string | null
-          type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "folders_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "email_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "folders_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "folders"
             referencedColumns: ["id"]
           },
         ]
