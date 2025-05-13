@@ -10,8 +10,6 @@ export interface InboxEmail {
   preview: string | null;
   received_at: string;
   read: boolean;
-  starred: boolean;
-  has_attachments: boolean;
   account_id: string;
   message_id: string | null;
   category: string;

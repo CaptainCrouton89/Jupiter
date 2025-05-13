@@ -9,44 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      attachments: {
-        Row: {
-          content_type: string
-          created_at: string
-          email_id: string
-          filename: string
-          id: string
-          size: number
-          storage_path: string
-        }
-        Insert: {
-          content_type: string
-          created_at?: string
-          email_id: string
-          filename: string
-          id?: string
-          size: number
-          storage_path: string
-        }
-        Update: {
-          content_type?: string
-          created_at?: string
-          email_id?: string
-          filename?: string
-          id?: string
-          size?: number
-          storage_path?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attachments_email_id_fkey"
-            columns: ["email_id"]
-            isOneToOne: false
-            referencedRelation: "emails"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       email_accounts: {
         Row: {
           access_token_encrypted: string | null
@@ -125,16 +87,13 @@ export type Database = {
           body_html: string | null
           body_text: string | null
           category: string
-          conversation_id: string | null
           created_at: string
           from_email: string
           from_name: string | null
-          has_attachments: boolean
           id: string
           imap_uid: string | null
           message_id: string
           received_at: string
-          starred: boolean
           subject: string
           updated_at: string
         }
@@ -143,16 +102,13 @@ export type Database = {
           body_html?: string | null
           body_text?: string | null
           category?: string
-          conversation_id?: string | null
           created_at?: string
           from_email: string
           from_name?: string | null
-          has_attachments?: boolean
           id?: string
           imap_uid?: string | null
           message_id: string
           received_at: string
-          starred?: boolean
           subject: string
           updated_at?: string
         }
@@ -161,16 +117,13 @@ export type Database = {
           body_html?: string | null
           body_text?: string | null
           category?: string
-          conversation_id?: string | null
           created_at?: string
           from_email?: string
           from_name?: string | null
-          has_attachments?: boolean
           id?: string
           imap_uid?: string | null
           message_id?: string
           received_at?: string
-          starred?: boolean
           subject?: string
           updated_at?: string
         }

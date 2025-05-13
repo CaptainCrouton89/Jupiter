@@ -8,7 +8,6 @@ import { ParsedEmailData } from "./parseEmail";
  * Type definitions for database insertion
  */
 type EmailInsert = Database["public"]["Tables"]["emails"]["Insert"];
-type AttachmentInsert = Database["public"]["Tables"]["attachments"]["Insert"];
 
 /**
  * Store a single parsed email in the database
@@ -60,16 +59,16 @@ export async function storeEmail(
       account_id: accountId,
       message_id: messageId,
       imap_uid: parsedEmail.imapUid ? String(parsedEmail.imapUid) : null,
-      from_email: parsedEmail.from?.address || "unknown@example.com",
-      from_name: parsedEmail.from?.name,
+      from_email: parsedEmail.from?.address
+        ? encrypt(parsedEmail.from.address)
+        : encrypt("unknown@example.com"),
+      from_name: parsedEmail.from?.name ? encrypt(parsedEmail.from.name) : null,
       subject: parsedEmail.subject
         ? encrypt(parsedEmail.subject)
         : encrypt("(No Subject)"),
       received_at: parsedEmail.date
         ? new Date(parsedEmail.date).toISOString()
         : new Date().toISOString(),
-      starred: false,
-      has_attachments: parsedEmail.attachments.length > 0,
       body_html: parsedEmail.html ? encrypt(parsedEmail.html) : null,
       body_text: parsedEmail.text ? encrypt(parsedEmail.text) : null,
       category: parsedEmail.category,
@@ -95,34 +94,6 @@ export async function storeEmail(
     }
 
     const emailId = emailResult.id;
-
-    // Store attachments if any
-    if (parsedEmail.attachments && parsedEmail.attachments.length > 0) {
-      const attachmentsData: AttachmentInsert[] = parsedEmail.attachments.map(
-        (attachment) => ({
-          id: uuidv4(),
-          email_id: emailId,
-          filename: attachment.filename || "unnamed_attachment",
-          content_type: attachment.contentType,
-          size: attachment.size,
-          storage_path: `attachments/${emailId}/${uuidv4()}`, // Generate path for future storage
-          // content_id is not in the database schema, so we can't store it directly
-        })
-      );
-
-      const { error: attachmentsError } = await supabase
-        .from("attachments")
-        .insert(attachmentsData);
-
-      if (attachmentsError) {
-        // console.error("Error inserting attachments:", attachmentsError); // Replaced with logger
-        logger.warn(
-          `[storeEmail] Error inserting attachments for email (ID: ${emailId}, MessageID: ${messageId}) for account ${accountId}:`,
-          attachmentsError.message
-        );
-        // We don't fail the entire operation if attachments fail, just log it
-      }
-    }
 
     logger.info(
       `[storeEmail] Successfully stored email (ID: ${emailId}, MessageID: ${messageId}) for account ${accountId}.`
@@ -186,156 +157,4 @@ export async function storeEmails(
   }
 
   return results;
-}
-
-/**
- * Check if conversation exists based on Message-ID/References/In-Reply-To
- * and either assign existing conversation_id or create a new one
- */
-export async function assignConversationId(
-  supabase: SupabaseClient<Database>,
-  accountId: string,
-  emailId: string,
-  messageId: string | null,
-  inReplyTo: string | null,
-  references: string[] | null,
-  logger: any // Added logger parameter
-): Promise<{
-  success: boolean;
-  conversationId: string | null;
-  error?: string;
-}> {
-  try {
-    // If we don't have message references, just create a new conversation
-    if (!inReplyTo && (!references || references.length === 0)) {
-      const conversationId = uuidv4();
-
-      // Update the email with the new conversation ID
-      const { error } = await supabase
-        .from("emails")
-        .update({ conversation_id: conversationId })
-        .eq("id", emailId);
-
-      if (error) {
-        logger.error(
-          `[assignConversationId] Failed to update conversation ID for new conversation (EmailID: ${emailId}):`,
-          error.message
-        );
-        throw new Error(`Failed to update conversation ID: ${error.message}`);
-      }
-
-      logger.info(
-        `[assignConversationId] Assigned new conversation ID ${conversationId} to email ${emailId}`
-      );
-      return { success: true, conversationId };
-    }
-
-    // Collect all potential related message IDs
-    const relatedIds = [
-      ...(references || []),
-      ...(inReplyTo ? [inReplyTo] : []),
-    ].filter(Boolean);
-
-    if (relatedIds.length === 0) {
-      // No related messages, create new conversation
-      const conversationId = uuidv4();
-
-      const { error } = await supabase
-        .from("emails")
-        .update({ conversation_id: conversationId })
-        .eq("id", emailId);
-
-      if (error) {
-        logger.error(
-          `[assignConversationId] Failed to update conversation ID for new conversation (no related) (EmailID: ${emailId}):`,
-          error.message
-        );
-        throw new Error(`Failed to update conversation ID: ${error.message}`);
-      }
-
-      logger.info(
-        `[assignConversationId] Assigned new conversation ID ${conversationId} to email ${emailId} (no related found)`
-      );
-      return { success: true, conversationId };
-    }
-
-    // Look for any related emails in the database
-    const { data: relatedEmails, error: queryError } = await supabase
-      .from("emails")
-      .select("id, conversation_id, message_id")
-      .eq("account_id", accountId)
-      .in("message_id", relatedIds)
-      .not("conversation_id", "is", null);
-
-    if (queryError) {
-      logger.error(
-        `[assignConversationId] Failed to query related emails for email ${emailId} (MessageID: ${
-          messageId || "N/A"
-        }):`,
-        queryError.message
-      );
-      throw new Error(`Failed to query related emails: ${queryError.message}`);
-    }
-
-    if (relatedEmails && relatedEmails.length > 0) {
-      // Use the conversation ID of the first related email
-      const conversationId = relatedEmails[0].conversation_id;
-
-      // Update the current email with this conversation ID
-      const { error } = await supabase
-        .from("emails")
-        .update({ conversation_id: conversationId })
-        .eq("id", emailId);
-
-      if (error) {
-        logger.error(
-          `[assignConversationId] Failed to update conversation ID from related email (EmailID: ${emailId}, RelatedConvID: ${conversationId}):`,
-          error.message
-        );
-        throw new Error(`Failed to update conversation ID: ${error.message}`);
-      }
-
-      logger.info(
-        `[assignConversationId] Assigned existing conversation ID ${conversationId} to email ${emailId} from related email`
-      );
-      return { success: true, conversationId };
-    }
-
-    // No related emails found, create new conversation
-    const conversationId = uuidv4();
-
-    const { error } = await supabase
-      .from("emails")
-      .update({ conversation_id: conversationId })
-      .eq("id", emailId);
-
-    if (error) {
-      logger.error(
-        `[assignConversationId] Failed to update conversation ID for new conversation (no related found post-query) (EmailID: ${emailId}):`,
-        error.message
-      );
-      throw new Error(`Failed to update conversation ID: ${error.message}`);
-    }
-    logger.info(
-      `[assignConversationId] Assigned new conversation ID ${conversationId} to email ${emailId} (no related found post-query)`
-    );
-
-    return { success: true, conversationId };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Unknown error in assignConversationId";
-    logger.error(
-      `[assignConversationId] Catch-all error for email ${emailId} (MessageID: ${
-        messageId || "N/A"
-      }):`,
-      errorMessage
-    );
-    return {
-      success: false,
-      conversationId: null,
-      error: errorMessage,
-    };
-  }
 }

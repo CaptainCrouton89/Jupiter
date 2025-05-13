@@ -1,21 +1,6 @@
 import { ImapFlow } from "imapflow";
-import { AddressObject, Attachment, simpleParser } from "mailparser";
+import { AddressObject, simpleParser } from "mailparser";
 import { Readable } from "stream";
-
-/**
- * Email attachment metadata interface
- */
-export interface EmailAttachmentMeta {
-  id?: string; // Will be set when stored in the database
-  filename: string | null;
-  contentType: string;
-  contentDisposition: string | null;
-  size: number;
-  cid?: string; // Content-ID for inline attachments
-  contentLocation?: string | null; // For inline images referenced by contentLocation
-  checksum?: string; // Can be used for deduplication
-}
-
 /**
  * Structured email data interface
  */
@@ -51,9 +36,6 @@ export interface ParsedEmailData {
   // Content
   html: string | null;
   text: string | null;
-
-  // Attachments
-  attachments: EmailAttachmentMeta[];
 
   // Raw headers can be useful for debugging
   headers: Record<string, string | string[]>;
@@ -101,21 +83,6 @@ function processAddresses(
 }
 
 /**
- * Parse email attachments to extract metadata
- */
-function processAttachments(attachments: Attachment[]): EmailAttachmentMeta[] {
-  return attachments.map((attachment) => ({
-    filename: attachment.filename || null,
-    contentType: attachment.contentType,
-    contentDisposition: attachment.contentDisposition || null,
-    size: attachment.size,
-    cid: attachment.cid,
-    // Handle contentLocation which might not be present in current typings
-    contentLocation: (attachment as any).contentLocation || null,
-  }));
-}
-
-/**
  * Parse raw email content into structured data (without IMAP flags like isRead)
  * @param rawEmail Raw email content as buffer or string
  * @param logger Optional logger instance
@@ -140,9 +107,6 @@ export async function parseEmailContent(
     const toAddresses = processAddresses(parsed.to);
     const ccAddresses = processAddresses(parsed.cc);
     const bccAddresses = processAddresses(parsed.bcc);
-
-    // Extract attachment metadata
-    const attachmentsMeta = processAttachments(parsed.attachments);
 
     // Create references array from string
     const references = parsed.references
@@ -169,7 +133,6 @@ export async function parseEmailContent(
       bcc: bccAddresses,
       html: parsed.html || null,
       text: parsed.text || null,
-      attachments: attachmentsMeta,
       headers,
     };
   } catch (error) {

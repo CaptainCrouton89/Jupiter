@@ -12,12 +12,6 @@ export type Email = Database["public"]["Tables"]["emails"]["Row"];
 export type EmailInsert = Database["public"]["Tables"]["emails"]["Insert"];
 export type EmailUpdate = Database["public"]["Tables"]["emails"]["Update"];
 
-export type Attachment = Database["public"]["Tables"]["attachments"]["Row"];
-export type AttachmentInsert =
-  Database["public"]["Tables"]["attachments"]["Insert"];
-export type AttachmentUpdate =
-  Database["public"]["Tables"]["attachments"]["Update"];
-
 export type UserSettings = Database["public"]["Tables"]["user_settings"]["Row"];
 export type UserSettingsInsert =
   Database["public"]["Tables"]["user_settings"]["Insert"];

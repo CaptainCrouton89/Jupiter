@@ -40,37 +40,35 @@ export async function generateDigestSummary(
 
   // Calls to summarizeSingleEmail and generateIntroHook now use the imported versions
   const summaryPromises = emails.map(async (email) => {
-    // Decrypt content before passing to summarizeSingleEmail
     let decryptedContent = "";
-    let decryptedSubject = "(Subject Unavailable)"; // Default for subject
+    let decryptedSubject = "(Subject Unavailable)";
+    let decryptedSender = "Unknown Sender";
 
     try {
       // Decrypt Subject
       if (email.subject && typeof email.subject === "string") {
         decryptedSubject = decrypt(email.subject);
-      } else {
-        console.warn(
-          "[Digest] Email subject for decryption is missing or not a string:",
-          email.subject // Log original subject if possible
-        );
       }
     } catch (error) {
-      console.error(
-        `[Digest] Failed to decrypt email subject for original: "${email.subject}":`,
-        error
-      );
-      // Keep decryptedSubject as "(Subject Unavailable)"
+      console.error(`[Digest] Failed to decrypt email subject:`, error);
     }
 
     try {
-      // The `email.content` is expected to be the encrypted string from the database,
-      // as processed by the caller (e.g., weekly-digest/route.ts).
+      // Decrypt Sender (from)
+      if (email.from && typeof email.from === "string") {
+        decryptedSender = decrypt(email.from);
+      }
+    } catch (error) {
+      console.error(`[Digest] Failed to decrypt sender:`, error);
+    }
+
+    try {
       if (email.content && typeof email.content === "string") {
         decryptedContent = decrypt(email.content);
       } else {
         console.warn(
-          "[Digest] Email content for decryption is missing, not a string, or empty:",
-          decryptedSubject // Log decrypted subject for context
+          "[Digest] Email content missing or not a string:",
+          decryptedSubject
         );
         decryptedContent = "Content unavailable (encryption issue).";
       }
@@ -79,14 +77,13 @@ export async function generateDigestSummary(
         `[Digest] Failed to decrypt email content for "${decryptedSubject}":`,
         error
       );
-      decryptedContent =
-        "Content could not be decrypted. It may be corrupted or the encryption key is incorrect.";
+      decryptedContent = "Content could not be decrypted.";
     }
 
     const emailForSummary: EmailContent = {
-      subject: decryptedSubject, // Use decrypted subject
-      from: email.from,
-      content: decryptedContent, // Use the decrypted content
+      subject: decryptedSubject,
+      from: decryptedSender,
+      content: decryptedContent,
       receivedAt: email.receivedAt,
     };
     return summarizeSingleEmail(emailForSummary, categoryName);

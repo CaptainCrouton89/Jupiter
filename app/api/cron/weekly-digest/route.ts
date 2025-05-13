@@ -1,5 +1,6 @@
 import { EmailAccountDetails } from "@/app/api/internal/sync-account/[accountId]/supabaseOps"; // For type
 import { createNewSupabaseAdminClient } from "@/lib/auth/admin";
+import { decrypt } from "@/lib/auth/encryption";
 import { Database, Tables } from "@/lib/database.types";
 import { generateDigestSummary } from "@/lib/email/digest/generateDigest";
 import { sendDigestEmail } from "@/lib/email/sendEmail";
@@ -206,17 +207,34 @@ export async function GET(request: NextRequest) {
               );
 
               const categorySpecificContents = emailsForCategory.map(
-                (email) => ({
-                  subject: email.subject,
-                  from: email.from_name || email.from_email,
-                  content:
-                    email.body_text ||
-                    (email.body_html || "")
-                      .replace(/<[^>]+>/g, " ")
-                      .substring(0, 5000),
-                  receivedAt: email.received_at,
-                  // category: category, // Not strictly needed if generateDigestSummary takes category
-                })
+                (email) => {
+                  // Sender information might be encrypted
+                  let fromValue: string;
+                  try {
+                    fromValue = email.from_name
+                      ? decrypt(email.from_name)
+                      : email.from_email
+                      ? decrypt(email.from_email)
+                      : "Unknown Sender";
+                  } catch (error) {
+                    logger.warn(
+                      `Error decrypting sender info for email ${email.id}:`,
+                      error
+                    );
+                    fromValue = "Unknown Sender";
+                  }
+
+                  return {
+                    subject: email.subject, // Will be decrypted in generateDigestSummary
+                    from: fromValue,
+                    content:
+                      email.body_text ||
+                      (email.body_html || "")
+                        .replace(/<[^>]+>/g, " ")
+                        .substring(0, 5000),
+                    receivedAt: email.received_at,
+                  };
+                }
               );
 
               // Generate and send digest for THIS category

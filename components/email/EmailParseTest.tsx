@@ -152,23 +152,6 @@ export function EmailParseTest({ accountId, uid }: EmailParseTestProps) {
                     : "No text content"}
                 </p>
               </div>
-
-              {parsedEmail.attachmentCount > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium">
-                    Attachments ({parsedEmail.attachmentCount})
-                  </h4>
-                  <ul className="text-sm list-disc pl-5">
-                    {parsedEmail.attachments.map((att: any, i: number) => (
-                      <li key={i}>
-                        {att.filename || "Unnamed attachment"} (
-                        {att.contentType}, {formatBytes(att.size)})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
               <div>
                 <h4 className="text-sm font-medium">Message ID</h4>
                 <p className="text-sm truncate">

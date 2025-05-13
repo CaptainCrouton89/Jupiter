@@ -81,12 +81,6 @@ export async function GET(
         date: emailData.date,
         hasHtml: !!emailData.html,
         hasText: !!emailData.text,
-        attachmentCount: emailData.attachments.length,
-        attachments: emailData.attachments.map((att) => ({
-          filename: att.filename,
-          contentType: att.contentType,
-          size: att.size,
-        })),
       },
     });
   } catch (error) {
