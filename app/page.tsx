@@ -7,6 +7,6 @@ export default async function Home() {
   if (user) {
     redirect("/settings");
   } else {
-    redirect("/login");
+    redirect("/landing");
   }
 }
