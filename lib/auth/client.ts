@@ -12,8 +12,3 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 }
-
-/**
- * Singleton instance of the Supabase client for client components
- */
-export const clientSupabase = createClient();

@@ -1,5 +1,6 @@
 "use client";
 
+import { login } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { createClient } from "@/lib/auth/client";
 import { loginSchema, type LoginFormData } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EyeIcon, EyeOffIcon, Loader2 } from "lucide-react";
@@ -21,12 +22,10 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 interface LoginFormProps {
-  onSuccess?: () => void;
   onToggleForm?: () => void;
 }
 
-export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
-  const { signIn, signInWithGoogle, isLoading } = useAuth();
+export function LoginForm({ onToggleForm }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
@@ -66,37 +65,20 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
 
   const onSubmit = async (data: LoginFormData) => {
     console.log("Login form submitted with email:", data.email);
-    const result = await signIn(data.email, data.password);
+    const result = await login(data.email, data.password);
     console.log("Login result:", result);
-
-    if (!result.success) {
-      if (result.error && result.error.includes("Invalid login credentials")) {
-        setError("root", {
-          message: "Invalid email or password",
-        });
-        return;
-      }
-
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.error("An unknown error occurred during login.");
-      }
-      return;
-    }
-
-    toast.success("Successfully logged in");
-    console.log("Calling onSuccess callback");
-    onSuccess?.();
   };
 
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleLoading(true);
-      const result = await signInWithGoogle("/accounts");
-      if (!result.success) {
-        toast.error(result.error || "Failed to sign in with Google");
-      }
+      const supabase = await createClient();
+      const result = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+        },
+      });
       // No need for onSuccess callback here as the redirect will happen from Google
     } catch (error) {
       toast.error("An error occurred during Google sign-in");
@@ -175,15 +157,8 @@ export function LoginForm({ onSuccess, onToggleForm }: LoginFormProps) {
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-4">
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Logging in...
-              </>
-            ) : (
-              "Log in"
-            )}
+          <Button type="submit" className="w-full">
+            Log in
           </Button>
 
           <div className="relative w-full">

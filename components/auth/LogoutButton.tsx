@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/hooks/useAuth";
-import { Loader2, LogOutIcon } from "lucide-react";
+import { createClient } from "@/lib/auth/client";
+import { LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React from "react";
 import { toast } from "sonner";
@@ -22,11 +22,11 @@ export function LogoutButton({
   children,
   ...props
 }: LogoutButtonProps) {
-  const { signOut, isLoading } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await signOut();
+    const supabase = await createClient();
+    await supabase.auth.signOut();
 
     toast.success("Successfully logged out");
     onLogout?.();
@@ -39,13 +39,10 @@ export function LogoutButton({
       variant={variant}
       size={size}
       onClick={handleLogout}
-      disabled={isLoading}
       className={className}
       {...props}
     >
-      {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : children ? (
+      {children ? (
         children
       ) : (
         <>

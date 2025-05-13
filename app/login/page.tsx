@@ -2,72 +2,31 @@
 
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignUpForm } from "@/components/auth/SignUpForm";
-import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
-import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { Suspense, useCallback, useState } from "react";
 
 export default function LoginPage() {
   const [isLoginView, setIsLoginView] = useState(true);
-  const [shouldRedirectTo, setShouldRedirectTo] = useState<string | null>(null);
-  const router = useRouter();
 
   const handleToggleForm = useCallback(() => {
     setIsLoginView((prev) => !prev);
   }, []);
 
-  // Effect to handle fallback redirect if router.push doesn't work
-  // useEffect(() => {
-  //   if (shouldRedirectTo) {
-  //     const redirectTimer = setTimeout(() => {
-  //       console.log("Fallback redirect triggered to:", shouldRedirectTo);
-  //       window.location.href = shouldRedirectTo;
-  //     }, 1000); // Wait 1 second to see if router.push works first
-
-  //     return () => clearTimeout(redirectTimer);
-  //   }
-  // }, [shouldRedirectTo]);
-
-  const handleAuthSuccess = useCallback(
-    (emailConfirmationRequired?: boolean) => {
-      console.log(
-        "Auth success callback called, emailConfirmationRequired:",
-        emailConfirmationRequired
-      );
-
-      if (isLoginView || !emailConfirmationRequired) {
-        // If login was successful, or signup was successful without email confirmation,
-        // redirect to accounts page
-        console.log("Redirecting to /accounts");
-        toast.success("Redirecting to your accounts...");
-
-        // Use a small timeout to ensure state updates are complete
-        setTimeout(() => {
-          console.log("Executing redirect via window.location");
-          window.location.href = "/accounts";
-        }, 500);
-
-        // Previous approach with router.push - commented out for debugging
-        // router.push("/accounts");
-      }
-      // If signup requires email confirmation, we stay on the page (or show a message)
-      // The form itself will show a toast message.
-    },
-    [isLoginView]
-  );
-
   return (
     <div className="flex items-center justify-center min-h-screen p-4 bg-muted/40">
-      {isLoginView ? (
-        <LoginForm
-          onSuccess={handleAuthSuccess}
-          onToggleForm={handleToggleForm}
-        />
-      ) : (
-        <SignUpForm
-          onSuccess={handleAuthSuccess}
-          onToggleForm={handleToggleForm}
-        />
-      )}
+      <Suspense
+        fallback={
+          <div className="flex justify-center items-center min-h-[300px]">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }
+      >
+        {isLoginView ? (
+          <LoginForm onToggleForm={handleToggleForm} />
+        ) : (
+          <SignUpForm onToggleForm={handleToggleForm} />
+        )}
+      </Suspense>
     </div>
   );
 }

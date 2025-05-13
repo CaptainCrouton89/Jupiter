@@ -1,6 +1,6 @@
 import type { EmailAccount, Folder, UserSettings } from "@/types/email";
-import { supabase } from "./supabase";
-
+import { SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "./database.types";
 /**
  * Email Accounts API
  */
@@ -8,7 +8,7 @@ export const emailAccountsAPI = {
   /**
    * Get all email accounts for the current user
    */
-  getAll: async (userId: string) => {
+  getAll: async (userId: string, supabase: SupabaseClient<Database>) => {
     const { data, error } = await supabase
       .from("email_accounts")
       .select("*")
@@ -21,7 +21,7 @@ export const emailAccountsAPI = {
   /**
    * Get a single email account by ID
    */
-  getById: async (id: string) => {
+  getById: async (id: string, supabase: SupabaseClient<Database>) => {
     const { data, error } = await supabase
       .from("email_accounts")
       .select("*")
@@ -36,7 +36,8 @@ export const emailAccountsAPI = {
    * Create a new email account
    */
   create: async (
-    account: Omit<EmailAccount, "id" | "created_at" | "updated_at">
+    account: Omit<EmailAccount, "id" | "created_at" | "updated_at">,
+    supabase: SupabaseClient<Database>
   ) => {
     const { data, error } = await supabase
       .from("email_accounts")
@@ -53,7 +54,8 @@ export const emailAccountsAPI = {
    */
   update: async (
     id: string,
-    account: Partial<Omit<EmailAccount, "id" | "created_at" | "updated_at">>
+    account: Partial<Omit<EmailAccount, "id" | "created_at" | "updated_at">>,
+    supabase: SupabaseClient<Database>
   ) => {
     const { data, error } = await supabase
       .from("email_accounts")
@@ -69,7 +71,7 @@ export const emailAccountsAPI = {
   /**
    * Delete an email account
    */
-  delete: async (id: string) => {
+  delete: async (id: string, supabase: SupabaseClient<Database>) => {
     const { error } = await supabase
       .from("email_accounts")
       .delete()
@@ -89,7 +91,8 @@ export const emailsAPI = {
    */
   getByFolder: async (
     folderId: string,
-    { page = 1, limit = 50 }: { page?: number; limit?: number } = {}
+    { page = 1, limit = 50 }: { page?: number; limit?: number },
+    supabase: SupabaseClient<Database>
   ) => {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -116,7 +119,7 @@ export const emailsAPI = {
   /**
    * Get a single email by ID
    */
-  getById: async (id: string) => {
+  getById: async (id: string, supabase: SupabaseClient<Database>) => {
     const { data, error } = await supabase
       .from("emails")
       .select("*, account_id(*), email_recipients(*)")
@@ -130,7 +133,11 @@ export const emailsAPI = {
   /**
    * Mark an email as read/unread
    */
-  markAsRead: async (id: string, isRead: boolean = true) => {
+  markAsRead: async (
+    id: string,
+    isRead: boolean = true,
+    supabase: SupabaseClient<Database>
+  ) => {
     const { data, error } = await supabase
       .from("emails")
       .update({ read: isRead })
@@ -145,7 +152,11 @@ export const emailsAPI = {
   /**
    * Star/unstar an email
    */
-  toggleStar: async (id: string, isStarred: boolean) => {
+  toggleStar: async (
+    id: string,
+    isStarred: boolean,
+    supabase: SupabaseClient<Database>
+  ) => {
     const { data, error } = await supabase
       .from("emails")
       .update({ starred: isStarred })
@@ -165,7 +176,10 @@ export const foldersAPI = {
   /**
    * Get all folders for an account
    */
-  getByAccount: async (accountId: string) => {
+  getByAccount: async (
+    accountId: string,
+    supabase: SupabaseClient<Database>
+  ) => {
     const { data, error } = await supabase
       .from("folders")
       .select("*")
@@ -178,7 +192,10 @@ export const foldersAPI = {
   /**
    * Create a new folder
    */
-  create: async (folder: Omit<Folder, "id" | "created_at" | "updated_at">) => {
+  create: async (
+    folder: Omit<Folder, "id" | "created_at" | "updated_at">,
+    supabase: SupabaseClient<Database>
+  ) => {
     const { data, error } = await supabase
       .from("folders")
       .insert([folder])
@@ -197,7 +214,7 @@ export const userSettingsAPI = {
   /**
    * Get user settings
    */
-  get: async (userId: string) => {
+  get: async (userId: string, supabase: SupabaseClient<Database>) => {
     const { data, error } = await supabase
       .from("user_settings")
       .select("*")
@@ -215,7 +232,8 @@ export const userSettingsAPI = {
     userId: string,
     settings: Partial<
       Omit<UserSettings, "id" | "created_at" | "updated_at" | "user_id">
-    >
+    >,
+    supabase: SupabaseClient<Database>
   ) => {
     const { data, error } = await supabase
       .from("user_settings")

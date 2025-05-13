@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   // Get the 'next' parameter for post-authentication redirection
   const searchParams = req.nextUrl.searchParams;
-  const nextPath = searchParams.get("next") || "/accounts";
+  const nextPath = searchParams.get("next") || "/settings";
 
   const state = randomBytes(16).toString("hex");
 

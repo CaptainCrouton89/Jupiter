@@ -1,15 +1,5 @@
 "use client";
 
-import type { Database } from "@/lib/database.types";
-import type {
-  CategoryAction,
-  CategoryPreference,
-  CategoryPreferences,
-} from "@/types/settings";
-import { createBrowserClient } from "@supabase/ssr";
-import type { User } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,8 +12,17 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { createClient } from "@/lib/auth/client";
+import type { Database } from "@/lib/database.types";
+import type {
+  CategoryAction,
+  CategoryPreference,
+  CategoryPreferences,
+} from "@/types/settings";
+import type { User } from "@supabase/supabase-js";
 import Link from "next/link"; // Import Link
 import { redirect } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const RELEVANT_CATEGORIES = [
@@ -41,13 +40,6 @@ const RELEVANT_CATEGORIES = [
 export type UserSettings = Database["public"]["Tables"]["user_settings"]["Row"];
 
 export default function SettingsPage() {
-  const [supabase] = useState(() =>
-    createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  );
-
   const [user, setUser] = useState<User | null>(null);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [categoryPreferences, setCategoryPreferences] =
@@ -56,56 +48,55 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUserSettings = useCallback(
-    async (userId: string) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const { data, error: fetchError } = await supabase
-          .from("user_settings")
-          .select("id, category_preferences")
-          .eq("user_id", userId)
-          .single();
+  const fetchUserSettings = useCallback(async (userId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const supabase = await createClient();
+      const { data, error: fetchError } = await supabase
+        .from("user_settings")
+        .select("id, category_preferences")
+        .eq("user_id", userId)
+        .single();
 
-        if (fetchError && fetchError.code !== "PGRST116") {
-          throw fetchError;
-        }
+      if (fetchError && fetchError.code !== "PGRST116") {
+        throw fetchError;
+      }
 
-        if (data) {
-          setSettingsId(data.id);
-          const prefs = data.category_preferences as CategoryPreferences | null;
-          const initialPrefs: CategoryPreferences = {};
-          RELEVANT_CATEGORIES.forEach((cat) => {
-            initialPrefs[cat] = prefs?.[cat] ?? {
-              action: "none",
-              digest: false,
-            };
-          });
-          setCategoryPreferences(initialPrefs);
-        } else {
-          const initialPrefs: CategoryPreferences = {};
-          RELEVANT_CATEGORIES.forEach((cat) => {
-            initialPrefs[cat] = { action: "none", digest: false };
-          });
-          setCategoryPreferences(initialPrefs);
-        }
-      } catch (e: any) {
-        console.error("Error fetching user settings:", e);
-        setError("Failed to load settings. Please try again.");
+      if (data) {
+        setSettingsId(data.id);
+        const prefs = data.category_preferences as CategoryPreferences | null;
+        const initialPrefs: CategoryPreferences = {};
+        RELEVANT_CATEGORIES.forEach((cat) => {
+          initialPrefs[cat] = prefs?.[cat] ?? {
+            action: "none",
+            digest: false,
+          };
+        });
+        setCategoryPreferences(initialPrefs);
+      } else {
         const initialPrefs: CategoryPreferences = {};
         RELEVANT_CATEGORIES.forEach((cat) => {
           initialPrefs[cat] = { action: "none", digest: false };
         });
         setCategoryPreferences(initialPrefs);
-      } finally {
-        setIsLoading(false);
       }
-    },
-    [supabase]
-  );
+    } catch (e: any) {
+      console.error("Error fetching user settings:", e);
+      setError("Failed to load settings. Please try again.");
+      const initialPrefs: CategoryPreferences = {};
+      RELEVANT_CATEGORIES.forEach((cat) => {
+        initialPrefs[cat] = { action: "none", digest: false };
+      });
+      setCategoryPreferences(initialPrefs);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const getUserAndSettings = async () => {
+      const supabase = await createClient();
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -117,7 +108,7 @@ export default function SettingsPage() {
       }
     };
     getUserAndSettings();
-  }, [supabase, fetchUserSettings]);
+  }, [fetchUserSettings]);
 
   const handlePreferenceChange = (
     category: (typeof RELEVANT_CATEGORIES)[number],
@@ -134,6 +125,7 @@ export default function SettingsPage() {
   };
 
   const handleSaveChanges = async () => {
+    const supabase = await createClient();
     if (!user?.id) {
       setError("User not found. Please log in again.");
       return;

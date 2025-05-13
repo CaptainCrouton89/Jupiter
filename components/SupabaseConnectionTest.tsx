@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/auth/client";
 import { EmailAccount } from "@/types/email";
 import { Check, Loader2, X } from "lucide-react";
 import { useState } from "react";
@@ -27,6 +27,8 @@ export default function SupabaseConnectionTest() {
     setError(null);
     setAccounts(null);
     setEmailData(null);
+
+    const supabase = await createClient();
 
     try {
       // Test the connection by making a simple query

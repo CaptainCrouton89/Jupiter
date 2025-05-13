@@ -1,5 +1,6 @@
+import { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import { supabase } from "../supabase";
+import { Database } from "../database.types";
 
 const ATTACHMENT_BUCKET = "email-attachments";
 
@@ -14,7 +15,8 @@ const ATTACHMENT_BUCKET = "email-attachments";
 export async function getAttachmentUploadUrl(
   userId: string,
   emailId: string,
-  fileName: string
+  fileName: string,
+  supabase: SupabaseClient<Database>
 ): Promise<{
   uploadUrl: string | null;
   filePath: string | null;
@@ -57,7 +59,8 @@ export async function getAttachmentUploadUrl(
  */
 export async function getAttachmentDownloadUrl(
   filePath: string,
-  expiresInSeconds = 60
+  expiresInSeconds = 60,
+  supabase: SupabaseClient<Database>
 ): Promise<{ downloadUrl: string | null; error: any | null }> {
   try {
     const { data, error } = await supabase.storage
@@ -81,7 +84,8 @@ export async function getAttachmentDownloadUrl(
  * @returns An object indicating success or an error.
  */
 export async function deleteAttachment(
-  filePath: string
+  filePath: string,
+  supabase: SupabaseClient<Database>
 ): Promise<{ success: boolean; error: any | null }> {
   try {
     const { error } = await supabase.storage
@@ -107,7 +111,8 @@ export async function deleteAttachment(
  */
 export async function listEmailAttachments(
   userId: string,
-  emailId: string
+  emailId: string,
+  supabase: SupabaseClient<Database>
 ): Promise<{ files: any[] | null; error: any | null }> {
   try {
     const folderPath = `${userId}/${emailId}`;

@@ -1,5 +1,6 @@
 "use client";
 
+import { signup } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { createClient } from "@/lib/auth/client";
 import { signupSchema, type SignupFormData } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { EyeIcon, EyeOffIcon, Loader2 } from "lucide-react";
@@ -21,12 +22,10 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 interface SignUpFormProps {
-  onSuccess?: (emailConfirmationRequired?: boolean) => void;
   onToggleForm?: () => void;
 }
 
-export function SignUpForm({ onSuccess, onToggleForm }: SignUpFormProps) {
-  const { signUp, signInWithGoogle, isLoading } = useAuth();
+export function SignUpForm({ onToggleForm }: SignUpFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -66,34 +65,19 @@ export function SignUpForm({ onSuccess, onToggleForm }: SignUpFormProps) {
   }, [searchParams, setError]);
 
   const onSubmit = async (data: SignupFormData) => {
-    const result = await signUp(data.email, data.password);
-
-    if (!result.success) {
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.error("An unknown error occurred during sign up.");
-      }
-      return;
-    }
-
-    if (result.emailConfirmation) {
-      toast.success(
-        "Sign up successful! Please check your email to confirm your account."
-      );
-    } else {
-      toast.success("Successfully signed up and logged in");
-    }
-    onSuccess?.(result.emailConfirmation);
+    await signup(data.email, data.password);
   };
 
   const handleGoogleSignIn = async () => {
     try {
       setIsGoogleLoading(true);
-      const result = await signInWithGoogle("/accounts");
-      if (!result.success) {
-        toast.error(result.error || "Failed to sign in with Google");
-      }
+      const supabase = await createClient();
+      const result = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+        },
+      });
       // No need for onSuccess callback here as the redirect will happen from Google
     } catch (error) {
       toast.error("An error occurred during Google sign-in");
@@ -194,17 +178,9 @@ export function SignUpForm({ onSuccess, onToggleForm }: SignUpFormProps) {
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-4">
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing up...
-              </>
-            ) : (
-              "Sign up"
-            )}
+          <Button type="submit" className="w-full">
+            Sign up
           </Button>
-
           <div className="relative w-full">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-gray-300" />

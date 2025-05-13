@@ -1,6 +1,4 @@
-import { AuthProvider } from "@/components/auth/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
-import { getServerSession } from "@/lib/auth/server";
 import { StoreProvider } from "@/lib/store/provider";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
@@ -20,16 +18,12 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = await getServerSession();
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn("antialiased overscroll-y-none", inter.className)}>
         <StoreProvider>
-          <AuthProvider initialUser={user}>
-            {children}
-            <Toaster />
-          </AuthProvider>
+          {children}
+          <Toaster />
         </StoreProvider>
       </body>
     </html>
