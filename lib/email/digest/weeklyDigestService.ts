@@ -42,6 +42,11 @@ interface UserDigestPreferences {
   default_account_id?: string | null;
 }
 
+// Define an extended type for email that includes headers for filtering purposes
+type EmailWithHeaders = Tables<"emails"> & {
+  headers?: Record<string, string | string[]> | null;
+};
+
 export class WeeklyDigestService {
   private supabase: SupabaseClient<Database>;
 
@@ -121,14 +126,15 @@ export class WeeklyDigestService {
   private async fetchEmailsForCategory(
     userAccountIds: string[],
     categoryName: RelevantCategory
-  ): Promise<Tables<"emails">[]> {
+  ): Promise<EmailWithHeaders[]> {
+    // Return type updated
     const sevenDaysAgo = new Date(
       Date.now() - 7 * 24 * 60 * 60 * 1000
     ).toISOString();
 
     const { data: emails, error: emailsError } = await this.supabase
       .from("emails")
-      .select("*")
+      .select("*") // Fetches all columns, including headers
       .in("account_id", userAccountIds)
       .eq("category", categoryName)
       .gte("received_at", sevenDaysAgo)
@@ -143,7 +149,7 @@ export class WeeklyDigestService {
       );
       return [];
     }
-    return emails || [];
+    return (emails as EmailWithHeaders[]) || []; // Cast to ensure type compatibility
   }
 
   private cleanEmailBody(
@@ -193,7 +199,7 @@ export class WeeklyDigestService {
   }
 
   private prepareEmailContents(
-    emails: Tables<"emails">[]
+    emails: EmailWithHeaders[] // Use EmailWithHeaders
   ): ProcessedEmailContent[] {
     return emails.map((email) => {
       let fromValue: string;
@@ -357,30 +363,81 @@ export class WeeklyDigestService {
         logger.info(
           `User ${userId} has digest enabled for category: ${category}. Fetching emails.`
         );
-        const rawEmails = await this.fetchEmailsForCategory(
+        const rawEmailsForCategory = await this.fetchEmailsForCategory(
           accountIds,
           category
         );
 
-        if (rawEmails.length > 0) {
+        // Filter out emails that should be skipped
+        const emailsToPotentiallyDigest = rawEmailsForCategory.filter(
+          (email) => {
+            // Now 'email' is of type EmailWithHeaders
+            const currentEmail = email as EmailWithHeaders; // Explicit cast still useful for clarity if needed inside complex logic
+
+            if (
+              currentEmail.headers &&
+              (currentEmail.headers["X-Jupiter-Generated"] ||
+                currentEmail.headers["x-jupiter-generated"])
+            ) {
+              logger.info(
+                `Skipping email ID ${currentEmail.id} (Subject: "${
+                  currentEmail.subject || "N/A"
+                }") due to X-Jupiter-Generated header.`
+              );
+              return false;
+            }
+
+            if (currentEmail.subject) {
+              let decryptedSubjectToCheck = "";
+              try {
+                decryptedSubjectToCheck = decrypt(currentEmail.subject);
+              } catch (e) {
+                logger.warn(
+                  `Could not decrypt subject for digest skipping check (Email ID: ${
+                    currentEmail.id
+                  }). Original: "${currentEmail.subject.substring(
+                    0,
+                    50
+                  )}...": ${(e as Error).message}`
+                );
+              }
+
+              const lowerSubject = decryptedSubjectToCheck.toLowerCase();
+              if (
+                lowerSubject.startsWith("your weekly ") &&
+                lowerSubject.endsWith(" digest")
+              ) {
+                logger.info(
+                  `Skipping email ID ${currentEmail.id} (Subject: "${decryptedSubjectToCheck}") due to matching digest subject pattern.`
+                );
+                return false;
+              }
+            }
+            return true;
+          }
+        );
+
+        if (emailsToPotentiallyDigest.length > 0) {
           logger.info(
-            `Found ${rawEmails.length} emails for category ${category} for user ${userId}. Preparing content.`
+            `Found ${emailsToPotentiallyDigest.length} emails (after filtering) for category ${category} for user ${userId}. Preparing content.`
           );
-          const preparedContents = this.prepareEmailContents(rawEmails);
+          const preparedContents = this.prepareEmailContents(
+            emailsToPotentiallyDigest
+          );
 
           const sent = await this.generateAndSendCategoryDigest(
             userEmailAccounts,
             userId,
             category,
             preparedContents,
-            userSettings // Pass the possibly null userSettings
+            userSettings
           );
           if (sent) {
             digestsSentThisUser++;
           }
         } else {
           logger.info(
-            `No emails found for category ${category} for user ${userId} in the last 7 days.`
+            `No emails found (or all filtered out) for category ${category} for user ${userId} in the last 7 days.`
           );
         }
       }
@@ -392,7 +449,7 @@ export class WeeklyDigestService {
       );
     } else {
       logger.info(
-        `No digests generated or sent for user ${userId} as no categories with emails were enabled or had content.`
+        `No digests generated or sent for user ${userId} as no categories with emails were enabled or had content meeting criteria.`
       );
     }
     return { userId, success: true, digestsSent: digestsSentThisUser };
@@ -425,7 +482,6 @@ export class WeeklyDigestService {
     for (const userId of allUserIds) {
       try {
         const result = await this.processUserDigest(userId);
-        // Regardless of digestsSent, if processUserDigest didn't throw, user processing was 'successful' at this level
         totalUsersProcessed++;
         totalDigestsSent += result.digestsSent;
       } catch (userProcessingError: any) {

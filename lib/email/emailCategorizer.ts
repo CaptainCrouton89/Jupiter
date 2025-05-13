@@ -365,7 +365,10 @@ export async function categorizeEmail(
   const relevantHeaders = getRelevantHeaders(headers);
 
   // --- Immediate Check for Jupiter-Generated Emails ---
-  if (relevantHeaders.xJupiterGenerated === "Digest") {
+  if (
+    relevantHeaders.xJupiterGenerated === "Digest" ||
+    (emailData.subject && /Your Weekly \w+ Digest/i.test(emailData.subject))
+  ) {
     console.log(
       "Jupiter-generated digest email detected, categorizing as uncategorizable."
     );
