@@ -1,40 +1,38 @@
 "use client"; // Or remove if it becomes a server component with static content
 
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Lock, RefreshCw, Zap } from "lucide-react";
+import {
+  FeatureCard,
+  CardStates as FeatureCardStates,
+} from "@/components/ui/FeatureCard"; // Import the new component and its state type
+import { ArrowRight, Lock, RefreshCw, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-// Define an interface for the card states
-interface CardStates {
-  triage: boolean;
-  briefings: boolean;
-  security: boolean;
-}
+// Renamed to avoid conflict if CardStates is imported from FeatureCard.tsx
+// Or, if CardStates is only used here now, its definition in FeatureCard.tsx could be removed.
+interface LandingPageCardStates extends FeatureCardStates {}
 
 export default function LandingPage() {
-  const [flippedCards, setFlippedCards] = useState<CardStates>({
+  const [flippedCards, setFlippedCards] = useState<LandingPageCardStates>({
     triage: false,
     briefings: false,
     security: false,
   });
 
-  const handleFlip = (clickedCardKey: keyof CardStates) => {
+  const handleFlip = (clickedCardKey: keyof LandingPageCardStates) => {
     setFlippedCards((prevFlippedStates) => {
       const nextFlippedStateForClickedCard = !prevFlippedStates[clickedCardKey];
 
-      // If the card is being flipped to its back (opened)
       if (nextFlippedStateForClickedCard) {
-        const newState: CardStates = {
+        const newState: LandingPageCardStates = {
           triage: false,
           briefings: false,
           security: false,
         };
-        newState[clickedCardKey] = true; // Open the clicked card
+        newState[clickedCardKey] = true;
         return newState;
       } else {
-        // If the card is being flipped to its front (closed)
-        // Only close the clicked card, others remain as they were (which should be closed due to the logic above)
         return {
           ...prevFlippedStates,
           [clickedCardKey]: false,
@@ -45,37 +43,37 @@ export default function LandingPage() {
 
   const featureCardsData = [
     {
-      key: "triage" as keyof CardStates,
+      key: "triage" as keyof LandingPageCardStates,
       icon: <Zap className="text-orange-600" />,
       title: "Automated Inbox Triage",
       descriptionFront:
         "Never manually sort email again. Jupiter AI intelligently archives, trashes, or marks as read, instantly.",
       descriptionBack:
-        "Jupiter Mail's AI doesn't just categorize; it acts. Set rules to auto-archive, instantly trash spam, or mark routine emails as read. Configure custom actions for senders or keywords. Imagine an inbox that practically manages itself, freeing up hours of your week. This is smart automation that adapts to your workflow.",
-      initialHeight: "sm:min-h-[300px] min-h-[360px]", // Adjusted for more front content
-      expandedHeight: "max-h-[700px]", // Adjusted for potentially more back content
+        "Jupiter Mail employs advanced AI to analyze and categorize every incoming email—from newsletters to personal notes—by understanding its sender, subject, content, and even subtle email cues. Then, according to *your* personalized preferences set for each category (like 'archive all marketing,' 'mark newsletters as read'), Jupiter automatically sorts your mail. This means a cleaner inbox, managed for you, before you even open it.",
+      initialHeight: "min-h-[340px]",
+      expandedHeight: "min-h-[340px]",
     },
     {
-      key: "briefings" as keyof CardStates,
+      key: "briefings" as keyof LandingPageCardStates,
       icon: <RefreshCw className="text-orange-600" />,
       title: "Curated Weekly Briefings",
       descriptionFront:
         "Stay informed, not overwhelmed. Get concise digests of important emails, tailored to your chosen categories.",
       descriptionBack:
-        "Cut through the noise. Our Weekly Briefings are more than summaries; they're personalized intelligence reports for your inbox. Choose which categories matter most—project updates, newsletters, financial alerts—and receive a focused digest. Customize the level of detail and delivery time. Stay on top of what's crucial, effortlessly.",
-      initialHeight: "sm:min-h-[300px] min-h-[360px]",
-      expandedHeight: "max-h-[700px]",
+        "Choose the email categories you can't miss—like project updates, financial alerts, or specific newsletters. Our AI then intelligently summarizes each email within those chosen categories, extracting the core information into brief, easy-to-digest highlights. You receive a single, weekly email compiling these smart summaries, allowing you to absorb vital updates in minutes, not hours.",
+      initialHeight: "min-h-[340px]",
+      expandedHeight: "min-h-[340px]",
     },
     {
-      key: "security" as keyof CardStates,
+      key: "security" as keyof LandingPageCardStates,
       icon: <Lock className="text-orange-600" />,
       title: "Ironclad Security & Privacy",
       descriptionFront:
         "Your data is sacred. Emails are encrypted and auto-purged after two weeks. Period.",
       descriptionBack:
-        "We believe your communication is yours alone. Jupiter Mail employs robust end-to-end encryption for all emails stored on our servers. Our auto-purge protocol permanently deletes emails after two weeks—no exceptions. This means minimal data footprint and maximum peace of mind. Your privacy isn't a feature; it's a foundation.",
-      initialHeight: "sm:min-h-[300px] min-h-[360px]",
-      expandedHeight: "max-h-[700px]",
+        "We prioritize your privacy. Any email data processed and temporarily stored by Jupiter Mail is encrypted on our secure servers. More importantly, we enforce a strict 14-day data retention policy: all processed email content is automatically and permanently purged from our systems after two weeks. This data minimization is fundamental to our design, ensuring your information isn't held longer than absolutely necessary.",
+      initialHeight: "min-h-[340px]",
+      expandedHeight: "min-h-[340px]",
     },
   ];
 
@@ -136,76 +134,20 @@ export default function LandingPage() {
             Stop Drowning in Email. Start Thriving.
           </h2>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {featureCardsData.map((card) => (
-              <div
+              <FeatureCard
                 key={card.key}
-                className={`relative group [perspective:1000px] transition-all duration-500 ease-in-out rounded-2xl ${
-                  flippedCards[card.key]
-                    ? card.expandedHeight
-                    : card.initialHeight
-                } group-hover:scale-[1.02] group-hover:shadow-xl cursor-pointer`}
-              >
-                <div
-                  className={`relative w-full h-full transition-transform duration-700 ease-in-out [transform-style:preserve-3d] ${
-                    flippedCards[card.key] ? "[transform:rotateY(180deg)]" : ""
-                  }`}
-                >
-                  {/* Card Front */}
-                  <div
-                    className="absolute w-full h-full bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-sm border border-orange-100 [backface-visibility:hidden] flex flex-col justify-between"
-                    onClick={(e) => {
-                      if (!flippedCards[card.key]) {
-                        e.stopPropagation();
-                        handleFlip(card.key);
-                      }
-                    }}
-                  >
-                    <div>
-                      <div className="bg-orange-100 p-3 rounded-full w-12 h-12 flex items-center justify-center mb-6">
-                        {card.icon}
-                      </div>
-                      <h3 className="text-xl font-semibold mb-3">
-                        {card.title}
-                      </h3>
-                      <p className="text-slate-600 text-[0.92rem] leading-relaxed">
-                        {card.descriptionFront}
-                      </p>
-                    </div>
-                    <div
-                      className={`mt-4 text-sm text-orange-500 group-hover:text-orange-700 font-medium transition-colors duration-300 flex items-center self-start ${
-                        flippedCards[card.key] ? "invisible" : ""
-                      }`}
-                    >
-                      Learn More <ArrowRight className="ml-1 w-4 h-4" />
-                    </div>
-                  </div>
-
-                  {/* Card Back */}
-                  <div
-                    className="absolute w-full h-full bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-orange-100 [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col justify-between overflow-y-auto cursor-pointer"
-                    onClick={(e) => {
-                      if (flippedCards[card.key]) {
-                        e.stopPropagation();
-                        handleFlip(card.key);
-                      }
-                    }}
-                  >
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4 text-orange-700">
-                        {card.title}
-                      </h3>
-                      <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
-                        {card.descriptionBack}
-                      </p>
-                    </div>
-                    {/* "Back" visual indicator - not a button itself anymore */}
-                    <div className="mt-auto pt-4 text-sm text-orange-500 group-hover:text-orange-700 font-medium transition-colors duration-300 self-start flex items-center">
-                      <ArrowLeft className="mr-1 w-4 h-4" /> Back
-                    </div>
-                  </div>
-                </div>
-              </div>
+                cardKey={card.key}
+                icon={card.icon}
+                title={card.title}
+                descriptionFront={card.descriptionFront}
+                descriptionBack={card.descriptionBack}
+                initialHeight={card.initialHeight}
+                expandedHeight={card.expandedHeight}
+                isFlipped={flippedCards[card.key]}
+                onFlip={handleFlip}
+              />
             ))}
           </div>
         </section>
