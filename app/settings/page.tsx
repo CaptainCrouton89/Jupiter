@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { createClient } from "@/lib/auth/client";
 import type { Database } from "@/lib/database.types";
 import type {
+  Category,
   CategoryAction,
   CategoryPreference,
   CategoryPreferences,
@@ -24,15 +25,16 @@ import Link from "next/link"; // Import Link
 import { redirect } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const RELEVANT_CATEGORIES = [
+const RELEVANT_CATEGORIES: Category[] = [
   "newsletter",
   "marketing",
   "receipt",
   "invoice",
   "finances",
-  "code-related",
   "notification",
+  "code-related",
   "account-related",
+  "email-verification",
   "personal",
 ] as const;
 
