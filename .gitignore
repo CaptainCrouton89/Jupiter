@@ -33,4 +33,4 @@ tasks/
 
 .next/
 
-.cursor/
+mcp.json

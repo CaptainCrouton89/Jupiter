@@ -1,0 +1,145 @@
+---
+description: Comprehensive reference for Taskmaster MCP tools and CLI commands.
+globs: **/*
+alwaysApply: true
+---
+# App Flow Document: Jupiter Mail
+
+This document outlines the user journey through the Jupiter Mail application, detailing interactions from initial visit to core feature usage.
+
+## 1. Unauthenticated User Flow
+
+1.  **Entry Point (`/`):**
+    *   The user navigates to the root URL (`app/page.tsx`).
+    *   The system checks for an active server session.
+    *   If no active session (user is not logged in), the user is redirected to `/landing`.
+
+2.  **Landing Page (`/landing`):**
+    *   (`app/landing/page.tsx`)
+    *   **Display:** Presents the value proposition of Jupiter Mail: "Inbox Zero, Effortlessly," AI-powered automation, weekly briefings, security.
+    *   **Features Highlighted:**
+        *   Automated Inbox Triage (description of how AI sorts email).
+        *   Curated Weekly Briefings (description of AI-powered summaries).
+        *   Ironclad Security & Privacy (encryption, 2-week auto-purge).
+    *   **"How It Works" Section:**
+        1.  Connect Your Email (securely link Google account).
+        2.  Customize Your Rules (tell Jupiter Mail how to handle categories).
+        3.  AI Takes Over (automatic triage and weekly briefings).
+        4.  Enjoy Your Focus (calmer, organized inbox).
+    *   **Calls to Action (CTAs):**
+        *   Primary CTA: "Experience Inbox Peace" button, links to `/api/auth/google/initiate?next=/settings`. This initiates the Google OAuth flow.
+        *   Secondary CTA: "Access Your Account" button, links to `/login`.
+        *   Navigation Bar: "Login" button, links to `/login`.
+        *   Footer Links: "Privacy Policy" (`/privacy`), "Terms of Service" (`/terms`).
+
+3.  **Login Page (`/login`):**
+    *   (Assumed standard login page, content not explicitly detailed in provided files but linked from landing page. Typically would offer login options, e.g., Google OAuth again, or email/password if supported).
+    *   From `app/landing/page.tsx`, the "Login" and "Access Your Account" buttons direct here.
+    *   If the user chooses Google OAuth from the landing page, they bypass this explicit `/login` page view and go directly into the OAuth flow.
+
+4.  **Google OAuth Flow:**
+    *   Initiated by clicking "Experience Inbox Peace" or a similar Google sign-in button (e.g., on `/login`).
+    *   The user is redirected to Google's authentication server.
+    *   User provides Google credentials and grants permissions.
+    *   Google redirects the user back to the application's callback URL (e.g., `/api/auth/google/callback`).
+    *   The callback handler processes the authentication, creates a user session with Supabase, and potentially creates a user record in the database if one doesn't exist.
+    *   After successful authentication, the user is redirected to the `next` parameter specified in the initiation URL, typically `/settings`.
+
+## 2. Authenticated User Flow
+
+1.  **Entry Point (`/` - Authenticated):**
+    *   The user navigates to the root URL (`app/page.tsx`).
+    *   The system checks for an active server session.
+    *   If an active session exists (user is logged in), the user is redirected to `/settings`.
+
+2.  **Settings Page (`/settings`):**
+    *   (`app/settings/page.tsx`)
+    *   This is the main dashboard/control panel for authenticated users.
+    *   **Account Management Section:**
+        *   Displays a button "Manage Email Accounts" linking to `/accounts`.
+    *   **Email Category Settings Section:**
+        *   Lists various email categories (e.g., Promotions, Social, Updates, Forums, Financial, Purchases, Travel, Work, Personal, Newsletters).
+        *   For each category, the user can configure:
+            *   **Action on new emails:**
+                *   None (Keep as unread)
+                *   Mark as Read
+                *   Archive
+                *   Trash
+                *   Mark as Spam
+            *   **Receive weekly digest for this category:** (Checkbox)
+        *   Changes to these preferences are auto-saved with a debounce mechanism. Visual "Saved" confirmation appears next to the changed category card.
+    *   **Test Email Categorization Section:**
+        *   Allows the user to run a test to see how the AI categorizes their 20 most recent emails.
+        *   Uses the default email account if set, otherwise uses the first registered email account.
+        *   If no accounts are connected, a message prompts the user to add one via the "Account Management" section.
+        *   Displays test results in an accordion, showing:
+            *   Email Subject & From
+            *   AI-assigned Category (with color-coded tag)
+            *   Email Date
+            *   Body Snippet
+    *   **Data Loading:**
+        *   Fetches user settings (category preferences, default account ID).
+        *   If no default account ID is set, fetches all user email accounts to determine a fallback for the categorization test.
+
+3.  **Accounts Page (`/accounts`):**
+    *   (`app/accounts/page.tsx`)
+    *   **Header:** "Connected Accounts" title and description.
+    *   **CTA:** "Connect New Account" button, links to `/accounts/connect`.
+    *   **Account List:**
+        *   Displays a list of currently connected email accounts (`ConnectedAccountsList` component).
+        *   Information displayed for each account likely includes: Email, Name, Provider, Status (e.g., is_active, last_synced_at). (Inferred from `ConnectedAccountsList` props and data fetching).
+        *   If there's an error fetching accounts, an error message is displayed.
+
+4.  **Connect New Account Page (`/accounts/connect`):**
+    *   (`app/accounts/connect/page.tsx`)
+    *   **Form (`EmailConnectionForm` component):**
+        *   Allows users to connect via OAuth (Google, Microsoft buttons) or manually via IMAP/SMTP.
+        *   **OAuth Connection:**
+            *   Clicking "Connect with Google" (or Microsoft) initiates the respective OAuth flow.
+            *   The OAuth flow is initiated with a `next=/accounts` parameter to return the user to the accounts page after successful connection.
+        *   **Manual IMAP/SMTP Connection:**
+            *   Fields for: Email Address, Account Name (optional), IMAP Host, IMAP Port, Username, Password, SMTP Host, SMTP Port.
+            *   "Test Connection" button:
+                *   Sends credentials to `/api/email/test-connection`.
+                *   Displays success/error toast message.
+            *   "Save Account" (Submit) button:
+                *   Sends credentials to `/api/email/save-account`.
+                *   If successful, saves the account and redirects the user to `/accounts`. Displays success/error toast message.
+
+## 3. Background Processes
+
+1.  **Email Syncing:**
+    *   (Inferred from `app/api/internal/sync-account/[accountId]/route.ts` and `app/api/cron/email-sync/route.ts`)
+    *   A cron job likely triggers `/api/cron/email-sync`.
+    *   This, in turn, likely invokes `/api/internal/sync-account/[accountId]` for each active user account.
+    *   The sync process:
+        *   Connects to the email provider via IMAP (using `imapflow`).
+        *   Handles OAuth token refresh if necessary (e.g., for Google accounts via `lib/auth/googleService.ts`).
+        *   Fetches new/unread emails since the last sync.
+        *   Categorizes emails using an AI model.
+        *   Applies user-defined triage actions (mark as read, archive, trash, mark as spam) by interacting with the IMAP server.
+        *   Stores email metadata and encrypted content in the Supabase database (`emails` table).
+        *   Updates `last_synced_uid` and `last_synced_at` for the email account.
+        *   Logs sync activity (`sync_logs` table).
+
+2.  **Weekly Digest Generation & Sending:**
+    *   (Inferred from `lib/email/digest/weeklyDigestService.ts` and `app/api/cron/weekly-digest/route.ts`)
+    *   A cron job likely triggers `/api/cron/weekly-digest`.
+    *   The `WeeklyDigestService`:
+        *   Fetches all users with active email accounts.
+        *   For each user:
+            *   Fetches their email accounts and user settings (specifically `category_preferences` for digest inclusion).
+            *   For each category the user has enabled for digests:
+                *   Fetches emails from the last 7 days belonging to that category and account.
+                *   Filters out previously sent digest emails (e.g., by checking `X-Jupiter-Generated` header or subject line patterns).
+                *   Cleans and prepares email content (decrypts, converts HTML to text, normalizes whitespace, removes URLs).
+                *   Generates an AI summary for the collected emails in that category.
+            *   Compiles all category summaries into a single HTML digest email.
+            *   Sends the digest email to the user's primary/default email address (using SMTP, details in `lib/email/sendEmail.ts` - to be confirmed).
+
+## 4. General App Behavior
+
+*   **Authentication State:** Managed by Supabase. Session is refreshed by middleware.
+*   **Error Handling:** Uses `sonner` for toast notifications for user-facing errors (e.g., connection tests, saving accounts). Errors during background processes are logged.
+*   **Security:** Credentials (passwords, OAuth tokens) are encrypted before storing in the database (`lib/auth/encryption.ts`). Strict 14-day data retention for processed emails.
+*   **API Interaction:** Frontend interacts with Next.js API routes for actions like testing connections, saving accounts, and initiating OAuth.

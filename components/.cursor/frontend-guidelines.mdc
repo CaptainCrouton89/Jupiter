@@ -1,0 +1,112 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Frontend Guidelines: Jupiter Mail
+
+This document outlines the design system, UI patterns, and conventions for the Jupiter Mail frontend.
+
+## 1. UI Framework & Library
+
+*   **Core Framework:** Next.js with React.
+*   **Component Library:** [Shadcn/ui](https://ui.shadcn.com/)
+    *   **Style:** "new-york" (defined in `components.json`).
+    *   **RSC (React Server Components):** Enabled (`rsc: true` in `components.json`).
+    *   **Icon Library:** [Lucide React](https://lucide.dev/) (configured in `components.json`).
+    *   **Component Aliases:**
+        *   `@/components`
+        *   `@/ui` for Shadcn/ui components.
+        *   `@/lib` and `@/hooks` are also aliased.
+
+## 2. Styling & Theming
+
+*   **Styling Engine:** [Tailwind CSS](https://tailwindcss.com/)
+    *   Configuration: `tailwind.config.js` (as per `components.json`).
+    *   Global Styles: `app/globals.css` includes Tailwind base, components, and utilities.
+    *   CSS Variables: Enabled for theming (`cssVariables: true` in `components.json`).
+*   **Color Palette (Light Theme - inferred from `app/globals.css` and `app/landing/page.tsx`):**
+    *   **Primary Background:** Gradient `from-orange-100 via-amber-50 to-orange-50` (Landing Page). General app background likely uses `--background` (oklch(1 0 0) - white).
+    *   **Text:**
+        *   Default: `text-slate-800` (Landing Page). General app text likely uses `--foreground` (oklch(0.145 0 0) - near black).
+        *   Muted: `text-slate-600` (Landing Page), `text-muted-foreground` (Settings Page). CSS variable `--muted-foreground` (oklch(0.556 0 0)).
+    *   **Primary Accent (Orange/Amber):**
+        *   Buttons: `bg-gradient-to-r from-orange-500 to-amber-600`. Hover: `hover:from-orange-600 hover:to-amber-700`.
+        *   Icons: `text-orange-600`.
+        *   Text Gradients: `bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 bg-clip-text text-transparent`.
+    *   **Secondary/Outline Buttons:**
+        *   Border: `border-orange-200`.
+        *   Background: `bg-white/70`. Hover: `hover:bg-orange-100`.
+        *   Text: `text-slate-700`.
+    *   **Card Backgrounds:** `bg-white/70 backdrop-blur-sm` (Landing Page "How it Works" icons), general cards likely use `--card` (oklch(1 0 0) - white).
+    *   **Destructive Actions:** CSS variable `--destructive` (oklch(0.577 0.245 27.325) - a shade of red).
+    *   **Borders:** CSS variable `--border` (oklch(0.922 0 0) - light gray).
+    *   **Input Fields:** CSS variable `--input` (oklch(0.922 0 0) - light gray).
+    *   **Ring (Focus):** CSS variable `--ring` (oklch(0.708 0 0) - gray).
+*   **Dark Theme:** A dark theme is defined in `app/globals.css` using the `.dark` class and corresponding CSS variables.
+*   **CSS Variables:** Extensive use of CSS variables for theming (background, foreground, primary, secondary, accent, destructive, card, popover, border, input, ring, etc.) defined in `:root` and `.dark` in `app/globals.css`. Colors are defined using `oklch`.
+*   **Radius:** Default radius `--radius: 0.625rem;` (10px). Variants `--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-xl` are also defined.
+
+## 3. Typography
+
+*   **Font Family:** (Not explicitly defined in provided CSS, likely relies on Tailwind's default sans-serif stack: Inter, system-ui, etc. or a font imported in `app/layout.tsx`).
+*   **Headings:**
+    *   `h1`: `text-4xl md:text-6xl font-bold tracking-tight` (Landing Page).
+    *   `h2`: `text-3xl font-bold` (Landing Page), `font-bold text-2xl` (Landing Page Nav).
+    *   `h3`: `text-xl font-semibold` (Landing Page).
+*   **Body Text:**
+    *   Paragraphs: `text-lg md:text-xl` (Landing Hero), `text-sm leading-relaxed` (Landing "How it Works").
+*   **Emphasis:** `font-bold`, `font-semibold`.
+*   **Links:** Standard text color, `hover:text-orange-600 transition-colors underline` (Footer Links).
+
+## 4. Layout & Spacing
+
+*   **Main Layout:** `app/layout.tsx` defines the root layout.
+*   **Container:** `container mx-auto px-4 sm:px-6 lg:px-8` used for centering and padding content.
+*   **Spacing:** Tailwind CSS spacing utilities are used extensively (e.g., `py-16`, `mb-8`, `gap-8`, `space-y-4`).
+*   **Responsive Design:** Achieved using Tailwind's responsive prefixes (e.g., `md:`, `lg:`, `sm:`). Flexbox (`flex`, `flex-col`) and Grid (`grid`, `grid-cols-1 md:grid-cols-2`) are used for responsive layouts.
+
+## 5. UI Patterns & Components
+
+*   **Navigation:**
+    *   Simple top navigation bar with logo/app name on the left and login/user actions on the right (`app/landing/page.tsx`).
+*   **Buttons (`components/ui/button`):**
+    *   Primary: Solid background (orange gradient), white text.
+    *   Outline: Transparent/light background, colored border, dark text.
+    *   Sizes: `size="lg"` used for prominent CTAs.
+    *   Icons often included within buttons, typically to the right of the text (e.g., `<ArrowRight className="ml-1" />`).
+*   **Cards (`components/ui/card`):**
+    *   Used extensively for sectioning content (`app/settings/page.tsx`, `app/landing/page.tsx`).
+    *   Structure: `CardHeader` (with `CardTitle`, `CardDescription`), `CardContent`.
+    *   Shadows: `shadow-md`, `shadow-xl` used on landing page cards.
+    *   Borders: Standard border `border border-orange-100` or class-based.
+    *   Feature Cards (`components/ui/FeatureCard`): Custom component on landing page, supports a "flipped" state to show more details.
+*   **Forms:**
+    *   Utilize `Label`, `Input` (from Shadcn/ui, though not explicitly shown in provided snippets, assumed standard), `RadioGroup`, `Checkbox`.
+    *   Form structure examples in `app/settings/page.tsx` (category preferences) and `app/accounts/connect/page.tsx` (`EmailConnectionForm`).
+*   **Accordion (`components/ui/accordion`):**
+    *   Used in `app/settings/page.tsx` to display email categorization test results.
+    *   `AccordionItem`, `AccordionTrigger`, `AccordionContent`.
+*   **Modals/Dialogs:** (Not explicitly shown but `@radix-ui/react-dialog` is a dependency, indicating potential usage for modals).
+*   **Notifications (Toasts):** `sonner` library. Used for user feedback on actions like "Test Connection", "Save Account" (`app/accounts/connect/page.tsx`), and categorization test status (`app/settings/page.tsx`).
+*   **Loading States:**
+    *   `Loader2Icon` from Lucide React with `animate-spin` class for buttons and content areas.
+    *   Text indicators like "Loading..." or "Running Test...".
+*   **Error States:**
+    *   Displaying error messages within cards or dedicated sections (e.g., `app/settings/page.tsx` for general settings errors or categorization test errors).
+    *   Using destructive colors/styles (`text-destructive`, `bg-destructive/10`, `border-destructive`).
+    *   Icons like `AlertTriangleIcon`.
+
+## 6. Iconography
+
+*   **Library:** Lucide React.
+*   **Usage:** Icons are frequently used in buttons, section titles, feature highlights, and informational messages.
+*   **Styling:** Typically sized using Tailwind classes (`w-10 h-10`, `h-4 w-4`) and colored using text color utilities (e.g., `text-orange-600`).
+
+## 7. General Principles
+
+*   **Clarity and Simplicity:** UI aims to be intuitive and easy to understand.
+*   **Consistency:** Strive for consistent use of components, spacing, and typography across the application.
+*   **Responsiveness:** Ensure the application is usable across various screen sizes.
+*   **Accessibility:** (While not explicitly detailed, using Shadcn/ui and following web standards should provide a good baseline. Further attention to ARIA attributes and keyboard navigation is recommended.)
+*   **Feedback:** Provide clear visual feedback for user actions (loading states, success/error messages via toasts and inline indicators).

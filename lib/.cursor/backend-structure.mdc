@@ -1,0 +1,151 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: Outlines the backend architecture, database schema, authentication mechanisms, and API structure for Jupiter Mail.
+globs: ["app/api/**/*.ts", "lib/**/*.ts"]
+alwaysApply: true
+---
+
+# Backend Structure Document: Jupiter Mail
+
+This document outlines the backend architecture, database schema, authentication mechanisms, and API structure for the Jupiter Mail application.
+
+## 1. Core Technologies
+
+*   **Framework:** Next.js (App Router)
+*   **Language:** TypeScript
+*   **Database:** Supabase (PostgreSQL)
+*   **Authentication:** Supabase Auth (primarily Google OAuth 2.0)
+*   **Email Processing (IMAP):** `imapflow` library
+*   **AI Integration:**
+    *   Anthropic Claude models (via `@anthropic-ai/sdk`)
+    *   OpenAI-compatible APIs (via `@ai-sdk/openai`, `openai`)
+    *   Vercel AI SDK (`ai` library) for streaming and helpers.
+
+## 2. Database Schema (`lib/database.types.ts`)
+
+Key Supabase (PostgreSQL) tables:
+
+*   **`email_accounts`**: Stores user-connected email account details.
+    *   `id` (uuid, PK): Unique identifier.
+    *   `user_id` (uuid, FK to `auth.users`): Links to Supabase user.
+    *   `email` (text): Email address.
+    *   `name` (text, nullable): Display name for the account.
+    *   `provider` (text, nullable): e.g., "google", "manual_imap".
+    *   IMAP/SMTP details (nullable): `imap_host`, `imap_port`, `smtp_host`, `smtp_port`, `username`, `password_encrypted`.
+    *   OAuth details (nullable): `access_token_encrypted`, `refresh_token_encrypted`, `token_expires_at`, `scopes` (text[]).
+    *   `is_active` (boolean, default: true): Sync status.
+    *   `last_synced_at` (timestamp, nullable): Timestamp of last sync.
+    *   `last_synced_uid` (integer, nullable): Last IMAP email UID processed.
+    *   `last_oauth_error` (text, nullable): Details of the last OAuth error.
+    *   `created_at`, `updated_at` (timestamp).
+
+*   **`emails`**: Stores processed email data.
+    *   `id` (uuid, PK): Unique identifier.
+    *   `account_id` (uuid, FK to `email_accounts`): Links to the email account.
+    *   `message_id` (text): Original `Message-ID` header.
+    *   `imap_uid` (text, nullable): IMAP UID on the server.
+    *   Encrypted fields: `from_email` (text), `from_name` (text, nullable), `subject` (text), `body_html` (text, nullable), `body_text` (text, nullable).
+    *   `received_at` (timestamp): Email reception time.
+    *   `category` (text, default: "uncategorizable"): AI-assigned category.
+    *   `created_at`, `updated_at` (timestamp).
+
+*   **`user_settings`**: Stores user-specific preferences.
+    *   `id` (uuid, PK): Unique identifier.
+    *   `user_id` (uuid, FK to `auth.users`, unique): Links to Supabase user.
+    *   `category_preferences` (json, nullable): User choices for email triage (action) and digest inclusion per category.
+        *   Example: `{"promotions": {"action": "archive", "digest": false}}`
+    *   `default_account_id` (uuid, FK to `email_accounts`, nullable): User's preferred email account.
+    *   Other settings (nullable, not currently emphasized in UI): `email_signature`, `notifications_enabled` (default: true), `theme` (default: "light").
+    *   `created_at`, `updated_at` (timestamp).
+
+*   **`sync_logs`**: Records email synchronization job details.
+    *   `id` (uuid, PK): Log entry identifier.
+    *   `job_id` (text): Identifier for the sync job instance. (Note: schema defines this as required, not nullable)
+    *   `account_id` (uuid, FK to `email_accounts`): Account being synced. (Note: Redundant FKs `fk_account` and `sync_logs_account_id_fkey` exist in schema)
+    *   `status` (text): e.g., "started", "completed", "failed", "no_new_emails".
+    *   `started_at` (timestamp).
+    *   `completed_at` (timestamp, nullable).
+    *   `total_uids_to_process` (integer, nullable): Emails identified for processing.
+    *   `uids_processed_count` (integer, nullable): Emails successfully processed.
+    *   `error_message` (text, nullable): Error details.
+    *   `updated_at` (timestamp).
+
+## 3. Authentication Flow
+
+*   **Provider:** Supabase Auth, primarily with Google OAuth 2.0.
+*   **Client-Side:** `lib/auth/client.ts` (`createClient`) for Supabase browser client.
+*   **Server-Side:**
+    *   `lib/auth/server.ts` (`createClient`) for Supabase server client using cookies.
+        *   `getServerSession()`: Fetches current user session.
+        *   `requireAuth()`: Protects routes/actions, redirects to `/login` if unauthenticated.
+    *   `lib/auth/admin.ts` (`getSupabaseAdminClient`, `createNewSupabaseAdminClient`): Provides admin-level Supabase client for service role operations, bypassing RLS. Used for cron jobs and background tasks.
+*   **Google OAuth Process:**
+    1.  Initiation: `/api/auth/google/initiate/route.ts` (redirects to Google, sets `google_oauth_state` and `google_oauth_next` cookies).
+    2.  Callback: `/api/auth/google/callback/route.ts` (handles Google's response, exchanges code for tokens, signs user into Supabase, stores/updates encrypted tokens in `email_accounts`).
+*   **Session Management:** Supabase SSR library with cookies. Middleware (`middleware.ts`) refreshes sessions.
+*   **Token Refresh (Google):** `lib/auth/googleService.ts` (`refreshGoogleAccessToken`, `updateEmailAccountTokens`) handles refreshing Google OAuth access tokens and updating them in `email_accounts`.
+
+## 4. Data Security & Encryption
+
+*   **Encryption:** `lib/auth/encryption.ts` (`encrypt`, `decrypt` functions).
+    *   Algorithm: `aes-256-gcm`.
+    *   Key: `ENCRYPTION_KEY` (64-char hex string from env).
+    *   IV (16 bytes) + AuthTag (16 bytes) prepended to ciphertext.
+*   **Encrypted Data in DB:**
+    *   `email_accounts`: `password_encrypted`, `access_token_encrypted`, `refresh_token_encrypted`.
+    *   `emails`: `from_email`, `from_name`, `subject`, `body_html`, `body_text`.
+*   **Data Retention:** 14-day policy for processed email content (implementation in `app/api/cron/delete-old-emails/route.ts` - path exists, functionality to be confirmed).
+
+## 5. API Endpoints (Located under `app/api/`)
+
+*   **Authentication (`auth/google/`)**
+    *   `initiate/route.ts`: Initiates Google OAuth.
+    *   `callback/route.ts`: Handles Google OAuth callback.
+*   **Email Account Management (`email/`)**
+    *   `save-account/route.ts`: Saves new manual IMAP/SMTP or OAuth-connected account.
+    *   `test-connection/route.ts`: Tests connection for new manual IMAP/SMTP.
+    *   `accounts/[accountId]/test-connection/route.ts`: Tests connection for an existing account.
+*   **Email Processing & Features (`email/`)**
+    *   `test-categorization/route.ts`: AI categorization test for recent emails.
+    *   `parse-email/[accountId]/[uid]/route.ts`: (Path exists) Potential for on-demand email parsing.
+    *   `fetch-recent/[accountId]/route.ts`: (Path exists) Potential for fetching recent emails.
+    *   `inbox/route.ts`: (Path exists) Purpose TBD.
+    *   `attachments/route.ts`: (Path exists) Purpose TBD.
+*   **Internal & Cron Jobs**
+    *   `internal/sync-account/[accountId]/route.ts`: Core logic for syncing emails for a specific account (IMAP connection, fetch, categorize, apply actions, save to DB). Orchestrated by `getConnectedImapClient`, `fetchNewEmailUids`, `processEmailBatch`, `updateEmailAccountSyncStatus`, `updateSyncLog`.
+    *   `cron/email-sync/route.ts`: Triggers `internal/sync-account` for all active accounts.
+    *   `cron/weekly-digest/route.ts`: Generates and sends weekly email digests using `WeeklyDigestService`.
+    *   `cron/delete-old-emails/route.ts`: (Path exists) Expected to implement 14-day data retention.
+
+## 6. Key Backend Services and Logic
+
+*   **IMAP Operations (`lib/email/imapService.ts`, `app/api/internal/sync-account/[accountId]/imapOps.ts`):**
+    *   `imapflow` for IMAP connections.
+    *   Google OAuth token refresh integration during connection attempts.
+    *   Fetching new UIDs, marking/moving messages, folder management.
+*   **Weekly Digest Generation (`lib/email/digest/`):**
+    *   `weeklyDigestService.ts` (`WeeklyDigestService` class): Orchestrates digest creation.
+        *   Fetches users, settings, and relevant emails.
+        *   Cleans email content (HTML to text, normalization, URL replacement).
+    *   `generateDigest.ts` (`generateDigestSummary`): AI summarization logic.
+    *   `digestAI.ts`, `digestPrompts.ts`, `digestSchemas.ts`: Support AI interaction for digests.
+    *   `sendEmail.ts` (e.g., `lib/email/sendEmail.ts` - assumed path): For dispatching digest emails.
+*   **Email Processing during Sync (`app/api/internal/sync-account/[accountId]/emailProcessing.ts`):**
+    *   `processEmailBatch`: Handles fetching full messages, categorization (AI), applying triage actions, and saving to `emails` table.
+*   **AI Logic (General):**
+    *   Interactions with Anthropic Claude and OpenAI-compatible models via SDKs.
+    *   Categorization of incoming emails during sync.
+    *   Summarization of emails for weekly digests.
+
+## 7. Error Handling & Logging
+
+*   Standard HTTP status codes and JSON error responses from API routes.
+*   Console logging (`logger.info`, `logger.warn`, `logger.error`) used across services.
+    *   Dedicated logger (Pino-based assumed) in `app/api/internal/sync-account/[accountId]/logger.ts`.
+*   Sync errors and status logged in `sync_logs` table.
+*   OAuth errors during token refresh logged and potentially stored in `email_accounts.last_oauth_error`.
+*   `app/api/internal/sync-account/[accountId]/errorHandler.ts` (`handleSyncFailure`) provides centralized error handling for the sync process.

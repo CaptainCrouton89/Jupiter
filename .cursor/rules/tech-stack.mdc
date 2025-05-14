@@ -1,0 +1,79 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Tech Stack Document: Jupiter Mail
+
+This document outlines the key technologies, libraries, frameworks, and services used in the Jupiter Mail application.
+
+## 1. Frontend
+
+*   **Framework:** [Next.js](mdc:https:/nextjs.org) (v15.3.2)
+    *   App Router for routing and layouts.
+    *   React Server Components (RSC) and Client Components.
+    *   API Routes for backend handlers.
+*   **Language:** [TypeScript](mdc:https:/www.typescriptlang.org) (v5.8.3)
+*   **UI Library:** [Shadcn/ui](mdc:https:/ui.shadcn.com)
+    *   Style: "new-york" (as per `components.json`)
+    *   Components used: Accordion, Button, Card, Checkbox, Label, RadioGroup, Dialog, Dropdown Menu, Avatar, Progress, Select, Separator, Slot, Tabs, Tooltip. (Inferred from Radix UI dependencies in `package.json` and typical Shadcn usage).
+    *   Icon Library: [Lucide React](mdc:https:/lucide.dev) (v0.509.0)
+*   **Styling:**
+    *   [Tailwind CSS](mdc:https:/tailwindcss.com) (v4.1.6) for utility-first styling.
+    *   `app/globals.css` for base styles and Tailwind directives.
+    *   CSS Variables enabled for theming.
+*   **State Management (Client-side):**
+    *   Primary: [React Hooks](mdc:https:/react.dev/reference/react) (`useState`, `useEffect`, `useCallback`, `useRef`) for component-level and simple state.
+    *   Global/API State: [Redux Toolkit](mdc:https:/redux-toolkit.js.org) (v2.8.1) is utilized, notably with RTK Query (e.g., `lib/store/features/api/apiSlice.ts`) for managing API interactions and caching, as seen in `lib/store/store.ts`.
+*   **Forms:** [React Hook Form](mdc:https:/react-hook-form.com) (v7.56.3) with [Zod](mdc:https:/zod.dev) (v3.24.4) for validation (via `@hookform/resolvers`).
+*   **Notifications (Toasts):** [Sonner](mdc:https:/sonner.emilkowal.ski) (v2.0.3) for user feedback.
+*   **HTML Sanitization:** [DOMPurify](mdc:https:/github.com/cure53/DOMPurify) (v3.2.5) for secure HTML rendering from email content.
+*   **Date Manipulation:** [date-fns](mdc:https:/date-fns.org) (v4.1.0)
+
+## 2. Backend & API
+
+*   **Framework:** [Next.js API Routes](mdc:https:/nextjs.org/docs/app/building-your-application/routing/route-handlers)
+*   **Language:** [TypeScript](mdc:https:/www.typescriptlang.org) (v5.8.3)
+*   **Database:** [Supabase](mdc:https:/supabase.com) (PostgreSQL)
+    *   Database types generated via Supabase CLI into `lib/database.types.ts`.
+*   **Authentication:** [Supabase Auth](mdc:https:/supabase.com/docs/guides/auth)
+    *   Primarily Google OAuth 2.0.
+    *   Session management handled by Supabase helpers in `lib/auth/client.ts` (browser), `lib/auth/server.ts` (server-side with cookies), and Google-specific operations in `lib/auth/googleService.ts`.
+    *   Admin-level operations use `lib/auth/admin.ts`.
+*   **Email Processing (IMAP):**
+    *   [imapflow](mdc:https:/imapflow.com) (v1.0.186) for IMAP client operations (fetching emails, managing flags, moving messages).
+*   **Email Parsing:**
+    *   [mailparser](mdc:https:/nodemailer.com/extras/mailparser) (v3.7.2) for parsing raw email content (MIME types, headers, text/HTML bodies) obtained via `imapflow`.
+*   **Email Sending (Digests/Notifications):**
+    *   [Nodemailer](mdc:https:/nodemailer.com) (v7.0.3) is used for sending emails, such as weekly digests (likely via `lib/email/sendEmail.ts`).
+*   **AI Integration:**
+    *   Uses a combination of SDKs for AI tasks (categorization, summarization):
+        *   `@anthropic-ai/sdk` (v0.39.0) for Anthropic Claude models.
+        *   `@ai-sdk/openai` (v1.3.22) and `openai` (v4.89.0) for OpenAI-compatible APIs.
+        *   `ai` (v4.3.15) - Vercel AI SDK for streaming responses and helper functions.
+*   **Security:**
+    *   Custom encryption/decryption (`lib/auth/encryption.ts` using `aes-256-gcm`) for sensitive data like passwords, API/OAuth tokens, and stored email content.
+*   **Cron Jobs / Scheduled Tasks:**
+    *   Implemented via Next.js API routes (e.g., `app/api/cron/email-sync/route.ts`, `app/api/cron/weekly-digest/route.ts`) triggered by an external scheduler (e.g., Vercel Cron Jobs).
+
+## 3. Development & Tooling
+
+*   **Package Manager:** [pnpm](mdc:https:/pnpm.io) (as per project guidelines)
+*   **Build Tool:** Next.js CLI (`next build`)
+*   **Linting:** ESLint (via `next lint`)
+*   **TypeScript Configuration:** `tsconfig.json` (ESNext modules, strict mode, path aliases like `@/*`).
+*   **Environment Variables:** `dotenv` (v16.3.1) for managing local environment variables via `.env` file.
+*   **CORS:** Configured in `next.config.mjs` (global API settings) and `middleware.ts` (e.g., for Google Auth initiation).
+
+## 4. API Services & Integrations
+
+*   **AI Model Providers:** Anthropic (Claude), OpenAI (or compatible endpoints).
+*   **Google APIs:** Google OAuth 2.0 for authentication, Gmail API (implicitly via IMAP scopes for email access).
+
+## 5. Noteworthy Libraries from `package.json`
+
+*   **`html-to-text` (v9.0.5):** Used for converting HTML emails to plain text for processing (e.g., in `WeeklyDigestService`).
+*   **`uuid` (v11.1.0):** For generating unique identifiers (e.g., `job_id` in `sync_logs`).
+*   **`clsx` (v2.1.1), `tailwind-merge` (v3.2.0):** Utilities for conditional and optimized Tailwind CSS class name generation, commonly used with Shadcn/ui.
+*   **`fastmcp` (v1.20.5):** Model Control Protocol. Potentially related to the "Task Master" CLI tool mentioned in `README.md` for project/task management, rather than core application runtime.
+*   **Dev Workflow Tools (scripts in `package.json`):** `chalk`, `ora`, `boxen`, `figlet`, `gradient-string`, `inquirer`, `commander`, `cli-table3` - Associated with the "Task Master" CLI tool.

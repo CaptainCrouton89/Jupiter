@@ -1,0 +1,100 @@
+---
+description: Comprehensive reference for Taskmaster MCP tools and CLI commands.
+globs: **/*
+alwaysApply: true
+---
+# Product Requirements Document: Jupiter Mail
+
+## 1. Introduction
+
+Jupiter Mail is an intelligent email management application designed to help users reclaim their time and focus by automating inbox organization and providing curated summaries of important communications. It leverages AI to triage emails, generate weekly digests, and ensure data security.
+
+## 2. Goals
+
+*   **Effortless Inbox Zero:** Significantly reduce the time users spend manually sorting and managing emails.
+*   **Stay Informed, Not Overwhelmed:** Provide users with concise, relevant summaries of their important emails, preventing information overload.
+*   **Enhanced Productivity:** Allow users to focus on what matters by minimizing email-related distractions.
+*   **Secure Email Handling:** Ensure user data privacy and security through encryption and strict data retention policies.
+
+## 3. Target Audience
+
+*   Individuals who receive a high volume of emails daily.
+*   Professionals and busy individuals looking to optimize their email workflow.
+*   Users who feel overwhelmed by their inbox and struggle to keep up with important communications.
+*   Privacy-conscious users seeking a secure email management solution.
+
+## 4. Scope and Features
+
+### 4.1. Core Features
+
+*   **Automated Inbox Triage:**
+    *   Intelligently categorizes incoming emails (e.g., newsletters, marketing, financial alerts, project updates, personal).
+    *   Allows users to define actions per category:
+        *   None (Keep as unread)
+        *   Mark as Read
+        *   Archive
+        *   Trash
+        *   Mark as Spam
+    *   AI analyzes sender, subject, content, and email cues for categorization.
+    *   Triage occurs automatically before the user opens their inbox.
+
+*   **Curated Weekly Briefings (Digests):**
+    *   Users can select specific email categories to include in a weekly digest.
+    *   AI intelligently summarizes each email within the chosen categories, extracting core information.
+    *   A single, weekly email compiles these smart summaries.
+    *   Digests are sent to the user's primary or default email account.
+
+*   **Secure Email Account Connection:**
+    *   Supports connecting Google email accounts via OAuth.
+    *   Supports connecting other email accounts via IMAP/SMTP credentials.
+    *   Industry-standard encryption for credentials and tokens.
+*   **Ironclad Security & Privacy:**
+    *   Email data processed and temporarily stored by Jupiter Mail is encrypted on secure servers.
+    *   Strict 14-day data retention policy: all processed email content is automatically and permanently purged from systems after two weeks.
+
+### 4.2. User Interface & Experience
+
+*   **Landing Page:**
+    *   Clearly communicates product value, features, and benefits.
+    *   Provides clear calls-to-action for signup/login.
+    *   Explains how Jupiter Mail works in simple steps.
+*   **Settings Page:**
+    *   Manage connected email accounts (add, remove, view status).
+    *   Configure category preferences for triage (action per category).
+    *   Configure category preferences for weekly digests (include/exclude per category).
+    *   Option to test email categorization on recent emails from a connected account.
+*   **Account Management Page:**
+    *   List of connected email accounts.
+    *   Status of each account (e.g., active, sync status).
+    *   Option to connect new accounts (Google OAuth or IMAP/SMTP).
+    *   Option to test connection for IMAP/SMTP accounts.
+    *   Option to remove connected accounts.
+
+### 4.3. Technical Features
+
+*   **Background Email Sync:**
+    *   Regularly fetches new emails from connected accounts.
+    *   Applies categorization and triage rules.
+    *   Stores relevant email metadata and encrypted content for processing and digests.
+*   **OAuth Token Management:**
+    *   Securely stores and refreshes OAuth tokens (e.g., Google).
+*   **Email Categorization Engine:**
+    *   AI-powered engine to classify emails into predefined categories.
+*   **Email Summarization Engine:**
+    *   AI-powered engine to generate concise summaries of email content for digests.
+
+## 5. Non-Goals (Out of Scope for Initial Version)
+
+*   Sending emails directly from the Jupiter Mail interface (it's a management tool, not a full email client).
+*   Advanced custom rule creation beyond category-based actions.
+*   Mobile application (web-first approach).
+*   Support for email providers other than Google (OAuth) and generic IMAP/SMTP initially.
+
+## 6. Success Metrics
+
+*   Number of active users.
+*   Number of emails processed and triaged daily.
+*   Number of weekly digests generated and sent.
+*   User engagement with settings and preference customization.
+*   User retention rate.
+*   Positive user feedback and testimonials regarding time saved and inbox organization.
