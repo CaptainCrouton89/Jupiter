@@ -142,22 +142,13 @@ export default function LandingPage() {
               Reclaim your focus.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/api/auth/google/initiate?next=/settings" passHref>
+              <Link href="/login" passHref>
                 <Button
                   size="lg"
                   className="bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 border-0"
                 >
                   Experience Inbox Peace
                   <ArrowRight className="ml-1" />
-                </Button>
-              </Link>
-              <Link href="/login" passHref>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-orange-200 bg-white/70 hover:bg-orange-100 text-slate-700"
-                >
-                  Access Your Account
                 </Button>
               </Link>
             </div>
@@ -223,7 +214,7 @@ export default function LandingPage() {
               Sign up in seconds. Experience the future of email management
               today.
             </p>
-            <Link href="/api/auth/google/initiate?next=/settings" passHref>
+            <Link href="/login" passHref>
               <Button
                 size="lg"
                 variant="secondary"

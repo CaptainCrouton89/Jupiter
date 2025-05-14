@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import { Suspense, useCallback, useState } from "react";
 
 export default function LoginPage() {
-  const [isLoginView, setIsLoginView] = useState(true);
+  const [isLoginView, setIsLoginView] = useState(false);
 
   const handleToggleForm = useCallback(() => {
     setIsLoginView((prev) => !prev);
