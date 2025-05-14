@@ -1,4 +1,5 @@
 import { ConnectedAccountsList } from "@/components/email/ConnectedAccountsList";
+import { EmailSetupHelp } from "@/components/email/EmailSetupHelp";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/auth/server"; // Assuming this is your server-side Supabase client helper
 import { Database } from "@/lib/database.types";
@@ -32,7 +33,7 @@ export default async function AccountsPage() {
 
   return (
     <div className="container mx-auto py-10 px-4 md:px-6">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Connected Accounts
@@ -41,9 +42,12 @@ export default async function AccountsPage() {
             Manage your connected email accounts.
           </p>
         </div>
-        <Link href="/accounts/connect">
-          <Button>Connect New Account</Button>
-        </Link>
+        <div className="flex items-center gap-4 self-start md:self-auto">
+          <EmailSetupHelp />
+          <Link href="/accounts/connect">
+            <Button>Connect New Account</Button>
+          </Link>
+        </div>
       </div>
 
       {accountsError && (
