@@ -17,11 +17,7 @@ import {
   moveMessagesToServerFolder,
 } from "./imapOps";
 import { logger } from "./logger";
-import {
-  EmailAccountDetails,
-  fetchUserSettingsForAccount,
-  updateSyncLog,
-} from "./supabaseOps";
+import { EmailAccountDetails, updateSyncLog } from "./supabaseOps";
 
 const RATE_LIMIT_DELAY_MS = 200;
 
@@ -54,38 +50,6 @@ export async function processEmailBatch(
   const uidsToTrash: number[] = [];
   let uidsToMarkAsSeenOnServer: number[] = []; // Initialize
 
-  // Fetch user settings for work profile description
-  let userWorkProfile: string | undefined;
-  try {
-    const userSettings = await fetchUserSettingsForAccount(
-      supabase,
-      account.user_id
-    );
-    if (userSettings && userSettings.category_preferences) {
-      const prefs = userSettings.category_preferences as CategoryPreferences;
-      if (prefs.work && prefs.work.profileDescription) {
-        userWorkProfile = prefs.work.profileDescription;
-        logger.info(
-          `[WorkProfile] Using custom work profile for user ${
-            account.user_id
-          }: "${userWorkProfile.substring(0, 50)}..."`
-        );
-      } else {
-        logger.info(
-          `[WorkProfile] No custom work profile found for user ${account.user_id}. Using default.`
-        );
-      }
-    } else {
-      logger.info(
-        `[WorkProfile] No user settings or category_preferences found for user ${account.user_id}. Using default work profile.`
-      );
-    }
-  } catch (error: any) {
-    logger.error(
-      `[WorkProfile] Error fetching user settings for user ${account.user_id}: ${error.message}. Using default work profile.`
-    );
-  }
-
   if (newUids.length === 0) {
     logger.info(
       `No new UIDs to process in this batch for account ${account.email}.`
@@ -99,39 +63,27 @@ export async function processEmailBatch(
 
   // Fetch user settings for this account's user
   let userCategoryPreferences: CategoryPreferences = {};
-  if (account.user_id) {
-    const { data: userSettingsData, error: userSettingsError } = await supabase
-      .from("user_settings")
-      .select("category_preferences")
-      .eq("user_id", account.user_id)
-      .single();
+  const { data: userSettingsData, error: userSettingsError } = await supabase
+    .from("user_settings")
+    .select("category_preferences, emails_since_reset")
+    .eq("user_id", account.user_id)
+    .single();
 
-    if (userSettingsError && userSettingsError.code !== "PGRST116") {
-      logger.error(
-        `Error fetching user settings for user ${account.user_id} (account ${account.id}):`,
-        userSettingsError
-      );
-      // Decide if we should proceed with defaults or fail the batch for this user
-    }
-    if (userSettingsData && userSettingsData.category_preferences) {
-      userCategoryPreferences =
-        userSettingsData.category_preferences as CategoryPreferences;
-    } else {
-      logger.info(
-        `No category preferences found for user ${account.user_id}. Using default actions.`
-      );
-      // Ensure userCategoryPreferences is an empty object with the correct type for iteration
-      CONFIGURABLE_CATEGORIES.forEach((cat) => {
-        if (!userCategoryPreferences[cat]) {
-          userCategoryPreferences[cat] = { action: "none", digest: false };
-        }
-      });
-    }
+  if (!userSettingsData) {
+    logger.error(`No user settings found for user ${account.user_id}.`);
+    throw new Error(`No user settings found for user ${account.user_id}.`);
+  }
+
+  let workerProfile: string | undefined;
+  if (userSettingsData && userSettingsData.category_preferences) {
+    userCategoryPreferences =
+      userSettingsData.category_preferences as CategoryPreferences;
+    workerProfile = userCategoryPreferences.work?.profileDescription;
   } else {
-    logger.warn(
-      `Account ${account.id} does not have a user_id. Cannot fetch category preferences.`
+    logger.info(
+      `No category preferences found for user ${account.user_id}. Using default actions.`
     );
-    // Ensure default preferences if no user
+    // Ensure userCategoryPreferences is an empty object with the correct type for iteration
     CONFIGURABLE_CATEGORIES.forEach((cat) => {
       if (!userCategoryPreferences[cat]) {
         userCategoryPreferences[cat] = { action: "none", digest: false };
@@ -162,7 +114,7 @@ export async function processEmailBatch(
         textContent: parsedEmail.text,
         htmlContent: parsedEmail.html,
         headers: parsedEmail.headers,
-        userWorkProfile,
+        workProfile: workerProfile,
       };
       const categorizationResult: { category: Category } =
         await categorizeEmail(categorizationInput);
@@ -397,6 +349,15 @@ export async function processEmailBatch(
       parsedEmailsData,
       logger
     );
+
+    await supabase
+      .from("user_settings")
+      .update({
+        emails_since_reset:
+          userSettingsData.emails_since_reset + parsedEmailsData.length,
+      })
+      .eq("user_id", account.user_id);
+
     processedEmailsThisBatch = storeResult.success;
     failedEmailsThisBatch = storeResult.failed;
     if (storeResult.errors.length > 0) {

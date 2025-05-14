@@ -1,4 +1,5 @@
 import { Database } from "@/lib/database.types";
+import { UserSettings } from "@/types/email";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "./logger";
 
@@ -122,7 +123,7 @@ export async function updateEmailAccountSyncStatus(
 export async function fetchUserSettingsForAccount(
   supabase: SupabaseClient<Database>,
   userId: string
-): Promise<Database["public"]["Tables"]["user_settings"]["Row"] | null> {
+): Promise<UserSettings | null> {
   if (!userId) {
     logger.warn("[fetchUserSettingsForAccount] No userId provided.");
     return null;

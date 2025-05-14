@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/delete-old-emails",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/reset-monthly-categorization",
+      "schedule": "0 0 * * *"
     }
   ]
 }

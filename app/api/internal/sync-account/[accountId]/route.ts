@@ -3,6 +3,7 @@ import { ImapFlow } from "imapflow";
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
+import { Tables } from "@/lib/database.types";
 import { getConnectedImapClient } from "@/lib/email/imapService";
 import { processEmailBatch, ProcessEmailBatchResult } from "./emailProcessing";
 import { handleSyncFailure } from "./errorHandler";
@@ -47,6 +48,7 @@ export async function POST(
   let currentAccountDetails:
     | import("./supabaseOps").EmailAccountDetails
     | null = null;
+  let userSettings: Tables<"user_settings"> | null = null;
 
   try {
     logger.info(
@@ -59,6 +61,50 @@ export async function POST(
     logger.info(
       `[SyncRoute] IMAP client connected successfully for ${currentAccountDetails.email} via ImapService.`
     );
+
+    // Fetch user settings
+    const { data: settingsData, error: settingsError } = await supabase
+      .from("user_settings")
+      .select("*")
+      .eq("user_id", currentAccountDetails.user_id)
+      .single();
+
+    if (settingsError || !settingsData) {
+      return handleSyncFailure(
+        supabase,
+        logger,
+        jobId,
+        settingsError || new Error("User settings not found"),
+        500,
+        `User settings not found for user ${currentAccountDetails.user_id}`
+      );
+    }
+
+    userSettings = settingsData;
+
+    // Check subscription status and email count
+    if (
+      userSettings.stripe_subscription_status !== "active" &&
+      userSettings.emails_since_reset >= 200 // Default to 0 if null
+    ) {
+      logger.warn(
+        `[SyncRoute] Account ${currentAccountDetails.email} (User ID: ${userSettings.user_id}) skipped. Non-active subscription and email limit reached (${userSettings.emails_since_reset}/200).`
+      );
+      await updateSyncLog(
+        supabase,
+        jobId,
+        "skipped_limit_reached",
+        `Non-active subscription and email limit reached (${userSettings.emails_since_reset}/200)`,
+        true,
+        0,
+        0
+      );
+      return NextResponse.json({
+        message: `Sync skipped for account ${accountId}. Non-active subscription and email limit reached.`,
+        email: currentAccountDetails.email,
+        status: "skipped_limit_reached",
+      });
+    }
 
     mailboxLock = await getMailboxLock(
       imapClient,
