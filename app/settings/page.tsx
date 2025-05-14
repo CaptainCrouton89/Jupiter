@@ -25,6 +25,7 @@ import CategorizationTestCard, {
 import EmailCategorySettings from "@/components/settings/EmailCategorySettings";
 import UserSettingsHeader from "@/components/settings/UserSettingsHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import SubscriptionManagementCard from "../../components/settings/SubscriptionManagementCard";
 
 const RELEVANT_CATEGORIES: Category[] = allCategories.filter(
   (cat) => cat !== "uncategorizable"
@@ -59,6 +60,19 @@ export default function SettingsPage() {
   const [runTutorial, setRunTutorial] = useState(false);
   const [tutorialCompleted, setTutorialCompleted] = useState(true); // Assume completed until fetched
 
+  // State for Stripe subscription
+  const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
+  const [stripeSubscriptionId, setStripeSubscriptionId] = useState<
+    string | null
+  >(null);
+  const [stripePriceId, setStripePriceId] = useState<string | null>(null);
+  const [stripeSubscriptionStatus, setStripeSubscriptionStatus] = useState<
+    string | null
+  >(null);
+  const [stripeCurrentPeriodEnd, setStripeCurrentPeriodEnd] = useState<
+    string | null
+  >(null);
+
   // State for all user email accounts (if no default is set)
   const [allUserEmailAccounts, setAllUserEmailAccounts] = useState<
     EmailAccount[] | null
@@ -84,7 +98,7 @@ export default function SettingsPage() {
       const { data, error: fetchError } = await supabase
         .from("user_settings")
         .select(
-          "id, category_preferences, default_account_id, tutorial_completed"
+          "id, category_preferences, default_account_id, tutorial_completed, stripe_customer_id, stripe_subscription_id, stripe_price_id, stripe_subscription_status, stripe_current_period_end"
         )
         .eq("user_id", userId)
         .single();
@@ -97,6 +111,13 @@ export default function SettingsPage() {
         setSettingsId(data.id);
         setDefaultAccountId(data.default_account_id);
         setTutorialCompleted(data.tutorial_completed === true);
+
+        // Set Stripe data
+        setStripeCustomerId(data.stripe_customer_id);
+        setStripeSubscriptionId(data.stripe_subscription_id);
+        setStripePriceId(data.stripe_price_id);
+        setStripeSubscriptionStatus(data.stripe_subscription_status);
+        setStripeCurrentPeriodEnd(data.stripe_current_period_end);
 
         const prefs = data.category_preferences as CategoryPreferences | null;
         const initialPrefs: CategoryPreferences = {};
@@ -123,6 +144,12 @@ export default function SettingsPage() {
         setDefaultAccountId(null);
         setWorkProfileDescription(""); // Ensure it's reset if no data
         setTutorialCompleted(false);
+        // Reset Stripe data if no settings found
+        setStripeCustomerId(null);
+        setStripeSubscriptionId(null);
+        setStripePriceId(null);
+        setStripeSubscriptionStatus(null);
+        setStripeCurrentPeriodEnd(null);
       }
     } catch (e: any) {
       console.error("Error fetching user settings:", e);
@@ -135,6 +162,12 @@ export default function SettingsPage() {
       setDefaultAccountId(null);
       setWorkProfileDescription(""); // Ensure it's reset on error
       setTutorialCompleted(false);
+      // Reset Stripe data on error
+      setStripeCustomerId(null);
+      setStripeSubscriptionId(null);
+      setStripePriceId(null);
+      setStripeSubscriptionStatus(null);
+      setStripeCurrentPeriodEnd(null);
     } finally {
       setIsLoading(false);
       setInitialLoadComplete(true);
@@ -500,6 +533,17 @@ export default function SettingsPage() {
 
       <div className="space-y-10">
         <AccountManagementCard />
+
+        <SubscriptionManagementCard
+          userId={user?.id || ""}
+          userEmail={user?.email || ""}
+          stripeCustomerId={stripeCustomerId}
+          stripeSubscriptionId={stripeSubscriptionId}
+          stripePriceId={stripePriceId}
+          stripeSubscriptionStatus={stripeSubscriptionStatus}
+          stripeCurrentPeriodEnd={stripeCurrentPeriodEnd}
+          isLoading={isLoading}
+        />
 
         <EmailCategorySettings
           isLoading={isLoading && Object.keys(categoryPreferences).length === 0}
