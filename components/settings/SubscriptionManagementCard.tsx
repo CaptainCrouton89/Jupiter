@@ -8,7 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { format } from "date-fns";
+import { Progress } from "@/components/ui/progress";
+import { addMonths, format } from "date-fns";
 import {
   AlertTriangle,
   CheckCircle,
@@ -16,6 +17,7 @@ import {
   ExternalLink,
   Info,
   Loader2,
+  TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -30,7 +32,11 @@ interface SubscriptionManagementCardProps {
   stripeSubscriptionStatus: string | null;
   stripeCurrentPeriodEnd: string | null;
   isLoading: boolean;
+  emailsSinceReset: number;
+  lastCategorizationResetAt: string | null;
 }
+
+const MONTHLY_EMAIL_LIMIT = 300;
 
 export default function SubscriptionManagementCard({
   userId,
@@ -41,6 +47,8 @@ export default function SubscriptionManagementCard({
   stripeSubscriptionStatus,
   stripeCurrentPeriodEnd,
   isLoading: initialIsLoading,
+  emailsSinceReset,
+  lastCategorizationResetAt,
 }: SubscriptionManagementCardProps) {
   const router = useRouter();
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
@@ -164,6 +172,63 @@ export default function SubscriptionManagementCard({
     );
   };
 
+  const renderEmailProcessingInfo = () => {
+    if (initialIsLoading) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          Loading email processing data...
+        </p>
+      );
+    }
+
+    if (stripeSubscriptionStatus === "active") {
+      return (
+        <div className="flex items-center space-x-2 text-blue-600">
+          <TrendingUp className="h-5 w-5" />
+          <p>{emailsSinceReset.toLocaleString()} emails sorted this month!</p>
+        </div>
+      );
+    }
+    // Non-paying user
+    const progressPercentage = Math.min(
+      (emailsSinceReset / MONTHLY_EMAIL_LIMIT) * 100,
+      100
+    );
+    const isMaxedOut = emailsSinceReset >= MONTHLY_EMAIL_LIMIT;
+
+    let nextResetDate;
+    if (lastCategorizationResetAt) {
+      nextResetDate = addMonths(new Date(lastCategorizationResetAt), 1);
+    } else {
+      // Fallback if last reset date isn't set (e.g., new user)
+      // Assume next reset is one month from today
+      nextResetDate = addMonths(new Date(), 1);
+    }
+
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">
+          You've processed{" "}
+          <span
+            className={`font-semibold ${
+              isMaxedOut ? "text-destructive" : "text-foreground"
+            }`}
+          >
+            {emailsSinceReset.toLocaleString()}
+          </span>{" "}
+          of {MONTHLY_EMAIL_LIMIT.toLocaleString()} free emails this month.
+        </p>
+        <Progress
+          value={progressPercentage}
+          className={`h-2 ${isMaxedOut ? "[&>div]:bg-destructive" : ""}`}
+        />
+        <p className="text-xs text-muted-foreground">
+          Your usage will reset on: {format(nextResetDate, "MMMM d, yyyy")}
+        </p>
+      </div>
+    );
+  };
+
   return (
     <Card data-tour-id="subscription-management-card">
       <CardHeader>
@@ -180,6 +245,11 @@ export default function SubscriptionManagementCard({
       <CardContent className="space-y-4">
         <div className="p-4 border rounded-md bg-muted/20">
           {renderSubscriptionStatus()}
+        </div>
+
+        {/* Email Processing Info */}
+        <div className="p-4 border rounded-md">
+          {renderEmailProcessingInfo()}
         </div>
 
         <Button

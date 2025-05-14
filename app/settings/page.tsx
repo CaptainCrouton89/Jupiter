@@ -73,6 +73,12 @@ export default function SettingsPage() {
     string | null
   >(null);
 
+  // New state for email processing count
+  const [emailsSinceReset, setEmailsSinceReset] = useState<number>(0);
+  const [lastCategorizationResetAt, setLastCategorizationResetAt] = useState<
+    string | null
+  >(null);
+
   // State for all user email accounts (if no default is set)
   const [allUserEmailAccounts, setAllUserEmailAccounts] = useState<
     EmailAccount[] | null
@@ -98,7 +104,7 @@ export default function SettingsPage() {
       const { data, error: fetchError } = await supabase
         .from("user_settings")
         .select(
-          "id, category_preferences, default_account_id, tutorial_completed, stripe_customer_id, stripe_subscription_id, stripe_price_id, stripe_subscription_status, stripe_current_period_end"
+          "id, category_preferences, default_account_id, tutorial_completed, stripe_customer_id, stripe_subscription_id, stripe_price_id, stripe_subscription_status, stripe_current_period_end, emails_since_reset, last_categorization_reset_at"
         )
         .eq("user_id", userId)
         .single();
@@ -118,6 +124,10 @@ export default function SettingsPage() {
         setStripePriceId(data.stripe_price_id);
         setStripeSubscriptionStatus(data.stripe_subscription_status);
         setStripeCurrentPeriodEnd(data.stripe_current_period_end);
+
+        // Set email processing count
+        setEmailsSinceReset(data.emails_since_reset || 0);
+        setLastCategorizationResetAt(data.last_categorization_reset_at);
 
         const prefs = data.category_preferences as CategoryPreferences | null;
         const initialPrefs: CategoryPreferences = {};
@@ -150,6 +160,9 @@ export default function SettingsPage() {
         setStripePriceId(null);
         setStripeSubscriptionStatus(null);
         setStripeCurrentPeriodEnd(null);
+        // Reset email processing count if no settings found
+        setEmailsSinceReset(0);
+        setLastCategorizationResetAt(null);
       }
     } catch (e: any) {
       console.error("Error fetching user settings:", e);
@@ -168,6 +181,9 @@ export default function SettingsPage() {
       setStripePriceId(null);
       setStripeSubscriptionStatus(null);
       setStripeCurrentPeriodEnd(null);
+      // Reset email processing count on error
+      setEmailsSinceReset(0);
+      setLastCategorizationResetAt(null);
     } finally {
       setIsLoading(false);
       setInitialLoadComplete(true);
@@ -543,6 +559,8 @@ export default function SettingsPage() {
           stripeSubscriptionStatus={stripeSubscriptionStatus}
           stripeCurrentPeriodEnd={stripeCurrentPeriodEnd}
           isLoading={isLoading}
+          emailsSinceReset={emailsSinceReset}
+          lastCategorizationResetAt={lastCategorizationResetAt}
         />
 
         <EmailCategorySettings
