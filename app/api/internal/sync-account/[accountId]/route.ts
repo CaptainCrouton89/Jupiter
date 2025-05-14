@@ -13,6 +13,8 @@ import { updateEmailAccountSyncStatus, updateSyncLog } from "./supabaseOps";
 
 export const maxDuration = 300; // 5 minutes
 
+const maxEmailsPerMonth = Number(process.env.MAX_EMAILS_PER_MONTH || 300);
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ accountId: string }> }
@@ -85,16 +87,16 @@ export async function POST(
     // Check subscription status and email count
     if (
       userSettings.stripe_subscription_status !== "active" &&
-      userSettings.emails_since_reset >= 200 // Default to 0 if null
+      userSettings.emails_since_reset >= maxEmailsPerMonth
     ) {
       logger.warn(
-        `[SyncRoute] Account ${currentAccountDetails.email} (User ID: ${userSettings.user_id}) skipped. Non-active subscription and email limit reached (${userSettings.emails_since_reset}/200).`
+        `[SyncRoute] Account ${currentAccountDetails.email} (User ID: ${userSettings.user_id}) skipped. Non-active subscription and email limit reached (${userSettings.emails_since_reset}/${maxEmailsPerMonth}).`
       );
       await updateSyncLog(
         supabase,
         jobId,
         "skipped_limit_reached",
-        `Non-active subscription and email limit reached (${userSettings.emails_since_reset}/200)`,
+        `Non-active subscription and email limit reached (${userSettings.emails_since_reset}/${maxEmailsPerMonth})`,
         true,
         0,
         0
