@@ -3,13 +3,6 @@ import { NextResponse } from "next/server";
 
 const priceId = process.env.STRIPE_PRICE_ID || "";
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-// Add debug logging for configuration
-console.log(`Stripe configuration:`);
-console.log(`- Price ID exists: ${!!priceId}`);
-console.log(`- App URL configured: ${appUrl}`);
-console.log(`- Webhook secret exists: ${!!webhookSecret}`);
 
 export async function POST(request: Request) {
   try {

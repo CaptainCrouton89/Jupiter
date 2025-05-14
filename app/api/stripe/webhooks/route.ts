@@ -6,13 +6,6 @@ import Stripe from "stripe";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-// The guide uses `export const config = { api: { bodyParser: false } }` for Pages Router.
-// For App Router, we handle the raw body directly from the request object.
-
-// Add verbose logging to help debug webhook issues
-console.log(`Webhook secret exists: ${!!webhookSecret}`);
-console.log(`Stripe key exists: ${!!process.env.STRIPE_SECRET_KEY}`);
-
 export async function POST(request: Request) {
   console.log("🔔 Webhook endpoint hit!");
 
