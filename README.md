@@ -15,11 +15,9 @@ Jupiter Mail tames your chaotic inbox with AI-powered automation, helping you re
   - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
     - [Installation](#installation)
-    - [Environment Variables](#environment-variables)
     - [Database Setup](#database-setup)
   - [Running the Development Server](#running-the-development-server)
   - [Available Scripts](#available-scripts)
-  - [Project Structure](#project-structure)
   - [Contributing](#contributing)
   - [License](#license)
 
@@ -88,39 +86,6 @@ Follow these instructions to set up and run the Jupiter Mail project locally.
     pnpm install
     ```
 
-### Environment Variables
-
-Create a `.env` file in the root of the project by copying the `.env.example` file (if one exists) or by creating a new one. Populate it with the following necessary environment variables:
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key # For admin operations
-
-# Encryption
-ENCRYPTION_KEY=a_secure_64_character_hex_string # Used for encrypting sensitive data
-
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/google/callback # Adjust if your local setup differs
-
-# Application & Cron
-NEXT_PUBLIC_APP_URL=http://localhost:3000 # Base URL of your application
-CRON_SECRET=a_secure_secret_for_cron_job_authentication
-INTERNAL_API_SECRET=a_secure_secret_for_internal_api_authentication # Can be the same as CRON_SECRET
-
-# Nodemailer (for sending digests - example SMTP, adjust as needed)
-SMTP_HOST=your_smtp_host
-SMTP_PORT=your_smtp_port
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
-SMTP_FROM_EMAIL=digest@yourdomain.com # Email address to send digests from
-```
-
-**Note:** Generate a strong, random 64-character hex string for `ENCRYPTION_KEY`.
-
 ### Database Setup
 
 This project uses Supabase for its database.
@@ -146,20 +111,7 @@ Standard Next.js scripts are available:
 - `pnpm build`: Builds the application for production.
 - `pnpm start`: Starts a production server.
 - `pnpm lint`: Runs ESLint to check for code quality and style issues.
-
-## Project Structure
-
-A brief overview of the key directories:
-
-- `app/`: Contains all routes, pages, and API handlers (using Next.js App Router).
-  - `app/api/`: Backend API routes.
-  - `app/(pages)/`: Frontend page components.
-- `components/`: Shared UI components, including Shadcn/ui components.
-- `lib/`: Core logic, utilities, authentication, database interactions, email services.
-- `public/`: Static assets.
-- `.cursor/rules/`: Contains detailed documentation about application flow, backend structure, frontend guidelines, etc. (For AI assistant context).
-
-For a more detailed understanding, refer to the documentation within the `.cursor/rules/` directory.
+-
 
 ## Contributing
 
