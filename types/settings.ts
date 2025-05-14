@@ -8,6 +8,7 @@ export type CategoryAction =
 export interface CategoryPreference {
   action: CategoryAction;
   digest: boolean;
+  profileDescription?: string;
 }
 
 export interface CategoryPreferences {
@@ -16,13 +17,25 @@ export interface CategoryPreferences {
 
 export type Category =
   | "newsletter"
-  | "code-related"
   | "marketing"
-  | "receipt"
-  | "invoice"
-  | "finances"
+  | "payments" // receipts, transactions
+  | "finances" // bank statements, credit card statements, etc.
   | "personal"
-  | "notification"
-  | "account-related"
-  | "email-verification"
+  | "notification" // customer-support, linkedin messages, social platform messages, security alerts,
+  | "account-related" // password resets, tos changes
+  | "work" // custom
+  | "email-verification" // email verification, two factor auth, etc.
   | "uncategorizable";
+
+export const allCategories: Category[] = [
+  "newsletter",
+  "marketing",
+  "payments",
+  "finances",
+  "personal",
+  "notification",
+  "account-related",
+  "work",
+  "email-verification",
+  "uncategorizable",
+];

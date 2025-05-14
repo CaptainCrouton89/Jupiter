@@ -1,3 +1,9 @@
+import {
+  CATEGORY_ACCENT_COLORS,
+  adjustColorBrightness,
+  getCategoryColor,
+} from "@/lib/email/categoryColors";
+
 export interface EmailSummaryItem {
   emailTitle: string; // Original subject or a title for this email's summary
   emailContent: string; // Original content of the email
@@ -8,6 +14,7 @@ export interface EmailSummaryItem {
   content?: string;
   bullets?: string[];
   receivedAt: string; // Added for displaying email date
+  categoryName?: string; // Added back for category-specific styling
 }
 
 export interface DigestEmailData {
@@ -18,43 +25,11 @@ export interface DigestEmailData {
   categoryName?: string; // Added back for category-specific styling
 }
 
-// Define accent colors for categories (re-added)
-const CATEGORY_ACCENT_COLORS: Record<string, string> = {
-  newsletter: "#6989d0", // Softer Blue
-  marketing: "#f0c76e", // Muted Yellow-Orange
-  receipt: "#6bbd8b", // Softer Green
-  invoice: "#d67a8c", // Muted Red-Pink
-  finances: "#a48cb8", // Softer Purple
-  "code-related": "#7ac5c1", // Muted Teal
-  notification: "#7a8899", // Lighter Slate Grey
-  "account-related": "#7ab3e8", // Softer Dodger Blue
-  personal: "#7ec2bb", // Softer Teal/Turquoise
-  default: "#9ca5ad", // Lighter Grey
-};
-
-// Helper function to darken/lighten a hex color (basic implementation - re-added)
-function adjustColor(color: string, percent: number): string {
-  let r = parseInt(color.substring(1, 3), 16);
-  let g = parseInt(color.substring(3, 5), 16);
-  let b = parseInt(color.substring(5, 7), 16);
-
-  r = Math.min(255, Math.max(0, Math.round(r * (1 + percent))));
-  g = Math.min(255, Math.max(0, Math.round(g * (1 + percent))));
-  b = Math.min(255, Math.max(0, Math.round(b * (1 + percent))));
-
-  return `#${r.toString(16).padStart(2, "0")}${g
-    .toString(16)
-    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-}
-
 export function getDigestHtmlTemplate(data: DigestEmailData): string {
   const { overallTitle, hookIntro, emailSummaries, userName, categoryName } =
     data;
 
-  const accentColor =
-    categoryName && CATEGORY_ACCENT_COLORS[categoryName.toLowerCase()]
-      ? CATEGORY_ACCENT_COLORS[categoryName.toLowerCase()]
-      : CATEGORY_ACCENT_COLORS.default;
+  const accentColor = getCategoryColor(categoryName);
 
   // Basic styling - recommend using a more robust email framework or inlining tool for production
   const styles = `
@@ -81,7 +56,7 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
       color: #ffffff;
       padding: 35px 25px;
       text-align: center;
-      border-bottom: 5px solid ${adjustColor(accentColor, -0.2)};
+      border-bottom: 5px solid ${adjustColorBrightness(accentColor, -20)};
     }
     .header h1 {
       margin: 0;
@@ -148,8 +123,7 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
     .content li::before {
       content: "✔"; /* Checkmark character */
       color: ${
-        accentColor === CATEGORY_ACCENT_COLORS.receipt ||
-        accentColor === CATEGORY_ACCENT_COLORS.invoice
+        accentColor === CATEGORY_ACCENT_COLORS.payments
           ? "#20bf6b"
           : accentColor
       };

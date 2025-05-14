@@ -19,14 +19,13 @@ export const getSummarizeSingleEmailPrompt = (
       For a title, use a more concise, 1-sentence title that captures the most important information from the email. ${jsonInstructionSentence}`;
       break;
     // Title with summary
-    case "code-related":
-      systemPrompt = `Your task is to provide a title, and brief summary of an email. The title should be concise so it can be understood at a glance. The summary should be a single, concise summary sentence (around 15-30 words) summarizing a code-related technical email for a software engineer. Mention specific repository or issue numbers if present. ${jsonInstructionSentence}`;
+    case "work":
+      systemPrompt = `Your task is to provide a title, and brief summary of an work email. The title should be concise so it can be understood at a glance. The summary should be a 1-3 sentences summarizing the work email. Explain the message (e.g., project update, meeting request, task assignment). ${jsonInstructionSentence}`;
       break;
     case "marketing":
       systemPrompt = `Your task is to provide a title, and brief summary of an marketing email. The title should be concise so it can be understood at a glance. The summary should be a single, concise summary sentence (around 15-30 words) identifying the main product/service, key benefits highlighted, and any special offers or deadlines. ${jsonInstructionSentence}`;
       break;
-    case "receipt":
-    case "invoice":
+    case "payments":
       systemPrompt = `Your task is to provide a title, and brief summary of an receipt or invoice email. The title should be concise so it can be understood at a glance. The summary should be single, concise summary sentence (around 10-25 words) summarizing a financial document (receipt or invoice). Stating the vendor/store name, total amount, and transaction/due date. If the amount is notably large or the item important, briefly highlight this. ${jsonInstructionSentence}`;
       break;
     case "finances":

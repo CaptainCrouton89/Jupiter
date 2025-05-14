@@ -6,6 +6,7 @@ import {
   generateDigestSummary,
 } from "@/lib/email/digest/generateDigest"; // Import EmailContent
 import { sendDigestEmail } from "@/lib/email/sendEmail";
+import { allCategories, Category } from "@/types/settings";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { convert as htmlToText } from "html-to-text"; // Added for cleaning
 
@@ -17,28 +18,12 @@ const logger = {
     console.error("[WeeklyDigestService ERROR]", ...args),
 };
 
-const RELEVANT_CATEGORIES = [
-  "newsletter",
-  "marketing",
-  "receipt",
-  "invoice",
-  "finances",
-  "code-related",
-  "notification",
-  "account-related",
-  "personal",
-] as const;
-type RelevantCategory = (typeof RELEVANT_CATEGORIES)[number];
-
 // Align ProcessedEmailContent with EmailContent expected by generateDigestSummary
 interface ProcessedEmailContent extends EmailContent {}
 
 // More specific type for what the digest service needs from user settings
 interface UserDigestPreferences {
-  category_preferences: Record<
-    RelevantCategory,
-    { action: string; digest: boolean }
-  >;
+  category_preferences: Record<Category, { action: string; digest: boolean }>;
   default_account_id?: string | null;
 }
 
@@ -125,7 +110,7 @@ export class WeeklyDigestService {
 
   private async fetchEmailsForCategory(
     userAccountIds: string[],
-    categoryName: RelevantCategory
+    categoryName: Category
   ): Promise<EmailWithHeaders[]> {
     // Return type updated
     const sevenDaysAgo = new Date(
@@ -279,7 +264,7 @@ export class WeeklyDigestService {
   private async generateAndSendCategoryDigest(
     userEmailAccounts: EmailAccountDetails[],
     userId: string,
-    category: RelevantCategory,
+    category: Category,
     emailsToDigest: ProcessedEmailContent[],
     userSettings: UserDigestPreferences | null // Can be null if settings not found
   ): Promise<boolean> {
@@ -358,7 +343,7 @@ export class WeeklyDigestService {
       ({} as UserDigestPreferences["category_preferences"]);
     const accountIds = userEmailAccounts.map((acc) => acc.id);
 
-    for (const category of RELEVANT_CATEGORIES) {
+    for (const category of allCategories) {
       if (categoryPreferences[category]?.digest) {
         logger.info(
           `User ${userId} has digest enabled for category: ${category}. Fetching emails.`

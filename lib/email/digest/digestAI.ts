@@ -34,11 +34,10 @@ const titleOnlyCategories: Category[] = [
 ];
 const titleAndSummaryCategories: Category[] = [
   "marketing",
-  "receipt",
-  "invoice",
+  "payments",
   "finances",
   "personal",
-  "code-related",
+  "work",
 ];
 
 export type IndividualEmailSummary =

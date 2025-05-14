@@ -118,3 +118,46 @@ export async function updateEmailAccountSyncStatus(
     );
   }
 }
+
+export async function fetchUserSettingsForAccount(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<Database["public"]["Tables"]["user_settings"]["Row"] | null> {
+  if (!userId) {
+    logger.warn("[fetchUserSettingsForAccount] No userId provided.");
+    return null;
+  }
+  try {
+    const { data, error } = await supabase
+      .from("user_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 means no rows found, which is not an error in this context
+      logger.error(
+        `[fetchUserSettingsForAccount] Error fetching settings for user ${userId}:`,
+        error
+      );
+      throw error; // Re-throw to be caught by caller if needed, or handle differently
+    }
+    if (data) {
+      logger.info(
+        `[fetchUserSettingsForAccount] Successfully fetched settings for user ${userId}.`
+      );
+      return data;
+    }
+    logger.info(
+      `[fetchUserSettingsForAccount] No settings found for user ${userId}, returning null.`
+    );
+    return null;
+  } catch (err: any) {
+    logger.error(
+      `[fetchUserSettingsForAccount] Exception fetching settings for user ${userId}:`,
+      err
+    );
+    // Depending on desired behavior, you might return null or re-throw
+    return null;
+  }
+}

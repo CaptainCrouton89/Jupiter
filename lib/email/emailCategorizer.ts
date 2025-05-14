@@ -1,4 +1,4 @@
-import { Category } from "@/types/settings";
+import { allCategories, Category } from "@/types/settings";
 import { openai } from "@ai-sdk/openai"; // Assuming you are using OpenAI
 import { generateObject } from "ai";
 import fs from "fs/promises"; // For logging
@@ -31,26 +31,15 @@ async function appendToLog(logEntry: string) {
 // Define the schema for the AI's response
 const emailCategorizationSchema = z.object({
   category: z
-    .enum([
-      "newsletter",
-      "code-related",
-      "marketing",
-      "receipt",
-      "invoice",
-      "finances",
-      "personal",
-      "notification",
-      "account-related",
-      "email-verification",
-    ])
+    .enum(allCategories as [Category, ...Category[]])
     .describe(
       "The category of the email, one of the categories in the <categories> section."
     ),
 });
 
-export type EmailCategorizationResult = z.infer<
-  typeof emailCategorizationSchema
->;
+export type EmailCategorizationResult = {
+  category: Category;
+};
 
 interface EmailCategorizationInput {
   from: ParsedEmailData["from"];
@@ -58,6 +47,7 @@ interface EmailCategorizationInput {
   textContent: ParsedEmailData["text"];
   htmlContent: ParsedEmailData["html"];
   headers?: Record<string, string | string[]>; // Added for heuristic analysis
+  userWorkProfile?: string; // Added for user-specific work criteria
 }
 
 // --- Heuristic Helper Functions ---
@@ -334,7 +324,8 @@ function isForwardedEmail(
 export async function categorizeEmail(
   emailData: EmailCategorizationInput
 ): Promise<{ category: Category }> {
-  const { from, subject, textContent, htmlContent, headers } = emailData;
+  const { from, subject, textContent, htmlContent, headers, userWorkProfile } =
+    emailData;
 
   // Prepare a reduced version of emailData for logging and potential AI input reduction
   // Keep original headers for heuristic calculation, but don't log/send them all
@@ -508,6 +499,13 @@ Based on the heuristic signals and the core email content, categorize this email
   // Log the main prompt being sent to the AI
   await appendToLog(`PROMPT: ${mainPrompt}`);
 
+  const defaultWorkCriteria =
+    "emails pertaining to ongoing projects, team communications, client interactions, and notifications from work-specific tools (e.g., Jira, company platforms).";
+  const effectiveWorkCriteria =
+    userWorkProfile && userWorkProfile.trim() !== ""
+      ? userWorkProfile
+      : defaultWorkCriteria;
+
   const systemPrompt = `
 You are an advanced email categorization assistant for Silas Rhyneer, a software engineer.
 Your goal is to accurately categorize incoming emails based on their content and provided heuristic signals.
@@ -519,15 +517,11 @@ Respond with the single most likely category. "uncategorizable" should be used o
   - Signals: Often has 'unsubscribe' links (check 'List-Unsubscribe Header' or 'Has Opt-Out Mechanism'), may use tracking pixels. Sender domain might be known for newsletters.
 - marketing: Promotional content, advertisements, special offers, calls to action, typically from businesses.
   - Signals: Often uses rich HTML ('Visually Rich', 'Image Count'), tracking pixels, unsubscribe options, promotional keywords. Sender might be a company.
-- receipt: Confirmation of a purchase, transaction, or subscription. Includes order details, amounts.
-  - Signals: Keywords like "receipt", "order confirmation", "invoice". Sender domain often a known merchant. Usually transactional, not overly promotional.
-- invoice: A bill requesting payment for goods or services.
-  - Signals: Keywords like "invoice", "payment due". Often includes an attached PDF. Sender is a business or service provider.
-- finances: Related to banking, investments, financial statements, credit card alerts (but not direct invoices/receipts).
-  - Signals: From financial institutions. Keywords like "statement", "account update", "transaction alert" (if not a receipt). High importance on sender legitimacy (DKIM/SPF).
-- code-related: For Silas (software engineer), this includes GitHub/GitLab notifications, CI/CD alerts, technical discussions (e.g., from forums, mailing lists), API updates, bug reports, dev tool updates.
-  - Signals: Sender domain (e.g., github.com, gitlab.com, atlassian.net), keywords related to code, repositories, pull requests, builds. 'X-Mailer' might indicate automated systems. Subject lines often contain project names or issue numbers.
-- notification: General alerts or updates not fitting other specific categories. Examples: shipping notifications, non-code-related CI/CD (e.g. deployment success/failure), social media direct mentions if not a separate category, system alerts.
+- payments: Confirmation of purchases, transactions, subscriptions, or bills requesting payment. Includes order details, amounts, payment due.
+  - Signals: Keywords like "receipt", "order confirmation", "invoice", "payment due", "transaction". Sender domain often a known merchant or service provider. May include attached PDFs for invoices. Usually transactional.
+- finances: Related to banking, investments, financial statements, credit card alerts (but not direct payment confirmations or bills).
+  - Signals: From financial institutions. Keywords like "statement", "account update", "transaction alert" (if not fitting 'payments'). High importance on sender legitimacy (DKIM/SPF).
+- notification: General alerts or updates not fitting other specific categories. Examples: shipping notifications, CI/CD (e.g. deployment success/failure), social media direct mentions, system alerts.
   - Signals: 'Precedence' header (e.g., 'bulk', 'list' if not a newsletter). Can be from various services. Less interactive than personal emails.
 - account-related: Security alerts, password resets, account verification steps (distinct from 'email-verification' if it's about an existing account update), ToS updates, login notifications.
   - Signals: Keywords like "security alert", "password reset", "verify your account", "account update". High importance of sender legitimacy (DKIM/SPF). Usually direct and important.
@@ -535,7 +529,9 @@ Respond with the single most likely category. "uncategorizable" should be used o
   - Signals: Less likely to have formal unsubscribe, tracking pixels, or be visually rich (unless it's an e-card). Sender is often a person's name or a common freemail domain. Usually unique content, not template-based.
 - email-verification: A specific type of email asking the user to click a link to confirm their email address, typically during a new account sign-up.
   - Signals: Keywords "verify your email", "confirm your address". Usually a single call to action (a link). Often plain.
-- uncategorizable: Use as a LAST RESORT if no other category accurately describes the email, even considering the heuristic signals. Also use for emails identified as system-generated digests via the 'X-Jupiter-Generated' header.
+- work: Emails related to professional work, projects, or collaborations. Criteria: ${effectiveWorkCriteria}
+  - Signals: Content matching user-defined criteria. Sender may be colleagues, clients, or work-related platforms. Subject lines might contain project names or specific work-related keywords.
+- uncategorizable: Use as a LAST RESORT if no other category accurately describes the email, even considering the heuristic signals.
 </categories_explanation>
 
 Respond with the JSON object matching the schema, containing only the determined category.
@@ -543,6 +539,7 @@ Respond with the JSON object matching the schema, containing only the determined
 
   try {
     const { object } = await generateObject({
+      temperature: 0.2,
       model: openai("gpt-4.1-nano"),
       schema: emailCategorizationSchema,
       system: systemPrompt,
@@ -551,7 +548,7 @@ Respond with the JSON object matching the schema, containing only the determined
     console.log("Email categorization result:", object.category);
     // Log the output
     await appendToLog(`OUTPUT: ${JSON.stringify(object, null, 2)}`);
-    return object as EmailCategorizationResult;
+    return object;
   } catch (error) {
     console.error("Error categorizing email:", error);
     // Log the error output

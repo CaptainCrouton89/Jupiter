@@ -10,20 +10,6 @@ const logger = {
     console.error("[WeeklyDigestRoute ERROR]", ...args),
 };
 
-// Define RELEVANT_CATEGORIES, mirroring app/settings/page.tsx
-const RELEVANT_CATEGORIES = [
-  "newsletter",
-  "marketing",
-  "receipt",
-  "invoice",
-  "finances",
-  "code-related",
-  "notification",
-  "account-related",
-  "personal",
-  // "email-verification" and "uncategorizable" are typically not digested
-] as const;
-
 export const maxDuration = 300; // 5 minutes, adjust as needed for AI processing
 
 export async function GET(request: NextRequest) {

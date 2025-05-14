@@ -2,7 +2,11 @@ import { Database } from "@/lib/database.types";
 import { categorizeEmail } from "@/lib/email/emailCategorizer";
 import { fetchAndParseEmails } from "@/lib/email/parseEmail";
 import { storeEmails } from "@/lib/email/storeEmails";
-import type { Category, CategoryPreferences } from "@/types/settings";
+import {
+  allCategories,
+  type Category,
+  type CategoryPreferences,
+} from "@/types/settings";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { ImapFlow } from "imapflow";
 import {
@@ -13,22 +17,18 @@ import {
   moveMessagesToServerFolder,
 } from "./imapOps";
 import { logger } from "./logger";
-import { EmailAccountDetails, updateSyncLog } from "./supabaseOps";
+import {
+  EmailAccountDetails,
+  fetchUserSettingsForAccount,
+  updateSyncLog,
+} from "./supabaseOps";
 
 const RATE_LIMIT_DELAY_MS = 200;
 
 // Define CONFIGURABLE_CATEGORIES, mirroring categories for which users can set actions
-const CONFIGURABLE_CATEGORIES = [
-  "newsletter",
-  "marketing",
-  "receipt",
-  "invoice",
-  "finances",
-  "code-related",
-  "notification",
-  "account-related",
-  "personal",
-] as const;
+const CONFIGURABLE_CATEGORIES = allCategories.filter(
+  (cat) => cat !== "uncategorizable"
+);
 export type ConfigurableCategory = (typeof CONFIGURABLE_CATEGORIES)[number];
 
 export interface ProcessEmailBatchResult {
@@ -54,6 +54,38 @@ export async function processEmailBatch(
   const uidsToTrash: number[] = [];
   let uidsToMarkAsSeenOnServer: number[] = []; // Initialize
 
+  // Fetch user settings for work profile description
+  let userWorkProfile: string | undefined;
+  try {
+    const userSettings = await fetchUserSettingsForAccount(
+      supabase,
+      account.user_id
+    );
+    if (userSettings && userSettings.category_preferences) {
+      const prefs = userSettings.category_preferences as CategoryPreferences;
+      if (prefs.work && prefs.work.profileDescription) {
+        userWorkProfile = prefs.work.profileDescription;
+        logger.info(
+          `[WorkProfile] Using custom work profile for user ${
+            account.user_id
+          }: "${userWorkProfile.substring(0, 50)}..."`
+        );
+      } else {
+        logger.info(
+          `[WorkProfile] No custom work profile found for user ${account.user_id}. Using default.`
+        );
+      }
+    } else {
+      logger.info(
+        `[WorkProfile] No user settings or category_preferences found for user ${account.user_id}. Using default work profile.`
+      );
+    }
+  } catch (error: any) {
+    logger.error(
+      `[WorkProfile] Error fetching user settings for user ${account.user_id}: ${error.message}. Using default work profile.`
+    );
+  }
+
   if (newUids.length === 0) {
     logger.info(
       `No new UIDs to process in this batch for account ${account.email}.`
@@ -68,22 +100,22 @@ export async function processEmailBatch(
   // Fetch user settings for this account's user
   let userCategoryPreferences: CategoryPreferences = {};
   if (account.user_id) {
-    const { data: userSettings, error: settingsError } = await supabase
+    const { data: userSettingsData, error: userSettingsError } = await supabase
       .from("user_settings")
       .select("category_preferences")
       .eq("user_id", account.user_id)
       .single();
 
-    if (settingsError && settingsError.code !== "PGRST116") {
+    if (userSettingsError && userSettingsError.code !== "PGRST116") {
       logger.error(
         `Error fetching user settings for user ${account.user_id} (account ${account.id}):`,
-        settingsError
+        userSettingsError
       );
       // Decide if we should proceed with defaults or fail the batch for this user
     }
-    if (userSettings && userSettings.category_preferences) {
+    if (userSettingsData && userSettingsData.category_preferences) {
       userCategoryPreferences =
-        userSettings.category_preferences as CategoryPreferences;
+        userSettingsData.category_preferences as CategoryPreferences;
     } else {
       logger.info(
         `No category preferences found for user ${account.user_id}. Using default actions.`
@@ -130,6 +162,7 @@ export async function processEmailBatch(
         textContent: parsedEmail.text,
         htmlContent: parsedEmail.html,
         headers: parsedEmail.headers,
+        userWorkProfile,
       };
       const categorizationResult: { category: Category } =
         await categorizeEmail(categorizationInput);
