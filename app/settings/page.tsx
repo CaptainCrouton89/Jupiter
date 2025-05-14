@@ -667,10 +667,10 @@ export default function SettingsPage() {
               <CardDescription>
                 See how the AI categorizes your 20 most recent emails from your
                 {defaultAccountId
-                  ? " default account."
+                  ? " default account. "
                   : allUserEmailAccounts && allUserEmailAccounts.length > 0
-                  ? ` first registered account (${allUserEmailAccounts[0].email}).`
-                  : " account."}
+                  ? ` first registered account (${allUserEmailAccounts[0].email}). `
+                  : " account. "}
                 This helps you understand the categorization logic before
                 customizing it further.
               </CardDescription>

@@ -58,6 +58,7 @@ interface ConnectedAccountsListProps {
   // onEdit?: (account: Account) => void; // Define later
   // onDelete?: (accountId: string) => void; // Define later
   // onTestConnection?: (accountId: string) => void; // Define later
+  currentDefaultAccountId?: string | null;
 }
 
 // Helper to format date, can be moved to a utils file
@@ -78,6 +79,7 @@ interface ConnectedAccountsListProps {
 
 export function ConnectedAccountsList({
   accounts,
+  currentDefaultAccountId,
 }: ConnectedAccountsListProps) {
   const router = useRouter();
   const [editingAccount, setEditingAccount] = useState<AccountForList | null>(
@@ -100,6 +102,7 @@ export function ConnectedAccountsList({
   const [emailFetchTestAccount, setEmailFetchTestAccount] = useState<
     string | null
   >(null);
+  const [isSettingDefault, setIsSettingDefault] = useState<string | null>(null);
 
   const handleEditClick = (account: AccountForList) => {
     setEditingAccount(account);
@@ -228,6 +231,32 @@ export function ConnectedAccountsList({
     }
   };
 
+  const handleSetAsDefault = async (accountId: string) => {
+    setIsSettingDefault(accountId);
+    toast.info("Setting account as default...");
+    try {
+      const response = await fetch("/api/user/settings/set-default", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        toast.error(data.message || "Failed to set default account.");
+        return;
+      }
+      toast.success(data.message || "Account set as default!");
+      router.refresh(); // Refresh to reflect the new default account
+    } catch (error) {
+      toast.error(
+        "An unexpected error occurred while setting the default account."
+      );
+      console.error("Set default account error:", error);
+    } finally {
+      setIsSettingDefault(null);
+    }
+  };
+
   if (accounts.length === 0) {
     return (
       <>
@@ -266,6 +295,7 @@ export function ConnectedAccountsList({
           );
 
           let accountDetailsJsx: React.ReactNode;
+          const isCurrentDefault = account.id === currentDefaultAccountId;
 
           if (account.provider) {
             console.log(
@@ -342,7 +372,12 @@ export function ConnectedAccountsList({
                         className="text-lg truncate"
                         title={account.name || account.email}
                       >
-                        {account.name || "Unnamed Account"}
+                        {account.name || "Unnamed Account"}{" "}
+                        {isCurrentDefault && (
+                          <Badge variant="secondary" className="ml-2">
+                            Default
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription
                         className="truncate"
@@ -385,6 +420,19 @@ export function ConnectedAccountsList({
                     {emailFetchTestAccount === account.id
                       ? "Hide Fetch"
                       : "Fetch Emails"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => handleSetAsDefault(account.id)}
+                    disabled={
+                      isCurrentDefault || isSettingDefault === account.id
+                    }
+                  >
+                    {isSettingDefault === account.id
+                      ? "Setting..."
+                      : "Set as Default"}
                   </Button>
                   <Button
                     variant="outline"
