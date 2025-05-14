@@ -36,14 +36,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-// import { MoreHorizontal } from "lucide-react"; // For a potential dropdown menu
-// import {
-//   DropdownMenu,
-//   DropdownMenuContent,
-//   DropdownMenuItem,
-//   DropdownMenuLabel,
-//   DropdownMenuTrigger,
-// } from "@/components/ui/dropdown-menu";
 
 // Define the type for a single account, using the Row type from generated Supabase types
 // Also adding fields that might come from the database or be derived client-side
@@ -55,27 +47,8 @@ export type AccountForList =
 
 interface ConnectedAccountsListProps {
   accounts: AccountForList[];
-  // onEdit?: (account: Account) => void; // Define later
-  // onDelete?: (accountId: string) => void; // Define later
-  // onTestConnection?: (accountId: string) => void; // Define later
   currentDefaultAccountId?: string | null;
 }
-
-// Helper to format date, can be moved to a utils file
-// const formatDate = (dateString: string | null | undefined) => {
-//   if (!dateString) return "Never";
-//   try {
-//     return new Date(dateString).toLocaleDateString("en-US", {
-//       year: "numeric",
-//       month: "short",
-//       day: "numeric",
-//       hour: "2-digit",
-//       minute: "2-digit",
-//     });
-//   } catch (e) {
-//     return "Invalid Date";
-//   }
-// };
 
 export function ConnectedAccountsList({
   accounts,
