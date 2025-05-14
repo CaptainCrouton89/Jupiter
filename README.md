@@ -6,20 +6,22 @@ Jupiter Mail tames your chaotic inbox with AI-powered automation, helping you re
 
 ## Table of Contents
 
-- [Introduction](#introduction)
-- [Key Features](#key-features)
-- [How It Works](#how-it-works)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Environment Variables](#environment-variables)
-  - [Database Setup](#database-setup)
-- [Running the Development Server](#running-the-development-server)
-- [Available Scripts](#available-scripts)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+- [Jupiter Mail: Inbox Zero, Effortlessly](#jupiter-mail-inbox-zero-effortlessly)
+  - [Table of Contents](#table-of-contents)
+  - [Introduction](#introduction)
+  - [Key Features](#key-features)
+  - [How It Works](#how-it-works)
+  - [Tech Stack](#tech-stack)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Environment Variables](#environment-variables)
+    - [Database Setup](#database-setup)
+  - [Running the Development Server](#running-the-development-server)
+  - [Available Scripts](#available-scripts)
+  - [Project Structure](#project-structure)
+  - [Contributing](#contributing)
+  - [License](#license)
 
 ## Introduction
 
