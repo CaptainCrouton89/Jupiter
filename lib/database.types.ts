@@ -200,6 +200,7 @@ export type Database = {
           id: string;
           notifications_enabled: boolean;
           theme: string;
+          tutorial_completed: boolean;
           updated_at: string;
           user_id: string;
         };
@@ -211,6 +212,7 @@ export type Database = {
           id?: string;
           notifications_enabled?: boolean;
           theme?: string;
+          tutorial_completed?: boolean;
           updated_at?: string;
           user_id: string;
         };
@@ -222,6 +224,7 @@ export type Database = {
           id?: string;
           notifications_enabled?: boolean;
           theme?: string;
+          tutorial_completed?: boolean;
           updated_at?: string;
           user_id?: string;
         };

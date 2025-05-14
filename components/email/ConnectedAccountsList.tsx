@@ -286,7 +286,7 @@ export function ConnectedAccountsList({
           </Button>
         </Link>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
         {accounts.map((account) => {
           // Log every account object being processed
           console.log(

@@ -1,5 +1,6 @@
 "use client";
 
+import OnboardingTutorial from "@/components/tutorial/OnboardingTutorial";
 import {
   Accordion,
   AccordionContent,
@@ -43,6 +44,7 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Step } from "react-joyride";
 import { toast } from "sonner";
 
 const RELEVANT_CATEGORIES: Category[] = allCategories.filter(
@@ -85,6 +87,10 @@ export default function SettingsPage() {
   );
   const confirmationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Tutorial State
+  const [runTutorial, setRunTutorial] = useState(false);
+  const [tutorialCompleted, setTutorialCompleted] = useState(true); // Assume completed until fetched
+
   // State for all user email accounts (if no default is set)
   const [allUserEmailAccounts, setAllUserEmailAccounts] = useState<
     EmailAccount[] | null
@@ -109,7 +115,9 @@ export default function SettingsPage() {
       const supabase = await createClient();
       const { data, error: fetchError } = await supabase
         .from("user_settings")
-        .select("id, category_preferences, default_account_id")
+        .select(
+          "id, category_preferences, default_account_id, tutorial_completed"
+        )
         .eq("user_id", userId)
         .single();
 
@@ -120,6 +128,8 @@ export default function SettingsPage() {
       if (data) {
         setSettingsId(data.id);
         setDefaultAccountId(data.default_account_id);
+        setTutorialCompleted(data.tutorial_completed === true);
+
         const prefs = data.category_preferences as CategoryPreferences | null;
         const initialPrefs: CategoryPreferences = {};
         RELEVANT_CATEGORIES.forEach((cat) => {
@@ -142,6 +152,7 @@ export default function SettingsPage() {
         setCategoryPreferences(initialPrefs);
         setDefaultAccountId(null);
         setWorkProfileDescription("");
+        setTutorialCompleted(false);
       }
     } catch (e: any) {
       console.error("Error fetching user settings:", e);
@@ -153,6 +164,7 @@ export default function SettingsPage() {
       setCategoryPreferences(initialPrefs);
       setDefaultAccountId(null);
       setWorkProfileDescription("");
+      setTutorialCompleted(false);
     } finally {
       setIsLoading(false);
       setInitialLoadComplete(true);
@@ -206,6 +218,12 @@ export default function SettingsPage() {
     };
     getUserAndSettings();
   }, [fetchUserSettings]);
+
+  useEffect(() => {
+    if (initialLoadComplete && !tutorialCompleted && !isLoading) {
+      setRunTutorial(true);
+    }
+  }, [initialLoadComplete, tutorialCompleted, isLoading]);
 
   // New useEffect to fetch all accounts if defaultAccountId is not set after initial load
   useEffect(() => {
@@ -425,9 +443,70 @@ export default function SettingsPage() {
     return <div className="container mx-auto py-8 text-center">Loading...</div>;
   }
 
+  const tutorialSteps: Step[] = [
+    {
+      target: "[data-tour-id='welcome-settings']",
+      content:
+        "Welcome to Jupiter Mail! This is your settings page, where you control how your email is managed.",
+      placement: "center",
+    },
+    {
+      target: "[data-tour-id='manage-accounts-button']",
+      content:
+        "First things first, let's connect your email account. Click here to go to the account management page.",
+      disableBeacon: true,
+    },
+    // More steps will be added for the /accounts page and /accounts/connect page later
+    // For now, we'll add steps for configuring settings after account connection (simulated)
+    {
+      target: "[data-tour-id='category-settings-card']",
+      content:
+        "Once your account is connected, you'll configure how Jupiter Mail handles different email categories right here.",
+      disableBeacon: true,
+    },
+    {
+      target: "[data-tour-id='category-item-promotions']", // Assuming 'promotions' is a likely first category
+      content:
+        "For each category, like 'Promotions', you can decide an action (e.g., Archive, Trash) and if you want it in your weekly digest.",
+      disableBeacon: true,
+    },
+    {
+      target: "[data-tour-id='work-category-card']",
+      content:
+        "For 'Work' emails, you can even provide a description of your work to help our AI categorize them more accurately!",
+      disableBeacon: true,
+    },
+    {
+      target: "[data-tour-id='test-categorization-card']",
+      content:
+        "Curious how our AI works? You can run a test to see how it categorizes your recent emails.",
+      disableBeacon: true,
+    },
+    {
+      target: "[data-tour-id='settings-header']", // A general target to signify end on this page
+      content:
+        "That's a quick overview of the settings page! Explore and customize to make Jupiter Mail work best for you.",
+      placement: "bottom",
+      disableBeacon: true,
+    },
+  ];
+
   return (
-    <div className="container mx-auto py-10 px-4 md:px-0">
-      <header className="mb-8">
+    <div
+      className="container mx-auto py-10 px-4 md:px-0"
+      data-tour-id="welcome-settings"
+    >
+      {initialLoadComplete && !isLoading && (
+        <OnboardingTutorial
+          run={runTutorial}
+          steps={tutorialSteps}
+          onTutorialEnd={() => {
+            setRunTutorial(false);
+            // No need to call API here, Joyride callback handles it
+          }}
+        />
+      )}
+      <header className="mb-8" data-tour-id="settings-header">
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
           Manage your application preferences and connected accounts.
@@ -448,7 +527,7 @@ export default function SettingsPage() {
       <div className="space-y-10">
         {/* Account Management Section */}
         <section>
-          <Card>
+          <Card data-tour-id="account-management-card">
             <CardHeader>
               <CardTitle>Account Management</CardTitle>
               <CardDescription>
@@ -461,7 +540,9 @@ export default function SettingsPage() {
                 Click the button below to go to the account management page.
               </p>
               <Link href="/accounts" passHref>
-                <Button>Manage Email Accounts</Button>
+                <Button data-tour-id="manage-accounts-button">
+                  Manage Email Accounts
+                </Button>
               </Link>
             </CardContent>
           </Card>
@@ -469,7 +550,7 @@ export default function SettingsPage() {
 
         {/* Email Category Settings Section */}
         <section>
-          <Card>
+          <Card data-tour-id="category-settings-card">
             <CardHeader>
               <CardTitle>Email Category Settings</CardTitle>
               <CardDescription>
@@ -486,15 +567,23 @@ export default function SettingsPage() {
                 </div>
               )}
               {!isLoading &&
-                RELEVANT_CATEGORIES.map((category) => {
+                RELEVANT_CATEGORIES.map((category, index) => {
                   const currentPref = categoryPreferences[category] || {
                     action: "none",
                     digest: false,
                   };
+                  // Add data-tour-id to the first relevant category for the tutorial step
+                  const tourId =
+                    category.toLowerCase() === "promotions"
+                      ? "category-item-promotions"
+                      : category.toLowerCase() === "work"
+                      ? "work-category-card"
+                      : undefined;
                   return (
                     <Card
                       key={category}
                       className="shadow-none border relative"
+                      data-tour-id={tourId}
                     >
                       <CardHeader className="pb-3">
                         <CardTitle className="capitalize text-lg">
@@ -658,7 +747,7 @@ export default function SettingsPage() {
 
         {/* Categorization Test Section */}
         <section>
-          <Card>
+          <Card data-tour-id="test-categorization-card">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <MailCheckIcon className="mr-2 h-5 w-5" /> Test Email
