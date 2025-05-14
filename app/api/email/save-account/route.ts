@@ -1,7 +1,14 @@
+import {
+  closeImapClient,
+  fetchNewEmailUids,
+  getMailboxLock,
+} from "@/app/api/internal/sync-account/[accountId]/imapOps";
 import { encrypt } from "@/lib/auth/encryption";
 import { createClient } from "@/lib/auth/server";
 import type { Database } from "@/lib/database.types";
+import { getConnectedImapClient } from "@/lib/email/imapService";
 import { emailConnectionSchema } from "@/lib/validations/email";
+import type { ImapFlow } from "imapflow";
 import { NextRequest, NextResponse } from "next/server";
 // import { supabaseAdmin } from '@/lib/supabaseAdmin'; // Only if RLS becomes an issue for user client
 
@@ -41,7 +48,7 @@ export async function POST(req: NextRequest) {
       imapPort,
       smtpServer,
       smtpPort,
-      security,
+      security, // This is parsed from the form but may not be saved if no column exists
       accountName,
     } = parsedBody.data;
 
@@ -53,13 +60,13 @@ export async function POST(req: NextRequest) {
       {
         username: accountName || emailAddress,
         user_id: user.id,
-        email: emailAddress, // SQL column: email_address
-        password_encrypted, // SQL column: password_encrypted
-        imap_host: imapServer, // SQL column: imap_server
-        imap_port: imapPort, // SQL column: imap_port
-        smtp_host: smtpServer, // SQL column: smtp_server
-        smtp_port: smtpPort, // SQL column: smtp_port
-        // provider: 'custom', // Optional field, not in current form
+        email: emailAddress,
+        password_encrypted,
+        imap_host: imapServer,
+        imap_port: imapPort,
+        smtp_host: smtpServer,
+        smtp_port: smtpPort,
+        provider: "custom",
       };
 
     const { data, error } = await supabase
@@ -80,6 +87,63 @@ export async function POST(req: NextRequest) {
         { message: "Failed to save email account", error: error.message },
         { status: 500 }
       );
+    }
+
+    // Successfully saved the account, now try to set initial last_synced_uid
+    if (data && data.id) {
+      const newAccountId = data.id;
+      let imapClient: ImapFlow | null = null;
+      let mailboxLock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | null =
+        null;
+      let accountEmailForImap = data.email; // email from the saved data
+
+      try {
+        console.log(
+          `Attempting to fetch initial UID for new account ${newAccountId} (${accountEmailForImap})`
+        );
+        const { client: connectedClient, accountDetails } =
+          await getConnectedImapClient(newAccountId, supabase);
+        imapClient = connectedClient;
+        accountEmailForImap = accountDetails.email; // Use email from accountDetails for accuracy in logs
+
+        mailboxLock = await getMailboxLock(
+          imapClient,
+          "INBOX",
+          accountEmailForImap
+        );
+        const latestUids = await fetchNewEmailUids(imapClient, 0);
+        const initialLastSyncedUid = latestUids.length > 0 ? latestUids[0] : 0;
+
+        console.log(
+          `Fetched initialLastSyncedUid: ${initialLastSyncedUid} for account ${newAccountId}`
+        );
+
+        const { error: updateError } = await supabase
+          .from("email_accounts")
+          .update({ last_synced_uid: initialLastSyncedUid })
+          .eq("id", newAccountId);
+
+        if (updateError) {
+          console.error(
+            `Failed to update last_synced_uid for account ${newAccountId}:`,
+            updateError
+          );
+        } else {
+          console.log(
+            `Successfully updated last_synced_uid for account ${newAccountId}`
+          );
+        }
+      } catch (uidError: any) {
+        console.error(
+          `Error fetching initial UID for account ${newAccountId}: ${uidError.message}`,
+          uidError
+        );
+        // Do not throw, account is already saved. This is a best-effort enhancement.
+      } finally {
+        if (imapClient) {
+          await closeImapClient(imapClient, accountEmailForImap, mailboxLock);
+        }
+      }
     }
 
     return NextResponse.json(
