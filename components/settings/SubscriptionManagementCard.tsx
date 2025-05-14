@@ -136,6 +136,13 @@ export default function SubscriptionManagementCard({
           </p>
         </div>
       );
+    } else if (stripeSubscriptionStatus === "active") {
+      return (
+        <div className="flex items-center space-x-2 text-green-600">
+          <CheckCircle className="h-5 w-5" />
+          <p>Active</p>
+        </div>
+      );
     }
     if (
       stripeSubscriptionStatus &&

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       // Handle the event
       switch (event.type) {
         case "checkout.session.completed": {
-          const session = event.data.object as any;
+          const session = event.data.object;
           console.log("💰 Checkout session completed:", session.id);
           console.log(
             "📊 Session data:",
@@ -81,11 +81,11 @@ export async function POST(request: Request) {
             // Get subscription details to fetch price ID and period end
             try {
               // Use any to bypass TypeScript limitations with Stripe types
-              const subscription = (await stripe.subscriptions.retrieve(
+              const subscription = await stripe.subscriptions.retrieve(
                 typeof subscriptionId === "string"
                   ? subscriptionId
                   : subscriptionId.id
-              )) as any;
+              );
 
               console.log("🔄 Retrieved subscription:", subscription.id);
 
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
           break;
         }
         case "customer.subscription.created": {
-          const subscription = event.data.object as any; // Using any for the Stripe object
+          const subscription = event.data.object;
           console.log(
             "🆕 Subscription created:",
             subscription.id,
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
           break;
         }
         case "customer.subscription.updated": {
-          const subscription = event.data.object as any; // Using any for the Stripe object
+          const subscription = event.data.object;
           console.log(
             "🔄 Subscription updated:",
             subscription.id,
@@ -258,7 +258,7 @@ export async function POST(request: Request) {
           break;
         }
         case "customer.subscription.deleted": {
-          const subscription = event.data.object as any; // Using any for the Stripe object
+          const subscription = event.data.object;
           console.log(
             "❌ Subscription deleted:",
             subscription.id,
@@ -306,7 +306,7 @@ export async function POST(request: Request) {
           break;
         }
         case "invoice.payment_succeeded": {
-          const invoice = event.data.object as any; // Using any for the Stripe object
+          const invoice = event.data.object;
           console.log("💵 Invoice payment succeeded:", invoice.id);
 
           // If it's for a subscription, ensure the subscription status is updated
@@ -316,9 +316,9 @@ export async function POST(request: Request) {
           if (subscriptionId && typeof customerId === "string") {
             try {
               // Get the subscription details
-              const subscription = (await stripe.subscriptions.retrieve(
+              const subscription = await stripe.subscriptions.retrieve(
                 subscriptionId
-              )) as any;
+              );
 
               // Find the user by their Stripe customer ID
               const { data: userData, error } = await supabaseAdmin
@@ -362,7 +362,7 @@ export async function POST(request: Request) {
           break;
         }
         case "invoice.payment_failed": {
-          const invoice = event.data.object as any; // Using any for the Stripe object
+          const invoice = event.data.object;
           console.log("❌ Invoice payment failed:", invoice.id);
 
           // Get the subscription ID and customer ID
@@ -372,9 +372,9 @@ export async function POST(request: Request) {
           if (subscriptionId && typeof customerId === "string") {
             try {
               // Get the subscription details with updated status
-              const subscription = (await stripe.subscriptions.retrieve(
+              const subscription = await stripe.subscriptions.retrieve(
                 subscriptionId
-              )) as any;
+              );
 
               // Find the user by their Stripe customer ID
               const { data: userData, error } = await supabaseAdmin
