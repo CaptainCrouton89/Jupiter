@@ -1,5 +1,6 @@
 "use client";
 
+import { EmailSetupHelp } from "@/components/email/EmailSetupHelp";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -118,17 +119,20 @@ export function EmailConnectionForm({
 
   return (
     <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle>
-          {initialData?.emailAddress
-            ? "Edit Email Account"
-            : "Connect New Email Account"}
-        </CardTitle>
-        <CardDescription>
-          {initialData?.emailAddress
-            ? "Update the details for your email account."
-            : "Enter the details for your IMAP/SMTP email account or connect with a provider."}
-        </CardDescription>
+      <CardHeader className="flex flex-row justify-between items-center">
+        <div>
+          <CardTitle>
+            {initialData?.emailAddress
+              ? "Edit Email Account"
+              : "Connect New Email Account"}
+          </CardTitle>
+          <CardDescription>
+            {initialData?.emailAddress
+              ? "Update the details for your email account."
+              : "Enter the details for your IMAP/SMTP email account or connect with a provider."}
+          </CardDescription>
+        </div>
+        <EmailSetupHelp />
       </CardHeader>
       <CardContent>
         <div className="mb-6 flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">

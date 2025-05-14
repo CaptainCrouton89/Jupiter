@@ -1,13 +1,8 @@
 "use client";
 
 import { EmailConnectionForm } from "@/components/email/EmailConnectionForm";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { EmailConnectionFormValues } from "@/lib/validations/email";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -83,11 +78,9 @@ export default function ConnectAccountPage() {
     <div className="container mx-auto py-10 px-4 md:px-6 flex justify-center">
       <Card className="w-full max-w-2xl">
         <CardHeader>
-          <CardTitle>Connect New Email Account</CardTitle>
-          <CardDescription>
-            Enter your email account details below or use a provider to connect
-            it to Jupiter.
-          </CardDescription>
+          <Button variant="outline" onClick={() => router.back()}>
+            Back to Accounts
+          </Button>
         </CardHeader>
         <CardContent>
           <EmailConnectionForm
