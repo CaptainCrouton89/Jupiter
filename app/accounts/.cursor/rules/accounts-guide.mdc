@@ -1,0 +1,110 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Accounts Management Guide: Jupiter Mail
+
+This document outlines the structure and functionality of the Accounts Management pages in Jupiter Mail.
+
+## Overview
+
+The Accounts Management section allows users to:
+
+1. View their connected email accounts
+2. Connect new email accounts (via OAuth or IMAP/SMTP)
+3. Test connections for existing accounts
+4. Set a default account for operations
+5. Remove connected accounts
+
+## Page Structure
+
+### Accounts List Page (`app/accounts/page.tsx`)
+
+- **Header**: "Connected Accounts" title and description
+- **CTA**: "Connect New Account" button linking to `/accounts/connect`
+- **Accounts List**: Displays all connected email accounts with their status
+
+### Connect Account Page (`app/accounts/connect/page.tsx`)
+
+- **Header**: "Connect New Email Account" title and description
+- **OAuth Options**: Quick connection buttons for Google and potentially other providers
+- **Manual Connection Form**: IMAP/SMTP credentials form for other email providers
+
+## Components
+
+The Accounts pages utilize these main components:
+
+- **ConnectedAccountsList**: [components/email/ConnectedAccountsList.tsx](mdc:components/email/ConnectedAccountsList.tsx) - List of connected accounts
+- **EmailConnectionForm**: [components/email/EmailConnectionForm.tsx](mdc:components/email/EmailConnectionForm.tsx) - Form for manual IMAP/SMTP connection
+- **OAuthButtons**: [components/email/OAuthButtons.tsx](mdc:components/email/OAuthButtons.tsx) - Quick connection buttons for OAuth providers
+
+## Account Connection Methods
+
+### OAuth Connection (Google)
+
+1. User clicks "Connect with Google"
+2. System redirects to `/api/auth/google/initiate?next=/accounts`
+3. User completes Google authentication flow
+4. Google redirects back to application callback URL
+5. System creates/updates account record and redirects to accounts page
+
+### Manual IMAP/SMTP Connection
+
+1. User fills out the manual connection form with:
+   - Email Address
+   - Account Name (optional)
+   - IMAP Host & Port
+   - SMTP Host & Port
+   - Username & Password
+2. User tests the connection (optional but recommended)
+3. User submits the form
+4. System encrypts credentials, stores them, and redirects to accounts page
+
+## Data Flow
+
+1. **Fetching Accounts**:
+   - Loads list of connected accounts on page load
+   - Displays account status, provider, and last sync time
+
+2. **Connection Testing**:
+   - Tests IMAP/SMTP connectivity without saving
+   - Verifies credentials are valid
+   - Displays success/error message
+
+3. **Account Saving**:
+   - Encrypts sensitive credentials
+   - Stores account information in the database
+   - Initiates an initial email sync
+
+## API Interactions
+
+- **Fetching Accounts**: `GET /api/email/accounts`
+- **Testing Connection**: `POST /api/email/test-connection`
+- **Saving Account**: `POST /api/email/save-account`
+- **Testing Specific Account**: `GET /api/email/accounts/[accountId]/test-connection`
+- **Removing Account**: `DELETE /api/email/accounts/[accountId]`
+
+## Security Considerations
+
+1. **Credential Encryption**:
+   - Passwords and OAuth tokens are encrypted using AES-256-GCM
+   - Encryption keys are stored securely and never exposed to clients
+
+2. **OAuth Security**:
+   - Uses industry-standard OAuth 2.0 protocol
+   - Refresh tokens are handled securely
+   - Proper scope limitations are implemented
+
+3. **IMAP/SMTP Security**:
+   - Requires secure connections (SSL/TLS)
+   - Validates server certificates
+   - Implements connection timeouts
+
+## Best Practices
+
+1. **Error Handling**: Provide clear error messages for connection issues
+2. **Testing**: Always prompt users to test connections before saving
+3. **Validation**: Validate form inputs before submission
+4. **UI Feedback**: Show loading states during connection testing and saving
+5. **Security**: Never log or expose sensitive credentials

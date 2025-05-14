@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 ---
 description: Outlines the backend architecture, database schema, authentication mechanisms, and API structure for Jupiter Mail.

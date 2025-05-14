@@ -1,0 +1,96 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Settings Page Guide: Jupiter Mail
+
+This document outlines the structure and functionality of the Settings page in Jupiter Mail.
+
+## Overview
+
+The Settings page (`app/settings/page.tsx`) is the central hub for users to configure their Jupiter Mail experience. It provides interfaces for:
+
+1. Managing connected email accounts
+2. Configuring email category preferences
+3. Setting up weekly digest preferences
+4. Testing email categorization on recent emails
+
+## Page Structure
+
+- **Header**: Title and description of the settings page
+- **Account Management Section**: Link to manage connected accounts
+- **Email Categories Configuration**: UI for configuring actions per category
+- **Test Categorization Section**: UI for testing the AI categorization
+
+## Email Categories
+
+The following email categories are supported:
+
+- Promotions
+- Social
+- Updates
+- Forums
+- Financial
+- Purchases
+- Travel
+- Work
+- Personal
+- Newsletters
+
+For each category, users can configure:
+
+1. **Action on New Emails**:
+   - None (Keep as unread)
+   - Mark as Read
+   - Archive
+   - Trash
+   - Mark as Spam
+
+2. **Weekly Digest Inclusion**:
+   - Toggle to include/exclude from weekly digest
+
+## Components
+
+The Settings page utilizes these main components:
+
+- **CategoryPreferencesSection**: [components/settings/CategoryPreferencesSection.tsx](mdc:components/settings/CategoryPreferencesSection.tsx) - Manages category preferences UI
+- **CategoryCard**: [components/settings/CategoryCard.tsx](mdc:components/settings/CategoryCard.tsx) - Individual category configuration card
+- **TestCategorizationSection**: [components/settings/TestCategorizationSection.tsx](mdc:components/settings/TestCategorizationSection.tsx) - UI for testing categorization
+- **AccountManagementSection**: [components/settings/AccountManagementSection.tsx](mdc:components/settings/AccountManagementSection.tsx) - UI for account management
+
+## Data Flow
+
+1. **Loading User Settings**:
+   - Fetches current user preferences on page load
+   - If no default account is set, fetches all user accounts to determine a fallback
+
+2. **Saving Preferences**:
+   - Auto-saves changes with debounce mechanism
+   - Updates are persisted to the database
+
+3. **Test Categorization**:
+   - Uses default account or first available account
+   - Fetches 20 most recent emails
+   - Processes them through the AI categorization engine
+   - Displays results in an accordion interface
+
+## API Interactions
+
+- **Fetching Settings**: `GET /api/user/settings`
+- **Updating Settings**: `PUT /api/user/settings`
+- **Testing Categorization**: `POST /api/email/test-categorization`
+
+## State Management
+
+- Uses Redux store for global state (categories, preferences)
+- Uses React's `useState` and `useEffect` for local UI state
+- Implements optimistic UI updates with proper error handling
+
+## Best Practices
+
+1. **Performance**: Implement debounced saves to prevent excessive API calls
+2. **Accessibility**: Ensure proper ARIA attributes and keyboard navigation
+3. **Error Handling**: Display appropriate error messages for failed operations
+4. **Responsiveness**: Adapt UI for different screen sizes
+5. **State Management**: Keep UI state and server state in sync

@@ -1,0 +1,166 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# UI Style Guide: Jupiter Mail
+
+This document outlines the design system and UI component styling used in Jupiter Mail.
+
+## Design System
+
+Jupiter Mail uses the [Shadcn/ui](mdc:https:/ui.shadcn.com) component library with the "new-york" style variant. The design system is based on:
+
+- **Color Scheme**: 
+  - Primary: Blue-based theme (customizable)
+  - Accent: Purple highlights
+  - Semantic colors for states (success, error, warning, info)
+  - Dark/light mode support
+
+- **Typography**:
+  - Font Family: System font stack (sans-serif)
+  - Heading Scales: h1-h6 with consistent hierarchy
+  - Body Text: Readable size with appropriate line height
+  - Monospace: For code or technical content
+
+- **Spacing**:
+  - Based on 4px increments (0.25rem)
+  - Consistent padding and margins throughout
+  - Responsive adjustments at breakpoints
+
+- **Shadows**:
+  - Subtle elevation system
+  - Modal and dropdown specific shadows
+  - Hover state shadows for interactive elements
+
+- **Borders**:
+  - Rounded corners (border-radius)
+  - Subtle borders for separation
+  - Focus state borders for accessibility
+
+## Component Styling
+
+### Button Variants
+
+The [Button](mdc:components/ui/button.tsx) component supports these variants:
+
+- **Default**: Primary action button
+- **Secondary**: Less prominent actions
+- **Destructive**: Dangerous actions (delete, remove)
+- **Outline**: Bordered button for secondary actions
+- **Ghost**: Minimal visual impact, often used in toolbars
+- **Link**: Appears as a text link
+
+### Card Styling
+
+The [Card](mdc:components/ui/card.tsx) component is used for:
+
+- Content grouping
+- Settings panels (e.g., category cards)
+- Feature showcases
+- Information displays
+
+### Form Elements
+
+Form elements follow consistent styling:
+
+- **Input**: [Input](mdc:components/ui/input.tsx) - Text input fields
+- **Select**: [Select](mdc:components/ui/select.tsx) - Dropdown selection
+- **Checkbox**: [Checkbox](mdc:components/ui/checkbox.tsx) - Boolean selection
+- **Radio**: [Radio Group](mdc:components/ui/radio-group.tsx) - Exclusive selection
+- **Textarea**: [Textarea](mdc:components/ui/textarea.tsx) - Multi-line input
+- **Label**: [Label](mdc:components/ui/label.tsx) - Form field labels
+
+### Dialog and Modal Styling
+
+The [Dialog](mdc:components/ui/dialog.tsx) component provides:
+
+- Overlay background
+- Centered content
+- Header, content, and footer sections
+- Close button
+- Accessible focus management
+
+### Feedback Components
+
+- **Progress**: [Progress](mdc:components/ui/progress.tsx) - Loading indicators
+- **Alert**: [Alert](mdc:components/ui/alert.tsx) - Status messages
+- **Toast**: [Sonner](mdc:components/ui/sonner.tsx) - Temporary notifications
+
+### Layout Components
+
+- **Tabs**: [Tabs](mdc:components/ui/tabs.tsx) - Content organization
+- **Separator**: [Separator](mdc:components/ui/separator.tsx) - Visual dividers
+- **Accordion**: [Accordion](mdc:components/ui/accordion.tsx) - Collapsible content
+
+## Email Category Colors
+
+Email categories use specific colors defined in [lib/email/categoryColors.ts](mdc:lib/email/categoryColors.ts):
+
+- **Promotions**: Marketing and promotional emails
+- **Social**: Social media notifications
+- **Updates**: System updates and notifications
+- **Forums**: Discussion groups and forums
+- **Financial**: Banking, investment, and financial emails
+- **Purchases**: Receipts and order confirmations
+- **Travel**: Flight, hotel, and travel related emails
+- **Work**: Professional and work-related emails
+- **Personal**: Personal correspondence
+- **Newsletters**: Subscribed newsletters and digests
+
+## Responsive Design
+
+The UI adapts to different screen sizes with these breakpoints:
+
+- **Mobile**: < 640px
+- **Tablet**: 640px - 1024px
+- **Desktop**: > 1024px
+
+Components adjust layout, size, and positioning at these breakpoints.
+
+## Icon System
+
+Jupiter Mail uses [Lucide React](mdc:https:/lucide.dev) for icons:
+
+- Consistent sizing (16px, 20px, 24px)
+- Stroke-based design
+- Semantic usage (e.g., consistent icons for actions)
+- Proper accessibility (aria-label when used alone)
+
+## Accessibility
+
+All components follow accessibility best practices:
+
+- Proper color contrast (WCAG AA compliance)
+- Keyboard navigation support
+- ARIA attributes where needed
+- Focus management
+- Screen reader compatibility
+
+## Dark Mode
+
+Dark mode styling follows these principles:
+
+- Reduced brightness and contrast
+- Adjusted color palette
+- Preserved brand identity
+- Consistent component appearance
+
+## Component Extension
+
+When extending or creating new components:
+
+1. Follow the established styling patterns
+2. Use Tailwind utilities for styling
+3. Maintain accessibility features
+4. Support both light and dark modes
+5. Ensure responsive behavior
+
+## Tailwind Usage
+
+When using Tailwind CSS:
+
+- Utilize the project's color palette variables
+- Follow spacing scale (0.25rem increments)
+- Use responsive prefixes consistently (sm:, md:, lg:)
+- Leverage utility composition with `className` utilities

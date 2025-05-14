@@ -1,0 +1,156 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Authentication Flow Guide: Jupiter Mail
+
+This document outlines the authentication flows and security practices in Jupiter Mail.
+
+## Authentication Architecture
+
+Jupiter Mail uses [Supabase Auth](mdc:https:/supabase.com/docs/guides/auth) for authentication, with these key components:
+
+1. **Client-Side Auth**: [client.ts](mdc:lib/auth/client.ts)
+   - Browser-based auth utilities
+   - Session management
+
+2. **Server-Side Auth**: [server.ts](mdc:lib/auth/server.ts)
+   - Server-side auth verification
+   - Cookie-based session handling
+
+3. **Google OAuth**: [googleService.ts](mdc:lib/auth/googleService.ts)
+   - Google API integration
+   - OAuth token management
+
+4. **Admin Operations**: [admin.ts](mdc:lib/auth/admin.ts)
+   - Administrative auth functions
+   - User management operations
+
+5. **Data Encryption**: [encryption.ts](mdc:lib/auth/encryption.ts)
+   - AES-256-GCM encryption
+   - Secure credential storage
+
+## Authentication Flows
+
+### Google OAuth Flow
+
+1. **Initiation**:
+   - User clicks "Sign in with Google" button
+   - Frontend redirects to `/api/auth/google/initiate?next=/settings`
+   - [app/api/auth/google/initiate/route.ts](mdc:app/api/auth/google/initiate/route.ts) generates OAuth URL
+
+2. **Google Authentication**:
+   - User authenticates with Google
+   - User grants permissions for requested scopes
+   - Google redirects to callback URL with auth code
+
+3. **OAuth Callback**:
+   - [app/api/auth/google/callback/route.ts](mdc:app/api/auth/google/callback/route.ts) receives the auth code
+   - Exchanges code for access and refresh tokens using [googleService.ts](mdc:lib/auth/googleService.ts)
+   - Creates or updates Supabase user
+
+4. **Session Creation**:
+   - Creates Supabase session
+   - Sets secure HTTP-only cookie
+   - Redirects to the `next` URL parameter (e.g., `/settings`)
+
+### Session Management
+
+1. **Session Verification**:
+   - [middleware.ts](mdc:middleware.ts) intercepts requests to protected routes
+   - Verifies session cookie using [server.ts](mdc:lib/auth/server.ts)
+   - Redirects to login if session is invalid or expired
+
+2. **Session Refresh**:
+   - Sessions auto-refresh when approaching expiration
+   - Refresh handled by Supabase client in [client.ts](mdc:lib/auth/client.ts)
+   - New session token stored in cookie
+
+3. **Logout**:
+   - User triggers logout action
+   - Invalidates Supabase session
+   - Clears auth cookies
+   - Redirects to landing page
+
+### Protected Routes
+
+These routes require authentication:
+
+- `/settings/*`: User settings pages
+- `/accounts/*`: Email account management
+- `/api/*`: Most API endpoints (except auth-related)
+
+## Email Provider Authentication
+
+### Google OAuth for Email
+
+1. **Connection**:
+   - Uses same OAuth flow as authentication
+   - Requests additional scopes for Gmail API / IMAP access
+   - Stores encrypted refresh token
+
+2. **Token Refresh**:
+   - Automatically refreshes expired tokens
+   - Uses [googleService.ts](mdc:lib/auth/googleService.ts) for refresh operations
+   - Updates stored tokens
+
+### IMAP/SMTP Authentication
+
+1. **Credential Storage**:
+   - Encrypts credentials using [encryption.ts](mdc:lib/auth/encryption.ts)
+   - Stores in `email_account_credentials` table
+   - Associates with user's email account
+
+2. **Credential Usage**:
+   - Decrypts credentials for IMAP/SMTP operations
+   - Uses for [imapService.ts](mdc:lib/email/imapService.ts) connections
+   - Handles in memory only during active operations
+
+## Security Practices
+
+1. **Encryption**:
+   - AES-256-GCM for all sensitive data
+   - Unique encryption keys per data type
+   - Secure key management
+
+2. **Cookie Security**:
+   - HTTP-only cookies for session tokens
+   - Secure flag for HTTPS-only transmission
+   - SameSite attribute to prevent CSRF
+
+3. **CORS Protection**:
+   - Strict CORS policy in [next.config.mjs](mdc:next.config.mjs)
+   - Origin validation in [middleware.ts](mdc:middleware.ts)
+
+4. **Token Handling**:
+   - Short-lived access tokens
+   - Secure refresh token storage
+   - Token rotation on potential compromise
+
+5. **Password Security**:
+   - No direct password storage (OAuth preferred)
+   - Encrypted storage for IMAP/SMTP passwords
+   - No client-side exposure of credentials
+
+## Best Practices
+
+1. **Authentication**:
+   - Always use server-side session verification
+   - Implement proper access controls on all routes and APIs
+   - Keep authentication logic in auth modules
+
+2. **Token Management**:
+   - Handle OAuth tokens securely
+   - Implement proper token refresh mechanisms
+   - Revoke tokens when no longer needed
+
+3. **Error Handling**:
+   - Provide clear but limited error information to clients
+   - Log authentication failures for security monitoring
+   - Implement rate limiting for auth endpoints
+
+4. **Privacy**:
+   - Request minimal OAuth scopes
+   - Follow data minimization principles
+   - Adhere to retention policies

@@ -1,0 +1,157 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Email Processing Workflow Guide: Jupiter Mail
+
+This document outlines the complete email processing workflows in Jupiter Mail, from connection to categorization to digest generation.
+
+## Email Synchronization Flow
+
+The email synchronization process occurs on a scheduled basis and involves:
+
+1. **Initiation**:
+   - Triggered by [app/api/cron/email-sync/route.ts](mdc:app/api/cron/email-sync/route.ts)
+   - Fetches all active email accounts
+
+2. **Per-Account Sync**:
+   - For each account, calls [app/api/internal/sync-account/[accountId]/route.ts](mdc:app/api/internal/sync-account/[accountId]/route.ts)
+   - Creates a sync log entry with status "in_progress"
+
+3. **IMAP Connection**:
+   - Establishes IMAP connection using [imapService.ts](mdc:lib/email/imapService.ts)
+   - Handles OAuth token refresh if needed via [googleService.ts](mdc:lib/auth/googleService.ts)
+
+4. **Email Fetching**:
+   - Fetches new/unread emails since last sync using [fetchEmails.ts](mdc:lib/email/fetchEmails.ts)
+   - Determines the appropriate mailbox/folder to search
+
+5. **Email Parsing**:
+   - Parses raw email data using [parseEmail.ts](mdc:lib/email/parseEmail.ts)
+   - Extracts headers, body (text/HTML), and attachments
+
+6. **Email Categorization**:
+   - Categorizes emails using AI via [emailCategorizer.ts](mdc:lib/email/emailCategorizer.ts)
+   - Determines the appropriate category based on content analysis
+
+7. **Triage Actions**:
+   - Applies user-defined actions per category:
+     - Mark as Read: Sets \Seen flag
+     - Archive: Moves to Archive folder
+     - Trash: Moves to Trash folder
+     - Mark as Spam: Moves to Spam folder
+
+8. **Email Storage**:
+   - Stores email metadata and encrypted content using [storeEmails.ts](mdc:lib/email/storeEmails.ts)
+   - Updates `last_synced_at` and `last_synced_uid` for the account
+
+9. **Completion**:
+   - Updates sync log with status "completed" or "failed"
+   - Records statistics (emails processed, actions taken)
+
+## Weekly Digest Generation Flow
+
+The weekly digest generation process involves:
+
+1. **Initiation**:
+   - Triggered by [app/api/cron/weekly-digest/route.ts](mdc:app/api/cron/weekly-digest/route.ts)
+   - Runs on a weekly schedule
+
+2. **User Identification**:
+   - Fetches all users with active email accounts
+   - Retrieves user preferences for digest categories
+
+3. **Email Collection**:
+   - For each user and each selected category:
+     - Fetches emails from the last 7 days
+     - Filters by user-selected categories for digest
+     - Groups emails by category
+
+4. **Content Preparation**:
+   - Decrypts stored email content
+   - Normalizes and cleans content (HTML to text, whitespace, URLs)
+   - Prepares for AI summarization
+
+5. **AI Summarization**:
+   - For each category, summarizes emails using AI
+   - Generates concise summaries highlighting key information
+   - Maintains email context and relevance
+
+6. **Digest Compilation**:
+   - Assembles category summaries into a single digest
+   - Formats using HTML templates from [lib/email/templates](mdc:lib/email/templates)
+   - Personalizes content for each user
+
+7. **Email Sending**:
+   - Sends the digest using [sendEmail.ts](mdc:lib/email/sendEmail.ts)
+   - Targets the user's primary/default email address
+   - Records digest sending in the database
+
+## Email Categorization Logic
+
+The [emailCategorizer.ts](mdc:lib/email/emailCategorizer.ts) module:
+
+1. **Preprocessing**:
+   - Extracts email subject, from, to, and body
+   - Removes noise (signatures, quotes, styling)
+   - Prepares normalized text for AI processing
+
+2. **AI Analysis**:
+   - Uses AI models to analyze content
+   - Prompts designed to identify category markers
+   - Processes in batches for efficiency
+
+3. **Category Assignment**:
+   - Maps AI output to predefined categories
+   - Handles edge cases and ambiguous categorizations
+   - Applies confidence thresholds
+
+4. **Category Styling**:
+   - Associates colors with categories via [categoryColors.ts](mdc:lib/email/categoryColors.ts)
+   - Ensures consistent visual representation
+
+## Email Data Security
+
+1. **In Transit**:
+   - Secure IMAP/SMTP connections (TLS/SSL)
+   - Encrypted API communications
+
+2. **At Rest**:
+   - Email content encrypted using AES-256-GCM
+   - Credentials encrypted with separate keys
+   - Encryption handled by [lib/auth/encryption.ts](mdc:lib/auth/encryption.ts)
+
+3. **Data Retention**:
+   - 14-day retention policy for processed emails
+   - Automatic purging via [app/api/cron/delete-old-emails/route.ts](mdc:app/api/cron/delete-old-emails/route.ts)
+
+## Test Email Categorization
+
+The test categorization process:
+
+1. **Initiation**:
+   - User triggers from Settings page
+   - Sends request to [app/api/email/test-categorization/route.ts](mdc:app/api/email/test-categorization/route.ts)
+
+2. **Fetching**:
+   - Retrieves 20 most recent emails from default account
+   - Uses same fetching logic as regular sync
+
+3. **Processing**:
+   - Runs emails through categorization engine
+   - Returns categories without applying actions
+
+4. **Display**:
+   - Shows results in UI with email details and assigned categories
+   - Provides visual feedback via category colors
+
+## Best Practices
+
+1. **Error Handling**: Implement robust error handling at each stage
+2. **Logging**: Log key operations for debugging and auditing
+3. **Rate Limiting**: Respect IMAP server rate limits and quotas
+4. **Batching**: Process emails in batches to improve performance
+5. **Timeouts**: Implement appropriate timeouts for external services
+6. **Idempotency**: Ensure operations can be safely retried if interrupted
+7. **Monitoring**: Track sync statistics and error rates

@@ -1,0 +1,100 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Jupiter Mail Architecture Guide
+
+This document provides an overview of the Jupiter Mail architecture, helping navigate the codebase and understand key relationships between components.
+
+## Project Structure
+
+Jupiter Mail follows a typical Next.js App Router structure with these main directories:
+
+- [app/](mdc:app): Pages, layouts, and API routes
+- [components/](mdc:components): Reusable UI components
+- [lib/](mdc:lib): Core libraries, utilities, and services
+- [hooks/](mdc:hooks): Custom React hooks
+- [public/](mdc:public): Static assets
+- [types/](mdc:types): TypeScript type definitions
+
+## Technology Stack
+
+The complete technology stack is documented in [tech-stack.mdc](mdc:.cursor/rules/tech-stack.mdc).
+
+## Core Features
+
+Jupiter Mail's core features are defined in the [Product Requirements Document](mdc:.cursor/rules/prd.mdc):
+
+1. **Automated Inbox Triage:** AI-powered email categorization with customizable actions
+2. **Curated Weekly Briefings:** AI-generated summaries of important emails
+3. **Secure Email Account Connection:** OAuth and IMAP/SMTP connections
+4. **Ironclad Security & Privacy:** Encryption and data retention policies
+
+## Component Architecture
+
+UI components are organized in the [components/](mdc:components) directory:
+
+- **UI Components:** [components/ui](mdc:components/ui) - Shadcn/ui based components
+- **Feature Components:** Grouped by functionality in subdirectories
+- See the [Components Guide](mdc:components/.cursor/rules/components-guide.mdc) for details
+
+## API Routes
+
+API routes are organized in the [app/api](mdc:app/api) directory:
+
+- **Auth:** Authentication endpoints (OAuth)
+- **Email:** Email management endpoints
+- **Cron:** Scheduled job endpoints
+- **User:** User settings endpoints
+- See the [API Routes Guide](mdc:app/.cursor/rules/api-routes-guide.mdc) for details
+
+## Core Libraries
+
+Core functionality is implemented in the [lib/](mdc:lib) directory:
+
+- **Authentication:** OAuth and session management
+- **Email Processing:** IMAP, parsing, categorization, and digest generation
+- **Database:** Supabase integration
+- See the [Library Guide](mdc:lib/.cursor/rules/lib-guide.mdc) for details
+
+## User Flow
+
+The detailed user flow is documented in [app-flow.mdc](mdc:app/.cursor/rules/app-flow.mdc):
+
+1. **Unauthenticated Flow:** Landing, login, and authentication
+2. **Authenticated Flow:** Settings, account management, and features
+3. **Background Processes:** Email syncing and digest generation
+
+## Key Files
+
+- [next.config.mjs](mdc:next.config.mjs): Next.js configuration
+- [middleware.ts](mdc:middleware.ts): Authentication middleware
+- [package.json](mdc:package.json): Dependencies and scripts
+- [tsconfig.json](mdc:tsconfig.json): TypeScript configuration
+- [lib/database.types.ts](mdc:lib/database.types.ts): Database schema types
+
+## Development Workflow
+
+1. **Running Locally:**
+   ```bash
+   pnpm install
+   pnpm dev
+   ```
+
+2. **Building:**
+   ```bash
+   pnpm build
+   ```
+
+3. **Linting:**
+   ```bash
+   pnpm lint
+   ```
+
+## Recommended Workflows
+
+1. **Adding New Features:** Extend existing components and libraries rather than creating new ones
+2. **UI Modifications:** Use the Shadcn component system and Tailwind utilities
+3. **API Development:** Follow the established response format and error handling patterns
+4. **State Management:** Use React hooks for local state, Redux Toolkit for global state

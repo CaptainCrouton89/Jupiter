@@ -1,0 +1,92 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# API Routes Guide: Jupiter Mail
+
+This document outlines the API routes structure in Jupiter Mail, providing guidance on their purpose and usage.
+
+## Authentication Routes
+
+Located in [app/api/auth](mdc:app/api/auth), these endpoints handle authentication flows:
+
+- **Google OAuth:**
+  - [google/initiate](mdc:app/api/auth/google/initiate): Initiates Google OAuth flow
+  - [google/callback](mdc:app/api/auth/google/callback): Handles Google OAuth callback
+
+## Email Management Routes
+
+Located in [app/api/email](mdc:app/api/email), these endpoints handle email operations:
+
+- **Account Management:**
+  - [save-account](mdc:app/api/email/save-account): Saves email account credentials
+  - [test-connection](mdc:app/api/email/test-connection): Tests email account connectivity
+  - [accounts/[accountId]/test-connection](mdc:app/api/email/accounts/[accountId]/test-connection): Tests specific account connection
+
+- **Email Operations:**
+  - [fetch-recent/[accountId]](mdc:app/api/email/fetch-recent/[accountId]): Fetches recent emails from an account
+  - [parse-email/[accountId]/[uid]](mdc:app/api/email/parse-email/[accountId]/[uid]): Parses a specific email
+  - [inbox](mdc:app/api/email/inbox): Retrieves user's inbox emails
+  - [attachments](mdc:app/api/email/attachments): Handles email attachments
+
+- **Testing:**
+  - [test-categorization](mdc:app/api/email/test-categorization): Tests the AI categorization on recent emails
+
+## Scheduled Job Routes
+
+Located in [app/api/cron](mdc:app/api/cron), these endpoints handle scheduled operations:
+
+- [email-sync](mdc:app/api/cron/email-sync): Syncs emails from all connected accounts
+- [weekly-digest](mdc:app/api/cron/weekly-digest): Generates and sends weekly email digests
+- [delete-old-emails](mdc:app/api/cron/delete-old-emails): Purges emails older than retention policy
+
+## Internal Routes
+
+Located in [app/api/internal](mdc:app/api/internal), these endpoints handle backend operations:
+
+- [sync-account/[accountId]](mdc:app/api/internal/sync-account/[accountId]): Syncs emails from a specific account
+
+## User Settings Routes
+
+Located in [app/api/user](mdc:app/api/user), these endpoints handle user preferences:
+
+- [settings/complete-tutorial](mdc:app/api/user/settings/complete-tutorial): Marks tutorial as completed
+- [settings/set-default](mdc:app/api/user/settings/set-default): Sets default user preferences
+
+## API Response Format
+
+Most API routes follow a consistent response format:
+
+```typescript
+{
+  success: boolean;
+  data?: any;
+  error?: {
+    message: string;
+    code?: string;
+  }
+}
+```
+
+## Error Handling
+
+API routes implement standardized error handling:
+
+1. HTTP status codes are used appropriately (200, 400, 401, 403, 404, 500)
+2. Detailed error messages are provided in the response body
+3. Error codes are used for client-side error handling when appropriate
+
+## Authentication & Authorization
+
+1. Most routes require authentication, verified through Supabase session cookies
+2. Resources are scoped to the authenticated user
+3. Account-specific routes verify the account belongs to the requesting user
+
+## Best Practices
+
+1. **Rate Limiting:** Implement appropriate rate limiting for public endpoints
+2. **Validation:** Always validate request parameters and body data
+3. **Error Handling:** Use try/catch blocks and return standardized error responses
+4. **Logging:** Log important operations and errors for debugging
+5. **Security:** Follow secure coding practices to prevent CSRF, XSS, and injection attacks

@@ -1,0 +1,89 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Library Guide: Jupiter Mail
+
+This document outlines the library structure used in Jupiter Mail, providing guidance on core utilities and services.
+
+## Authentication
+
+The [lib/auth](mdc:lib/auth) directory contains authentication-related functionality:
+
+- [client.ts](mdc:lib/auth/client.ts): Client-side authentication utilities
+- [server.ts](mdc:lib/auth/server.ts): Server-side authentication with cookie handling
+- [googleService.ts](mdc:lib/auth/googleService.ts): Google OAuth integration
+- [encryption.ts](mdc:lib/auth/encryption.ts): AES-256-GCM encryption for sensitive data
+- [admin.ts](mdc:lib/auth/admin.ts): Administrative auth operations
+
+## Email Processing
+
+The [lib/email](mdc:lib/email) directory contains email handling functionality:
+
+- [imapService.ts](mdc:lib/email/imapService.ts): IMAP client operations using imapflow
+- [parseEmail.ts](mdc:lib/email/parseEmail.ts): Email parsing with mailparser
+- [sendEmail.ts](mdc:lib/email/sendEmail.ts): Email sending with Nodemailer
+- [emailCategorizer.ts](mdc:lib/email/emailCategorizer.ts): AI-powered email categorization
+- [fetchEmails.ts](mdc:lib/email/fetchEmails.ts): Email fetching from connected accounts
+- [storeEmails.ts](mdc:lib/email/storeEmails.ts): Email storage and metadata management
+- [categoryColors.ts](mdc:lib/email/categoryColors.ts): Styling for email categories
+
+### Email Digest
+
+The [lib/email/digest](mdc:lib/email/digest) subdirectory manages weekly digest generation:
+
+- Weekly digest creation and formatting
+- AI-powered email summarization
+- Digest delivery scheduling
+
+### Email Templates
+
+The [lib/email/templates](mdc:lib/email/templates) subdirectory contains email templates:
+
+- Digest email templates
+- Notification templates
+- System email templates
+
+## State Management
+
+The [lib/store](mdc:lib/store) directory contains Redux store configuration:
+
+- [features/api](mdc:lib/store/features/api): RTK Query API endpoints and configurations
+
+## Supabase Integration
+
+The [lib/supabase](mdc:lib/supabase) directory provides Supabase connectivity:
+
+- Database connections and queries
+- Storage operations
+- Real-time subscriptions
+
+## Data Validation
+
+The [lib/validations](mdc:lib/validations) directory contains Zod schemas for:
+
+- Form validations
+- API request/response validations
+- Data integrity checks
+
+## Database Types
+
+The [database.types.ts](mdc:lib/database.types.ts) file contains TypeScript types for the Supabase database schema, including:
+
+- User accounts and profiles
+- Email accounts and connections
+- Email data and metadata
+- System logs and operation records
+
+## Utilities
+
+The [utils.ts](mdc:lib/utils.ts) file contains general utility functions used throughout the application.
+
+## Best Practices
+
+1. **Authentication:** Always use the provided auth utilities rather than implementing custom solutions
+2. **Email Processing:** Use the email service abstractions rather than direct IMAP/SMTP operations
+3. **Encryption:** Always encrypt sensitive data before storage using the encryption utilities
+4. **Error Handling:** Implement proper error handling and logging for all library functions
+5. **Type Safety:** Leverage the database.types.ts for type-safe database operations

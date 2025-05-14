@@ -1,0 +1,66 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Components Guide: Jupiter Mail
+
+This document outlines the component structure used in Jupiter Mail, providing guidance on their purpose and usage.
+
+## UI Components
+
+Jupiter Mail uses [Shadcn/ui](mdc:https:/ui.shadcn.com) for its component library with the "new-york" style. These components are located in [components/ui](mdc:components/ui) and include:
+
+- **Layout Components:** [Card](mdc:components/ui/card.tsx), [Dialog](mdc:components/ui/dialog.tsx), [Sheet](mdc:components/ui/sheet.tsx), [Accordion](mdc:components/ui/accordion.tsx), [Alert](mdc:components/ui/alert.tsx), [Tabs](mdc:components/ui/tabs.tsx), [Sidebar](mdc:components/ui/sidebar.tsx)
+- **Form Components:** [Button](mdc:components/ui/button.tsx), [Select](mdc:components/ui/select.tsx), [Input](mdc:components/ui/input.tsx), [Checkbox](mdc:components/ui/checkbox.tsx), [Radio Group](mdc:components/ui/radio-group.tsx), [Textarea](mdc:components/ui/textarea.tsx), [Label](mdc:components/ui/label.tsx), [Form](mdc:components/ui/form.tsx)
+- **Feedback Components:** [Progress](mdc:components/ui/progress.tsx), [Skeleton](mdc:components/ui/skeleton.tsx), [Alert Dialog](mdc:components/ui/alert-dialog.tsx), [Sonner](mdc:components/ui/sonner.tsx) (toast notifications)
+- **Data Display:** [Table](mdc:components/ui/table.tsx), [Avatar](mdc:components/ui/avatar.tsx), [Badge](mdc:components/ui/badge.tsx), [Separator](mdc:components/ui/separator.tsx), [Tooltip](mdc:components/ui/tooltip.tsx)
+- **Navigation:** [Dropdown Menu](mdc:components/ui/dropdown-menu.tsx)
+
+## Feature-Specific Components
+
+### Email Components
+
+Located in [components/email](mdc:components/email), these components handle email-related functionality:
+
+- Email listing and display
+- Email categorization interface
+- Email account connection and management
+- Email digest preview
+
+### Settings Components
+
+Located in [components/settings](mdc:components/settings), these components manage user preferences:
+
+- Category preferences configuration
+- Email triage actions setup
+- Weekly digest configuration
+- Default account selection
+
+### Auth Components
+
+Located in [components/auth](mdc:components/auth), these components handle authentication flows:
+
+- Login interfaces
+- OAuth connections
+- Account creation and management
+
+### Tutorial Components
+
+Located in [components/tutorial](mdc:components/tutorial), these components provide onboarding guidance:
+
+- Feature tutorials
+- Setup walkthroughs
+- Tips and best practices
+
+## Utility Components
+
+- [ThemeProvider](mdc:components/ThemeProvider.tsx): Manages theme context for the application
+- [SupabaseConnectionTest](mdc:components/SupabaseConnectionTest.tsx): Used for testing Supabase connectivity
+
+## Component Usage Guidelines
+
+1. **Form Validation:** Use [React Hook Form](mdc:https:/react-hook-form.com) with [Zod](mdc:https:/zod.dev) schemas for form validation
+2. **UI Components:** Extend Shadcn components rather than creating new designs from scratch
+3. **State Management:** Use React hooks for local state, Redux Toolkit for global state
+4. **Styling:** Use Tailwind CSS for styling, following the project's color scheme and design system

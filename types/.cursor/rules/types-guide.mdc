@@ -1,0 +1,99 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# TypeScript Types Guide: Jupiter Mail
+
+This document outlines the TypeScript type system used in Jupiter Mail, providing guidance on key types and their usage.
+
+## Database Types
+
+The core database types are defined in [lib/database.types.ts](mdc:lib/database.types.ts) and are generated from the Supabase schema. Key types include:
+
+- **User Types**:
+  - `Profile`: User profile information
+  - `UserSettings`: User preferences and settings
+
+- **Email Account Types**:
+  - `EmailAccount`: Connected email account details
+  - `EmailAccountCredentials`: Encrypted credentials for IMAP/SMTP
+
+- **Email Data Types**:
+  - `Email`: Stored email data
+  - `EmailCategory`: Email category classification
+  - `EmailAttachment`: Email attachment metadata
+
+- **System Types**:
+  - `SyncLog`: Email synchronization logging
+  - `WeeklyDigest`: Digest generation records
+
+## API Types
+
+API request and response types define the shape of data exchanged between client and server:
+
+- **Request Types**:
+  - `SaveAccountRequest`: Parameters for saving an email account
+  - `TestConnectionRequest`: Parameters for testing a connection
+  - `UpdateSettingsRequest`: Parameters for updating user settings
+
+- **Response Types**:
+  - `ApiResponse<T>`: Generic API response wrapper
+  - `TestCategorizeResult`: Results from email categorization test
+  - `ConnectionTestResult`: Results from connection testing
+
+## Component Props Types
+
+Types for component props ensure type safety across the UI layer:
+
+- **UI Component Props**:
+  - `ButtonProps`: Props for the Button component
+  - `CardProps`: Props for the Card component
+  - `InputProps`: Props for the Input component
+
+- **Feature Component Props**:
+  - `CategoryCardProps`: Props for the category configuration card
+  - `EmailListItemProps`: Props for email list items
+  - `ConnectedAccountItemProps`: Props for connected account items
+
+## State Types
+
+Types that define the shape of application state:
+
+- **Redux State Types**:
+  - `RootState`: Combined Redux state type
+  - `CategoryPreferencesState`: State for category preferences
+  - `EmailAccountsState`: State for email accounts
+
+- **Local State Types**:
+  - `FormState`: Common form state type
+  - `TestResultState`: State for test results
+  - `LoadingState`: Generic loading state
+
+## Utility Types
+
+Common utility types used throughout the application:
+
+- **Enums**:
+  - `EmailCategory`: Available email categories
+  - `EmailAction`: Actions that can be applied to emails
+  - `AccountProvider`: Available email providers
+  - `SyncStatus`: Status of email synchronization
+
+- **Mapped Types**:
+  - `CategoryPreferences`: Record of preferences by category
+  - `ActionByCategory`: Record of actions by category
+  - `PartialRecord<K, T>`: Like Record but with optional values
+
+## Best Practices
+
+1. **Type Safety**: Always define and use proper types rather than `any`
+2. **Type Exports**: Export types from a central location for consistency
+3. **Props Typing**: Use proper props typing for all components
+4. **API Typing**: Define request and response types for all API routes
+5. **Generics**: Use generic types for reusable components and utilities
+6. **Discriminated Unions**: Use for state representations with multiple possible forms
+7. **Readonly**: Use `Readonly<T>` for immutable data structures
+8. **Partial**: Use `Partial<T>` for optional update objects
+9. **Pick/Omit**: Use to derive types from existing ones
+10. **Type Guards**: Implement for runtime type checking

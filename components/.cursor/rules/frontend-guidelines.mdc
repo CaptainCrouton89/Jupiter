@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: true
+alwaysApply: false
 ---
 # Frontend Guidelines: Jupiter Mail
 
@@ -10,10 +10,10 @@ This document outlines the design system, UI patterns, and conventions for the J
 ## 1. UI Framework & Library
 
 *   **Core Framework:** Next.js with React.
-*   **Component Library:** [Shadcn/ui](https://ui.shadcn.com/)
+*   **Component Library:** [Shadcn/ui](mdc:https:/ui.shadcn.com)
     *   **Style:** "new-york" (defined in `components.json`).
     *   **RSC (React Server Components):** Enabled (`rsc: true` in `components.json`).
-    *   **Icon Library:** [Lucide React](https://lucide.dev/) (configured in `components.json`).
+    *   **Icon Library:** [Lucide React](mdc:https:/lucide.dev) (configured in `components.json`).
     *   **Component Aliases:**
         *   `@/components`
         *   `@/ui` for Shadcn/ui components.
@@ -21,7 +21,7 @@ This document outlines the design system, UI patterns, and conventions for the J
 
 ## 2. Styling & Theming
 
-*   **Styling Engine:** [Tailwind CSS](https://tailwindcss.com/)
+*   **Styling Engine:** [Tailwind CSS](mdc:https:/tailwindcss.com)
     *   Configuration: `tailwind.config.js` (as per `components.json`).
     *   Global Styles: `app/globals.css` includes Tailwind base, components, and utilities.
     *   CSS Variables: Enabled for theming (`cssVariables: true` in `components.json`).
