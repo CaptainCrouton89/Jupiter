@@ -1,30 +1,8 @@
 "use client";
 
 import OnboardingTutorial from "@/components/tutorial/OnboardingTutorial";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/auth/client";
 import type { Database } from "@/lib/database.types";
-import {
-  getCategoryColor,
-  getTextColorForBackground,
-} from "@/lib/email/categoryColors";
 import type { EmailAccount } from "@/types/email";
 import {
   allCategories,
@@ -34,18 +12,19 @@ import {
   type CategoryPreferences,
 } from "@/types/settings";
 import type { User } from "@supabase/supabase-js";
-import {
-  AlertTriangleIcon,
-  CheckIcon,
-  InfoIcon,
-  Loader2Icon,
-  MailCheckIcon,
-} from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Step } from "react-joyride";
 import { toast } from "sonner";
+
+// Import new components
+import AccountManagementCard from "@/components/settings/AccountManagementCard";
+import CategorizationTestCard, {
+  type CategorizationTestEmail,
+} from "@/components/settings/CategorizationTestCard";
+import EmailCategorySettings from "@/components/settings/EmailCategorySettings";
+import UserSettingsHeader from "@/components/settings/UserSettingsHeader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const RELEVANT_CATEGORIES: Category[] = allCategories.filter(
   (cat) => cat !== "uncategorizable"
@@ -55,17 +34,6 @@ const RELEVANT_CATEGORIES: Category[] = allCategories.filter(
 const SAVE_DEBOUNCE_DELAY = 1000;
 
 export type UserSettings = Database["public"]["Tables"]["user_settings"]["Row"];
-
-// Define the structure for test results
-interface CategorizationTestEmail {
-  uid: number;
-  messageId: string | null;
-  subject: string | null;
-  from: { name: string | null; address: string | null } | null;
-  date: string | null; // ISO string
-  category: Category;
-  bodyTextSnippet: string | null;
-}
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -139,6 +107,8 @@ export default function SettingsPage() {
           };
         });
         setCategoryPreferences(initialPrefs);
+
+        // Extract workProfileDescription from categoryPreferences.work
         if (initialPrefs.work && initialPrefs.work.profileDescription) {
           setWorkProfileDescription(initialPrefs.work.profileDescription);
         } else {
@@ -151,7 +121,7 @@ export default function SettingsPage() {
         });
         setCategoryPreferences(initialPrefs);
         setDefaultAccountId(null);
-        setWorkProfileDescription("");
+        setWorkProfileDescription(""); // Ensure it's reset if no data
         setTutorialCompleted(false);
       }
     } catch (e: any) {
@@ -163,7 +133,7 @@ export default function SettingsPage() {
       });
       setCategoryPreferences(initialPrefs);
       setDefaultAccountId(null);
-      setWorkProfileDescription("");
+      setWorkProfileDescription(""); // Ensure it's reset on error
       setTutorialCompleted(false);
     } finally {
       setIsLoading(false);
@@ -256,35 +226,41 @@ export default function SettingsPage() {
       setError(null);
 
       try {
-        const completePrefsToSave: CategoryPreferences = JSON.parse(
+        const completePrefsToSave = JSON.parse(
           JSON.stringify(prefsToSave)
-        );
+        ) as CategoryPreferences;
+
         RELEVANT_CATEGORIES.forEach((cat) => {
           if (!completePrefsToSave[cat]) {
             completePrefsToSave[cat] = { action: "none", digest: false };
           }
         });
 
+        // Ensure 'work' category exists and set its profileDescription
         if (!completePrefsToSave.work) {
           completePrefsToSave.work = { action: "none", digest: false };
         }
         completePrefsToSave.work.profileDescription = currentWorkProfileDesc;
 
+        const payloadToSave = {
+          category_preferences: completePrefsToSave as any, // Cast to any due to Supabase type
+        };
+
         if (settingsId) {
           const { error: updateError } = await supabase
             .from("user_settings")
-            .update({
-              category_preferences: completePrefsToSave as any,
-            })
+            .update(payloadToSave)
             .eq("id", settingsId);
           if (updateError) throw updateError;
         } else {
+          const insertPayload: Database["public"]["Tables"]["user_settings"]["Insert"] =
+            {
+              user_id: user.id,
+              category_preferences: completePrefsToSave as any, // Cast to any
+            };
           const { data: insertedData, error: insertError } = await supabase
             .from("user_settings")
-            .insert({
-              user_id: user.id,
-              category_preferences: completePrefsToSave as any,
-            })
+            .insert(insertPayload)
             .select("id")
             .single();
 
@@ -352,7 +328,7 @@ export default function SettingsPage() {
   ]);
 
   const handlePreferenceChange = (
-    category: (typeof RELEVANT_CATEGORIES)[number],
+    category: Category,
     type: "action" | "digest",
     value: CategoryAction | boolean
   ) => {
@@ -363,14 +339,14 @@ export default function SettingsPage() {
         [type]: value,
       } as CategoryPreference,
     }));
-    setLastChangedCategory(category); // Track the last category changed
+    setLastChangedCategory(category);
   };
 
   const handleWorkProfileChange = (
     event: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     setWorkProfileDescription(event.target.value);
-    setLastChangedCategory("work"); // Also consider this a change to 'work' for save indicator
+    setLastChangedCategory("work");
   };
 
   // Handler for running the categorization test
@@ -506,12 +482,10 @@ export default function SettingsPage() {
           }}
         />
       )}
-      <header className="mb-8" data-tour-id="settings-header">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your application preferences and connected accounts.
-        </p>
-      </header>
+      <UserSettingsHeader
+        title="Settings"
+        description="Manage your application preferences and connected accounts."
+      />
 
       {error && (
         <Card className="mb-6 bg-destructive/10 border-destructive">
@@ -525,374 +499,26 @@ export default function SettingsPage() {
       )}
 
       <div className="space-y-10">
-        {/* Account Management Section */}
-        <section>
-          <Card data-tour-id="account-management-card">
-            <CardHeader>
-              <CardTitle>Account Management</CardTitle>
-              <CardDescription>
-                Manage your connected email accounts, add new ones, or remove
-                existing connections.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Click the button below to go to the account management page.
-              </p>
-              <Link href="/accounts" passHref>
-                <Button data-tour-id="manage-accounts-button">
-                  Manage Email Accounts
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </section>
+        <AccountManagementCard />
 
-        {/* Email Category Settings Section */}
-        <section>
-          <Card data-tour-id="category-settings-card">
-            <CardHeader>
-              <CardTitle>Email Category Settings</CardTitle>
-              <CardDescription>
-                Manage how emails from different categories are handled and
-                whether you receive weekly digests. Changes are saved
-                automatically.
-              </CardDescription>
-            </CardHeader>
+        <EmailCategorySettings
+          isLoading={isLoading && Object.keys(categoryPreferences).length === 0}
+          categoryPreferences={categoryPreferences}
+          workProfileDescription={workProfileDescription}
+          lastSavedCategory={lastSavedCategory}
+          handlePreferenceChange={handlePreferenceChange}
+          handleWorkProfileChange={handleWorkProfileChange}
+        />
 
-            <CardContent className="space-y-6">
-              {isLoading && Object.keys(categoryPreferences).length === 0 && (
-                <div className="text-center text-muted-foreground py-4">
-                  Loading category preferences...
-                </div>
-              )}
-              {!isLoading &&
-                RELEVANT_CATEGORIES.map((category, index) => {
-                  const currentPref = categoryPreferences[category] || {
-                    action: "none",
-                    digest: false,
-                  };
-                  // Add data-tour-id to the first relevant category for the tutorial step
-                  const tourId =
-                    category.toLowerCase() === "promotions"
-                      ? "category-item-promotions"
-                      : category.toLowerCase() === "work"
-                      ? "work-category-card"
-                      : undefined;
-                  return (
-                    <Card
-                      key={category}
-                      className="shadow-none border relative"
-                      data-tour-id={tourId}
-                    >
-                      <CardHeader className="pb-3">
-                        <CardTitle className="capitalize text-lg">
-                          {category.replace("-", " ")}
-                        </CardTitle>
-                      </CardHeader>
-
-                      {/* Save Confirmation Indicator (per card) */}
-                      <div
-                        className={`absolute top-3 right-3 flex items-center space-x-1 text-sm text-green-600 transition-opacity duration-500 ease-in-out ${
-                          lastSavedCategory === category
-                            ? "opacity-100"
-                            : "opacity-0"
-                        }`}
-                      >
-                        <CheckIcon className="h-4 w-4" />
-                        <span>Saved</span>
-                      </div>
-
-                      <CardContent className="space-y-4">
-                        <div>
-                          <Label className="text-sm font-medium">
-                            Action on new emails:
-                          </Label>
-                          <RadioGroup
-                            value={currentPref.action}
-                            onValueChange={(value) =>
-                              handlePreferenceChange(
-                                category,
-                                "action",
-                                value as CategoryAction
-                              )
-                            }
-                            className="mt-2 flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem
-                                value="none"
-                                id={`${category}-action-none`}
-                              />
-                              <Label
-                                htmlFor={`${category}-action-none`}
-                                className="font-normal text-sm"
-                              >
-                                None (Keep as unread)
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem
-                                value="mark_as_read"
-                                id={`${category}-action-read`}
-                              />
-                              <Label
-                                htmlFor={`${category}-action-read`}
-                                className="font-normal text-sm"
-                              >
-                                Mark as Read
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem
-                                value="archive"
-                                id={`${category}-action-archive`}
-                              />
-                              <Label
-                                htmlFor={`${category}-action-archive`}
-                                className="font-normal text-sm"
-                              >
-                                Archive
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem
-                                value="trash"
-                                id={`${category}-action-trash`}
-                              />
-                              <Label
-                                htmlFor={`${category}-action-trash`}
-                                className="font-normal text-sm"
-                              >
-                                Trash
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem
-                                value="mark_as_spam"
-                                id={`${category}-action-spam`}
-                              />
-                              <Label
-                                htmlFor={`${category}-action-spam`}
-                                className="font-normal text-sm"
-                              >
-                                Mark as Spam
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
-                        <div className="flex items-center space-x-2 pt-2">
-                          <Checkbox
-                            id={`${category}-digest`}
-                            checked={currentPref.digest}
-                            onCheckedChange={(checked) =>
-                              handlePreferenceChange(
-                                category,
-                                "digest",
-                                !!checked
-                              )
-                            }
-                          />
-                          <Label
-                            htmlFor={`${category}-digest`}
-                            className="font-normal text-sm"
-                          >
-                            Receive weekly digest for this category
-                          </Label>
-                        </div>
-
-                        {/* Advanced settings for "work" category */}
-                        {category === "work" && (
-                          <Accordion
-                            type="single"
-                            collapsible
-                            className="w-full mt-4"
-                          >
-                            <AccordionItem value="advanced-work-settings">
-                              <AccordionTrigger>
-                                Advanced Work Settings
-                              </AccordionTrigger>
-                              <AccordionContent className="pt-2">
-                                <Label
-                                  htmlFor="work-profile-description"
-                                  className="text-sm font-medium"
-                                >
-                                  Describe your work and common work emails:
-                                </Label>
-                                <p className="text-xs text-muted-foreground mb-2">
-                                  Provide details about your profession, typical
-                                  projects, types of clients or colleagues you
-                                  interact with, and common subjects or keywords
-                                  in your work-related emails. This helps us
-                                  improve categorization.
-                                </p>
-                                <Textarea
-                                  id="work-profile-description"
-                                  placeholder="e.g., Software Engineer at a startup. I get emails about project updates, code reviews, client feedback, and HR announcements..."
-                                  value={workProfileDescription}
-                                  onChange={handleWorkProfileChange}
-                                  className="min-h-[100px]"
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* Categorization Test Section */}
-        <section>
-          <Card data-tour-id="test-categorization-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <MailCheckIcon className="mr-2 h-5 w-5" /> Test Email
-                Categorization
-              </CardTitle>
-              <CardDescription>
-                See how the AI categorizes your 20 most recent emails from your
-                {defaultAccountId
-                  ? " default account. "
-                  : allUserEmailAccounts && allUserEmailAccounts.length > 0
-                  ? ` first registered account (${allUserEmailAccounts[0].email}). `
-                  : " account. "}
-                This helps you understand the categorization logic before
-                customizing it further.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!defaultAccountId &&
-                !isLoadingAllAccounts &&
-                (!allUserEmailAccounts || allUserEmailAccounts.length === 0) &&
-                !isLoading && (
-                  <div className="flex items-center p-4 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md">
-                    <InfoIcon className="mr-2 h-5 w-5 flex-shrink-0" />
-                    <p>
-                      No email accounts found. Please add an email account via
-                      the{" "}
-                      <Link
-                        href="/accounts"
-                        className="font-medium underline hover:text-yellow-800"
-                      >
-                        Account Management
-                      </Link>{" "}
-                      section to use this feature.
-                    </p>
-                  </div>
-                )}
-              {isLoadingAllAccounts && !defaultAccountId && (
-                <div className="flex items-center p-4 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md">
-                  <Loader2Icon className="mr-2 h-5 w-5 flex-shrink-0 animate-spin" />
-                  <p>Checking for available email accounts...</p>
-                </div>
-              )}
-              <Button
-                onClick={handleRunCategorizationTest}
-                disabled={
-                  categorizationTest.isLoading ||
-                  isLoadingAllAccounts ||
-                  (!defaultAccountId &&
-                    (!allUserEmailAccounts ||
-                      allUserEmailAccounts.length === 0)) ||
-                  (isLoading && !initialLoadComplete) // Disable if main settings are still loading
-                }
-                className="w-full sm:w-auto"
-              >
-                {categorizationTest.isLoading ||
-                isLoadingAllAccounts ||
-                (isLoading && !initialLoadComplete && !defaultAccountId) ? (
-                  <>
-                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-                    {categorizationTest.isLoading
-                      ? "Running Test..."
-                      : "Loading Accounts..."}
-                  </>
-                ) : (
-                  "Run Categorization Test"
-                )}
-              </Button>
-
-              {categorizationTest.error && (
-                <div className="flex items-center p-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md">
-                  <AlertTriangleIcon className="mr-2 h-5 w-5 flex-shrink-0" />
-                  <p>{categorizationTest.error}</p>
-                </div>
-              )}
-
-              {categorizationTest.data &&
-                categorizationTest.data.length === 0 &&
-                !categorizationTest.isLoading && (
-                  <div className="flex items-center p-4 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md">
-                    <InfoIcon className="mr-2 h-5 w-5 flex-shrink-0" />
-                    <p>
-                      No emails were found or categorized in your default
-                      account for this test.
-                    </p>
-                  </div>
-                )}
-
-              {categorizationTest.data &&
-                categorizationTest.data.length > 0 && (
-                  <Accordion type="single" collapsible className="w-full">
-                    {categorizationTest.data.map((email, index) => (
-                      <AccordionItem
-                        value={`email-${index}`}
-                        key={email.messageId || index}
-                      >
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex justify-between items-center w-full pr-2">
-                            <div className="truncate text-left">
-                              <p className="font-medium truncate">
-                                {email.subject || "(No Subject)"}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                From:{" "}
-                                {email.from?.name ||
-                                  email.from?.address ||
-                                  "Unknown"}
-                              </p>
-                            </div>
-                            <span
-                              className="ml-4 px-3 py-1.5 text-xs font-semibold rounded-full flex-shrink-0 transition-colors duration-200"
-                              style={{
-                                backgroundColor: getCategoryColor(
-                                  email.category
-                                ),
-                                color: getTextColorForBackground(
-                                  getCategoryColor(email.category)
-                                ),
-                              }}
-                            >
-                              {email.category
-                                .replace("-", " ")
-                                .replace(/\\b\\w/g, (l) => l.toUpperCase())}
-                            </span>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="text-sm text-muted-foreground p-4">
-                          <p className="mb-2">
-                            <strong>Date:</strong>{" "}
-                            {email.date
-                              ? new Date(email.date).toLocaleString()
-                              : "N/A"}
-                          </p>
-                          <p className="mb-1 font-medium">Body Snippet:</p>
-                          <p className="whitespace-pre-line bg-gray-50 p-3 rounded-md max-h-48 overflow-y-auto">
-                            {email.bodyTextSnippet ||
-                              "(No body text available)"}
-                          </p>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                )}
-            </CardContent>
-          </Card>
-        </section>
+        <CategorizationTestCard
+          defaultAccountId={defaultAccountId}
+          allUserEmailAccounts={allUserEmailAccounts}
+          isLoadingAllAccounts={isLoadingAllAccounts}
+          isLoadingSettings={isLoading}
+          initialLoadComplete={initialLoadComplete}
+          categorizationTest={categorizationTest}
+          onRunTest={handleRunCategorizationTest}
+        />
       </div>
     </div>
   );
