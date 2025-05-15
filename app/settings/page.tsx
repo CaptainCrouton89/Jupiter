@@ -95,6 +95,9 @@ export default function SettingsPage() {
     isLoading: false,
     error: null,
   });
+  const [selectedTestAccountId, setSelectedTestAccountId] = useState<
+    string | null
+  >(null);
 
   const fetchUserSettings = useCallback(async (userId: string) => {
     setIsLoading(true);
@@ -246,21 +249,10 @@ export default function SettingsPage() {
 
   // New useEffect to fetch all accounts if defaultAccountId is not set after initial load
   useEffect(() => {
-    if (
-      initialLoadComplete &&
-      user &&
-      defaultAccountId === null &&
-      !isLoading
-    ) {
+    if (initialLoadComplete && user && !isLoading) {
       fetchUserEmailAccounts(user.id);
     }
-  }, [
-    initialLoadComplete,
-    user,
-    defaultAccountId,
-    fetchUserEmailAccounts,
-    isLoading,
-  ]);
+  }, [initialLoadComplete, user, fetchUserEmailAccounts, isLoading]);
 
   const savePreferences = useCallback(
     async (
@@ -400,31 +392,16 @@ export default function SettingsPage() {
 
   // Handler for running the categorization test
   const handleRunCategorizationTest = async () => {
-    let accountIdToUse = defaultAccountId;
-
-    if (
-      !accountIdToUse &&
-      allUserEmailAccounts &&
-      allUserEmailAccounts.length > 0
-    ) {
-      accountIdToUse = allUserEmailAccounts[0].id;
-      toast.info(
-        `No default account set. Using first registered account: ${allUserEmailAccounts[0].email} for the test.`
-      );
-    }
+    let accountIdToUse = selectedTestAccountId; // Prioritize selected account
 
     if (!accountIdToUse) {
+      // If no account is selected, prompt the user.
       setCategorizationTest({
         data: null,
         isLoading: false,
-        error:
-          isLoadingAllAccounts || (isLoading && !initialLoadComplete)
-            ? "Loading account information..."
-            : "No email accounts found. Please add an account to use this feature.",
+        error: "Please select an email account to run the test on.",
       });
-      if (!isLoadingAllAccounts && !(isLoading && !initialLoadComplete)) {
-        toast.error("No email accounts available to test.");
-      }
+      toast.error("Please select an email account to run the test.");
       return;
     }
 
@@ -527,12 +504,11 @@ export default function SettingsPage() {
           steps={tutorialSteps}
           onTutorialEnd={() => {
             setRunTutorial(false);
-            // No need to call API here, Joyride callback handles it
           }}
         />
       )}
       <UserSettingsHeader
-        title="Settings"
+        title="Home"
         description="Manage your application preferences and connected accounts."
       />
 
@@ -580,6 +556,8 @@ export default function SettingsPage() {
           initialLoadComplete={initialLoadComplete}
           categorizationTest={categorizationTest}
           onRunTest={handleRunCategorizationTest}
+          selectedTestAccountId={selectedTestAccountId}
+          onSelectTestAccount={setSelectedTestAccountId}
         />
       </div>
     </div>
