@@ -1,11 +1,13 @@
 "use client";
 
+import { memo } from "react";
+
 interface UserSettingsHeaderProps {
   title: string;
   description: string;
 }
 
-export default function UserSettingsHeader({
+const UserSettingsHeader = memo(function UserSettingsHeader({
   title,
   description,
 }: UserSettingsHeaderProps) {
@@ -15,4 +17,8 @@ export default function UserSettingsHeader({
       <p className="text-muted-foreground">{description}</p>
     </header>
   );
-}
+});
+
+UserSettingsHeader.displayName = "UserSettingsHeader";
+
+export default UserSettingsHeader;

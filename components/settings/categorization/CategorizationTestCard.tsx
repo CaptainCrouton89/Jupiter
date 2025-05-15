@@ -35,7 +35,7 @@ import {
   MailCheckIcon,
 } from "lucide-react";
 import Link from "next/link";
-
+import { memo } from "react";
 export interface CategorizationTestEmail {
   uid: number;
   messageId: string | null;
@@ -51,7 +51,7 @@ interface CategorizationTestCardProps {
   onSelectTestAccount: (accountId: string | null) => void;
 }
 
-export default function CategorizationTestCard({
+function CategorizationTestCard({
   onRunTest,
   onSelectTestAccount,
 }: CategorizationTestCardProps) {
@@ -69,22 +69,6 @@ export default function CategorizationTestCard({
   // initialLoadComplete can be inferred from status not being 'idle' or 'loading'
   const initialLoadComplete = status === "succeeded" || status === "failed";
   const selectedTestAccountId = categorizationTest.selectedAccountId;
-
-  const getAccountIdentifier = () => {
-    if (selectedTestAccountId) {
-      const selectedAccount = userEmailAccounts?.find(
-        (acc) => acc.id === selectedTestAccountId
-      );
-      return selectedAccount
-        ? `account (${selectedAccount.email}).`
-        : "selected account.";
-    }
-    if (default_account_id) return "default account.";
-    if (userEmailAccounts && userEmailAccounts.length > 0) {
-      return `first registered account (${userEmailAccounts[0].email}).`;
-    }
-    return "account.";
-  };
 
   const noAccountsAvailable =
     !isLoadingAllAccounts &&
@@ -279,3 +263,5 @@ export default function CategorizationTestCard({
     </section>
   );
 }
+
+export default memo(CategorizationTestCard);

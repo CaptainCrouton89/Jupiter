@@ -22,12 +22,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const MONTHLY_EMAIL_LIMIT = 300;
 
-export default function SubscriptionManagementCard() {
+function SubscriptionManagementCard() {
   const router = useRouter();
   const dispatch = useAppDispatch(); // If we need to dispatch actions from here later
 
@@ -271,3 +271,5 @@ export default function SubscriptionManagementCard() {
     </Card>
   );
 }
+
+export default memo(SubscriptionManagementCard);

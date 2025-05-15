@@ -2,15 +2,15 @@
 
 import {
   AccountManagementCard,
-  EmailCategorySettings,
   SubscriptionManagementCard,
   UserSettingsHeader,
 } from "@/components/settings";
+import CategorizationTestCard from "@/components/settings/categorization/CategorizationTestCard";
+import EmailCategorySettings from "@/components/settings/EmailCategorySettings";
 import OnboardingTutorial from "@/components/tutorial/OnboardingTutorial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCallback, useEffect, useRef } from "react";
-import { toast } from "sonner";
-
+import { useOnboardingTutorial } from "@/hooks/useOnboardingTutorial";
+import { createClient } from "@/lib/auth/client";
 import {
   clearLastSavedCategory,
   fetchUserSettingsAndAccounts,
@@ -25,13 +25,11 @@ import {
   setWorkProfileDescription,
 } from "@/lib/store/features/settings/settingsSlice";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
-
-import CategorizationTestCard from "@/components/settings/categorization/CategorizationTestCard";
-import { useOnboardingTutorial } from "@/hooks/useOnboardingTutorial";
-import { createClient } from "@/lib/auth/client";
 import { store } from "@/lib/store/store";
 import type { Category, CategoryAction } from "@/types/settings";
 import { redirect } from "next/navigation";
+import { useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 const SAVE_DEBOUNCE_DELAY = 1000;
 
@@ -90,19 +88,23 @@ export default function SettingsPage() {
       isLoadingSettings: isLoadingSettings,
     });
 
-  const handlePreferenceChange = (
-    category: Category,
-    type: "action" | "digest",
-    value: CategoryAction | boolean
-  ) => {
-    dispatch(setCategoryPreference({ category, type, value }));
-  };
+  const handlePreferenceChange = useCallback(
+    (
+      category: Category,
+      type: "action" | "digest",
+      value: CategoryAction | boolean
+    ) => {
+      dispatch(setCategoryPreference({ category, type, value }));
+    },
+    []
+  );
 
-  const handleWorkProfileChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    dispatch(setWorkProfileDescription(event.target.value));
-  };
+  const handleWorkProfileChange = useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      dispatch(setWorkProfileDescription(event.target.value));
+    },
+    []
+  );
 
   useEffect(() => {
     if (
@@ -132,7 +134,6 @@ export default function SettingsPage() {
   }, [
     category_preferences,
     work_profile_description,
-    dispatch,
     userId,
     settingsId,
     initialLoadComplete,
@@ -155,7 +156,7 @@ export default function SettingsPage() {
     }
   }, [lastSavedCategory, dispatch]);
 
-  const handleRunCategorizationTest = () => {
+  const handleRunCategorizationTest = useCallback(() => {
     const selectedAccountId = selectUserSettings(store.getState())
       .categorizationTest.selectedAccountId;
     if (selectedAccountId) {
@@ -163,11 +164,11 @@ export default function SettingsPage() {
     } else {
       toast.error("Please select an email account to run the test.");
     }
-  };
+  }, []);
 
-  const handleSelectTestAccount = (accountId: string | null) => {
+  const handleSelectTestAccount = useCallback((accountId: string | null) => {
     dispatch(setSelectedTestAccountId(accountId));
-  };
+  }, []);
 
   useEffect(() => {
     return () => {

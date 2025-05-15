@@ -13,8 +13,8 @@ import {
 import { useAppSelector } from "@/lib/store/hooks";
 import type { Category, CategoryAction } from "@/types/settings";
 import { allCategories } from "@/types/settings"; // Import allCategories
+import { memo } from "react";
 import CategoryPreferenceCard from "./categorization/CategoryPreferenceCard";
-
 // Correctly define RELEVANT_CATEGORIES
 const RELEVANT_CATEGORIES: Category[] = allCategories.filter(
   (cat) => cat !== "uncategorizable"
@@ -31,7 +31,7 @@ interface EmailCategorySettingsProps {
   ) => void;
 }
 
-export default function EmailCategorySettings({
+function EmailCategorySettings({
   handlePreferenceChange,
   handleWorkProfileChange,
 }: EmailCategorySettingsProps) {
@@ -95,3 +95,5 @@ export default function EmailCategorySettings({
     </section>
   );
 }
+
+export default memo(EmailCategorySettings);

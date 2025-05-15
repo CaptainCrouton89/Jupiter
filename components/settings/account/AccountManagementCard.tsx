@@ -9,8 +9,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+import { memo } from "react";
 
-export default function AccountManagementCard() {
+function AccountManagementCard() {
   return (
     <section>
       <Card data-tour-id="account-management-card">
@@ -35,3 +36,5 @@ export default function AccountManagementCard() {
     </section>
   );
 }
+
+export default memo(AccountManagementCard);
