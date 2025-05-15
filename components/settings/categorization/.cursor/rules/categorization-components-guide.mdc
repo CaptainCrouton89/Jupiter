@@ -1,0 +1,173 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Email Categorization Components Guide: Jupiter Mail
+
+This document focuses on the categorization components used within the Settings section of Jupiter Mail, explaining their purpose, relationships, and implementation details.
+
+## Overview
+
+The categorization components handle two primary functions:
+1. Configuring email category preferences (actions and digest settings)
+2. Testing the AI categorization on recent emails
+
+These components are located in `components/settings/categorization/`.
+
+## Core Components
+
+### EmailCategorySettings
+
+[EmailCategorySettings](mdc:components/settings/categorization/EmailCategorySettings.tsx) is the container component for managing all email category preferences.
+
+Key features:
+- Renders a category preference card for each relevant category
+- Filters out unnecessary categories like "uncategorizable"
+- Receives handler functions as props to update Redux state
+- Passes the correct preferences to each category card
+
+Usage in Settings page:
+```tsx
+<EmailCategorySettings
+  handlePreferenceChange={handlePreferenceChange}
+  handleWorkProfileChange={handleWorkProfileChange}
+/>
+```
+
+### CategoryPreferenceCard
+
+[CategoryPreferenceCard](mdc:components/settings/categorization/CategoryPreferenceCard.tsx) renders preferences for a single email category.
+
+Key features:
+- Displays radio options for email actions (none, mark as read, archive, trash, mark as spam)
+- Provides checkbox for weekly digest inclusion
+- Shows visual feedback when preferences are saved
+- Special handling for "work" category, including advanced settings
+
+### CategorizationTestCard
+
+[CategorizationTestCard](mdc:components/settings/categorization/CategorizationTestCard.tsx) is the main container for testing email categorization.
+
+Key features:
+- Provides account selection
+- Displays test status and results
+- Handles loading and error states
+- Renders accordions with categorization results
+
+This component has been refactored into smaller, more focused components:
+
+## Categorization Test Subcomponents
+
+### CategorizationTestHeader
+
+[CategorizationTestHeader](mdc:components/settings/categorization/CategorizationTestHeader.tsx) renders the header section of the test card.
+
+```tsx
+<CategorizationTestHeader
+  selectedTestAccountEmail={selectedAccount?.email}
+/>
+```
+
+### AccountSelectorForTest
+
+[AccountSelectorForTest](mdc:components/settings/categorization/AccountSelectorForTest.tsx) provides a dropdown to select which email account to test.
+
+```tsx
+<AccountSelectorForTest
+  userEmailAccounts={userEmailAccounts}
+  selectedTestAccountId={selectedTestAccountId}
+  defaultAccountId={default_account_id}
+  onSelectTestAccount={onSelectTestAccount}
+  isLoadingAllAccounts={isLoadingAllAccounts}
+  isLoadingTest={isLoadingTest}
+  isLoadingSettings={isLoadingSettings}
+  noAccountsAvailable={noAccountsAvailable}
+/>
+```
+
+### RunCategorizationTestButton
+
+[RunCategorizationTestButton](mdc:components/settings/categorization/RunCategorizationTestButton.tsx) handles the test execution button with appropriate loading states.
+
+```tsx
+<RunCategorizationTestButton
+  onRunTest={onRunTest}
+  canRunTest={canRunTest}
+  isLoadingTest={isLoadingTest}
+  isLoadingAllAccounts={isLoadingAllAccounts}
+  isLoadingSettings={isLoadingSettings}
+  isInitialLoadProcessDone={initialLoadComplete}
+  selectedTestAccountId={selectedTestAccountId}
+/>
+```
+
+### CategorizationTestResultsDisplay
+
+[CategorizationTestResultsDisplay](mdc:components/settings/categorization/CategorizationTestResultsDisplay.tsx) renders the test results in an accordion format.
+
+```tsx
+<CategorizationTestResultsDisplay
+  testData={categorizationTest.data}
+  isLoadingTest={categorizationTest.isLoading}
+  error={categorizationTest.error}
+/>
+```
+
+## Data Flow
+
+1. User selects an email account to test using `AccountSelectorForTest`
+2. Selection is dispatched to Redux via `setSelectedTestAccountId`
+3. User initiates test with `RunCategorizationTestButton`
+4. Button triggers `performCategorizationTest` Redux action
+5. Test results are stored in Redux state
+6. `CategorizationTestResultsDisplay` renders results from Redux
+
+## Redux Integration
+
+These components consume state from the settings slice:
+
+```tsx
+const {
+  default_account_id,
+  userEmailAccounts,
+  status,
+  categorizationTest,
+} = useAppSelector(selectUserSettings);
+```
+
+Key state properties:
+- `categorizationTest.selectedAccountId`: Currently selected account for testing
+- `categorizationTest.data`: Test results (categorized emails)
+- `categorizationTest.isLoading`: Loading state
+- `categorizationTest.error`: Error state
+
+## UI States
+
+These components handle multiple UI states:
+1. **Loading states**: Initial loading, account loading, test running
+2. **Empty states**: No accounts available, no test results
+3. **Error states**: Test failures, missing selections
+4. **Success state**: Displaying categorized emails in accordion
+
+## Color Coding
+
+Category labels use consistent color coding via utility functions:
+
+```tsx
+import {
+  getCategoryColor,
+  getTextColorForBackground,
+} from "@/lib/email/categoryColors";
+
+// Usage
+<span
+  style={{
+    backgroundColor: getCategoryColor(email.category),
+    color: getTextColorForBackground(getCategoryColor(email.category)),
+  }}
+>
+  {email.category.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+</span>
+```
+

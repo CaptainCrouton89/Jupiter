@@ -1,0 +1,99 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Settings Components Organization: Jupiter Mail
+
+This document outlines the organization of settings components in the Jupiter Mail application, providing guidance on their purpose and usage.
+
+## Overview
+
+Settings components are organized into logical folders based on functionality:
+
+- **Account**: Components for managing email accounts
+- **Subscription**: Components for handling subscription plans and billing
+- **Categorization**: Components for email categorization preferences and testing
+- **Common**: Shared components used across the settings UI
+
+## Directory Structure
+
+```
+components/settings/
+├── index.ts                  # Barrel file exporting all components
+├── account/                  # Account management components
+│   ├── index.ts
+│   └── AccountManagementCard.tsx
+├── subscription/             # Subscription and billing components
+│   ├── index.ts
+│   └── SubscriptionManagementCard.tsx
+├── categorization/           # Email categorization settings and testing
+│   ├── index.ts
+│   ├── AccountSelectorForTest.tsx
+│   ├── CategoryPreferenceCard.tsx
+│   ├── EmailCategorySettings.tsx
+│   ├── CategorizationTestCard.tsx
+│   ├── CategorizationTestHeader.tsx
+│   ├── CategorizationTestResultsDisplay.tsx
+│   └── RunCategorizationTestButton.tsx
+└── common/                   # Shared components
+    ├── index.ts
+    └── UserSettingsHeader.tsx
+```
+
+## Account Components
+
+- [AccountManagementCard](mdc:components/settings/account/AccountManagementCard.tsx): Card component providing a link to the full accounts management page.
+
+## Subscription Components
+
+- [SubscriptionManagementCard](mdc:components/settings/subscription/SubscriptionManagementCard.tsx): Card component managing subscription status, displaying usage, and providing upgrade/management controls.
+
+## Categorization Components
+
+- [EmailCategorySettings](mdc:components/settings/categorization/EmailCategorySettings.tsx): Container component for managing category preferences.
+- [CategoryPreferenceCard](mdc:components/settings/categorization/CategoryPreferenceCard.tsx): Card component for configuring preferences for a specific email category.
+- [CategorizationTestCard](mdc:components/settings/categorization/CategorizationTestCard.tsx): Main component for testing email categorization.
+- [CategorizationTestHeader](mdc:components/settings/categorization/CategorizationTestHeader.tsx): Header component for the categorization test card.
+- [CategorizationTestResultsDisplay](mdc:components/settings/categorization/CategorizationTestResultsDisplay.tsx): Component for displaying categorization test results.
+- [AccountSelectorForTest](mdc:components/settings/categorization/AccountSelectorForTest.tsx): Select component for choosing which email account to test.
+- [RunCategorizationTestButton](mdc:components/settings/categorization/RunCategorizationTestButton.tsx): Button component for initiating categorization tests.
+
+## Common Components
+
+- [UserSettingsHeader](mdc:components/settings/common/UserSettingsHeader.tsx): Page header component used across settings pages.
+
+## Usage in Settings Page
+
+The settings page ([app/settings/page.tsx](mdc:app/settings/page.tsx)) imports these components using the barrel files:
+
+```tsx
+import { 
+  AccountManagementCard,
+  SubscriptionManagementCard,
+  EmailCategorySettings,
+  CategorizationTestCard,
+  UserSettingsHeader
+} from "@/components/settings";
+```
+
+## Component Dependencies
+
+- Components use Redux to access global state via the `useAppSelector` hook
+- The `selectUserSettings` selector is used to access settings data
+- Most components receive handler functions as props for user interactions
+- Categorization components rely on the settings slice for state management
+
+## State Management
+
+These components use Redux for state management:
+- User settings and preferences are stored in the settings slice
+- Components access state via `useAppSelector(selectUserSettings)`
+- Action dispatching is handled via `useAppDispatch()` hook
+
+## Best Practices
+
+1. Import components from the main barrel file at `components/settings/index.ts`
+2. Use the appropriate subfolder for new components based on their functionality
+3. Add new exports to the corresponding barrel files
+4. Follow the component patterns established for consistency

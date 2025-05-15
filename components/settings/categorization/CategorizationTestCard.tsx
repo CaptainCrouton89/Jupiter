@@ -25,7 +25,8 @@ import {
   getCategoryColor,
   getTextColorForBackground,
 } from "@/lib/email/categoryColors";
-import type { EmailAccount } from "@/types/email";
+import { selectUserSettings } from "@/lib/store/features/settings/settingsSlice";
+import { useAppSelector } from "@/lib/store/hooks";
 import type { Category } from "@/types/settings";
 import {
   AlertTriangleIcon,
@@ -46,56 +47,54 @@ export interface CategorizationTestEmail {
 }
 
 interface CategorizationTestCardProps {
-  defaultAccountId: string | null;
-  allUserEmailAccounts: EmailAccount[] | null;
-  isLoadingAllAccounts: boolean;
-  isLoadingSettings: boolean; // Renamed from isLoading for clarity
-  initialLoadComplete: boolean;
-  selectedTestAccountId: string | null;
-  onSelectTestAccount: (accountId: string | null) => void;
-  categorizationTest: {
-    data: CategorizationTestEmail[] | null;
-    isLoading: boolean;
-    error: string | null;
-  };
   onRunTest: () => void;
+  onSelectTestAccount: (accountId: string | null) => void;
 }
 
 export default function CategorizationTestCard({
-  defaultAccountId,
-  allUserEmailAccounts,
-  isLoadingAllAccounts,
-  isLoadingSettings,
-  initialLoadComplete,
-  categorizationTest,
   onRunTest,
-  selectedTestAccountId,
   onSelectTestAccount,
 }: CategorizationTestCardProps) {
+  const {
+    default_account_id,
+    userEmailAccounts,
+    status,
+    categorizationTest, // This comes from the slice { data, isLoading, error, selectedAccountId }
+  } = useAppSelector(selectUserSettings);
+
+  const isLoadingSettings = status === "loading";
+  // isLoadingAllAccounts can be inferred if userEmailAccounts is empty and status is loading
+  const isLoadingAllAccounts =
+    status === "loading" && userEmailAccounts.length === 0;
+  // initialLoadComplete can be inferred from status not being 'idle' or 'loading'
+  const initialLoadComplete = status === "succeeded" || status === "failed";
+  const selectedTestAccountId = categorizationTest.selectedAccountId;
+
   const getAccountIdentifier = () => {
     if (selectedTestAccountId) {
-      const selectedAccount = allUserEmailAccounts?.find(
+      const selectedAccount = userEmailAccounts?.find(
         (acc) => acc.id === selectedTestAccountId
       );
       return selectedAccount
         ? `account (${selectedAccount.email}).`
         : "selected account.";
     }
-    if (defaultAccountId) return "default account.";
-    if (allUserEmailAccounts && allUserEmailAccounts.length > 0) {
-      return `first registered account (${allUserEmailAccounts[0].email}).`;
+    if (default_account_id) return "default account.";
+    if (userEmailAccounts && userEmailAccounts.length > 0) {
+      return `first registered account (${userEmailAccounts[0].email}).`;
     }
     return "account.";
   };
 
   const noAccountsAvailable =
     !isLoadingAllAccounts &&
-    (!allUserEmailAccounts || allUserEmailAccounts.length === 0);
+    (!userEmailAccounts || userEmailAccounts.length === 0);
+
   const canRunTest =
     selectedTestAccountId &&
     !categorizationTest.isLoading &&
     !isLoadingAllAccounts &&
-    !(isLoadingSettings && !initialLoadComplete);
+    !isLoadingSettings; // Simplified this condition as initialLoadComplete is derived
 
   return (
     <section>
@@ -108,11 +107,9 @@ export default function CategorizationTestCard({
             See how the AI categorizes your 20 most recent emails from your
             {" " +
               (selectedTestAccountId &&
-              allUserEmailAccounts?.find(
-                (acc) => acc.id === selectedTestAccountId
-              )
+              userEmailAccounts?.find((acc) => acc.id === selectedTestAccountId)
                 ? `selected account (${
-                    allUserEmailAccounts.find(
+                    userEmailAccounts.find(
                       (acc) => acc.id === selectedTestAccountId
                     )?.email
                   }).`
@@ -139,14 +136,15 @@ export default function CategorizationTestCard({
                 </p>
               </div>
             )}
-          {isLoadingAllAccounts && !selectedTestAccountId && (
+          {/* Simplified loading state for accounts based on Redux status and accounts list */}
+          {isLoadingAllAccounts && userEmailAccounts.length === 0 && (
             <div className="flex items-center p-4 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md">
               <Loader2Icon className="mr-2 h-5 w-5 flex-shrink-0 animate-spin" />
               <p>Checking for available email accounts...</p>
             </div>
           )}
 
-          {allUserEmailAccounts && allUserEmailAccounts.length > 0 && (
+          {userEmailAccounts && userEmailAccounts.length > 0 && (
             <div className="space-y-2">
               <label htmlFor="account-select" className="text-sm font-medium">
                 Select Account to Test:
@@ -167,10 +165,10 @@ export default function CategorizationTestCard({
                   <SelectValue placeholder="Choose an account..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {allUserEmailAccounts.map((account) => (
+                  {userEmailAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.email}
-                      {account.id === defaultAccountId && " (Default)"}
+                      {account.id === default_account_id && " (Default)"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -186,7 +184,7 @@ export default function CategorizationTestCard({
             {categorizationTest.isLoading ||
             isLoadingAllAccounts ||
             (isLoadingSettings &&
-              !initialLoadComplete &&
+              !initialLoadComplete && // Keep initialLoadComplete if it implies more than just settings loading
               !selectedTestAccountId) ? (
               <>
                 <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
@@ -232,14 +230,18 @@ export default function CategorizationTestCard({
                 >
                   <AccordionTrigger className="hover:no-underline">
                     <div className="flex justify-between items-center w-full pr-2">
-                      <div className="truncate text-left">
-                        <p className="font-medium truncate">
-                          {email.subject || "(No Subject)"}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          From:{" "}
-                          {email.from?.name || email.from?.address || "Unknown"}
-                        </p>
+                      <div className="flex-grow min-w-0 truncate max-w-[70%]">
+                        <div className="w-full">
+                          <p className="font-medium truncate">
+                            {email.subject || "(No Subject)"}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            From:{" "}
+                            {email.from?.name ||
+                              email.from?.address ||
+                              "Unknown"}
+                          </p>
+                        </div>
                       </div>
                       <span
                         className="ml-4 px-3 py-1.5 text-xs font-semibold rounded-full flex-shrink-0 transition-colors duration-200"
@@ -252,7 +254,7 @@ export default function CategorizationTestCard({
                       >
                         {email.category
                           .replace("-", " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          .replace(/\b\w/g, (l: string) => l.toUpperCase())}
                       </span>
                     </div>
                   </AccordionTrigger>

@@ -13,7 +13,7 @@ import {
 import { useAppSelector } from "@/lib/store/hooks";
 import type { Category, CategoryAction } from "@/types/settings";
 import { allCategories } from "@/types/settings"; // Import allCategories
-import CategoryPreferenceCard from "./categorization/CategoryPreferenceCard";
+import CategoryPreferenceCard from "./CategoryPreferenceCard";
 
 // Correctly define RELEVANT_CATEGORIES
 const RELEVANT_CATEGORIES: Category[] = allCategories.filter(
