@@ -216,6 +216,11 @@ export default function SettingsPage() {
           handlePreferenceChange={handlePreferenceChange}
           handleWorkProfileChange={handleWorkProfileChange}
         />
+        <Card className="bg-secondary/10 border-secondary">
+          <CardContent>
+            Don't believe the AI can categorize your emails? Test it out!
+          </CardContent>
+        </Card>
         <CategorizationTestCard
           onRunTest={handleRunCategorizationTest}
           onSelectTestAccount={handleSelectTestAccount}

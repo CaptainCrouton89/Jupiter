@@ -7,13 +7,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -28,14 +22,10 @@ import {
 import { selectUserSettings } from "@/lib/store/features/settings/settingsSlice";
 import { useAppSelector } from "@/lib/store/hooks";
 import type { Category } from "@/types/settings";
-import {
-  AlertTriangleIcon,
-  InfoIcon,
-  Loader2Icon,
-  MailCheckIcon,
-} from "lucide-react";
+import { AlertTriangleIcon, InfoIcon, Loader2Icon } from "lucide-react";
 import Link from "next/link";
 import { memo } from "react";
+import CategorizationTestHeader from "./CategorizationTestHeader";
 export interface CategorizationTestEmail {
   uid: number;
   messageId: string | null;
@@ -83,25 +73,13 @@ function CategorizationTestCard({
   return (
     <section>
       <Card data-tour-id="test-categorization-card">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MailCheckIcon className="mr-2 h-5 w-5" /> Test Email Categorization
-          </CardTitle>
-          <CardDescription>
-            See how the AI categorizes your 20 most recent emails from your
-            {" " +
-              (selectedTestAccountId &&
-              userEmailAccounts?.find((acc) => acc.id === selectedTestAccountId)
-                ? `selected account (${
-                    userEmailAccounts.find(
-                      (acc) => acc.id === selectedTestAccountId
-                    )?.email
-                  }).`
-                : "chosen account.")}{" "}
-            This helps you understand the categorization logic before
-            customizing it further.
-          </CardDescription>
-        </CardHeader>
+        <CategorizationTestHeader
+          selectedTestAccountEmail={
+            userEmailAccounts.find(
+              (account) => account.id === selectedTestAccountId
+            )?.email
+          }
+        />
         <CardContent className="space-y-4">
           {!isLoadingAllAccounts &&
             noAccountsAvailable &&
