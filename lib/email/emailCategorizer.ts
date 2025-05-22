@@ -486,8 +486,8 @@ Relevant Headers: X-Mailer Present: ${!!relevantHeaders.xMailer}, Precedence Pre
 </heuristic_signals>
 
 <body>
-${emailBody.substring(0, 1500)}${
-    emailBody.length > 1500 ? "(continued...)" : ""
+${emailBody.substring(0, 5000)}${
+    emailBody.length > 5000 ? "(continued...)" : ""
   }
 </body>
 
