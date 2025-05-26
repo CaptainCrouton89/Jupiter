@@ -1,5 +1,5 @@
 import { Database } from "@/lib/database.types";
-import { categorizeEmail } from "@/lib/email/emailCategorizer";
+import { categorizeEmail } from "@/lib/email/categorizer/emailCategorizer";
 import { fetchAndParseEmails } from "@/lib/email/parseEmail";
 import { storeEmails } from "@/lib/email/storeEmails";
 import {

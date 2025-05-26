@@ -1,11 +1,12 @@
-import { allCategories, Category } from "@/types/settings";
+import { Category } from "@/types/settings";
 import { openai } from "@ai-sdk/openai"; // Assuming you are using OpenAI
 import { generateObject } from "ai";
 import fs from "fs/promises"; // For logging
 import { convert as htmlToText } from "html-to-text"; // Added import
 import path from "path"; // For logging
 import { z } from "zod";
-import type { ParsedEmailData } from "./parseEmail"; // Assuming ParsedEmailData is in a sibling file
+import { RELEVANT_CATEGORIES } from "../../constants";
+import type { ParsedEmailData } from "../parseEmail"; // Assuming ParsedEmailData is in a sibling file
 
 // Define the log file path (adjust as needed, e.g., outside the lib directory in a dedicated logs folder)
 const categorizationLogPath = path.join(
@@ -30,11 +31,7 @@ async function appendToLog(logEntry: string) {
 
 // Define the schema for the AI's response
 const emailCategorizationSchema = z.object({
-  category: z
-    .enum(allCategories as [Category, ...Category[]])
-    .describe(
-      "The category of the email, one of the categories in the <categories> section."
-    ),
+  category: z.enum(RELEVANT_CATEGORIES as [Category, ...Category[]]),
 });
 
 export type EmailCategorizationResult = {
@@ -474,9 +471,9 @@ Unsubscribe Info: Has Opt-Out Mechanism: ${
     unsubscribeInfo.hasLinkOrButton
   }, List-Unsubscribe Header Present: ${!!unsubscribeInfo.listUnsubscribeHeader}
 Tracking Pixel Detected: ${trackingPixelDetected}
-Promotional Keywords Found (sample): [${promotionalKeywords.join(
-    ", "
-  )}] (Count: ${promotionalKeywords.length})
+Promotional Keywords Found: [${promotionalKeywords.join(", ")}] (Count: ${
+    promotionalKeywords.length
+  })
 Styling/Structure: Visually Rich: ${
     stylingAnalysis.isVisuallyRich
   }, Uses Layout Tables: ${stylingAnalysis.usesLayoutTables}, Image Count: ${
@@ -531,7 +528,6 @@ Respond with the single most likely category. "uncategorizable" should be used o
   - Signals: Keywords "verify your email", "confirm your address". Usually a single call to action (a link). Often plain.
 - work: Emails related to professional work, projects, or collaborations. Criteria: ${effectiveWorkCriteria}
   - Signals: Content matching user-defined criteria. Sender may be colleagues, clients, or work-related platforms. Subject lines might contain project names or specific work-related keywords.
-- uncategorizable: Use as a LAST RESORT if no other category accurately describes the email, even considering the heuristic signals.
 </categories_explanation>
 
 Respond with the JSON object matching the schema, containing only the determined category.
@@ -539,7 +535,7 @@ Respond with the JSON object matching the schema, containing only the determined
 
   try {
     const { object } = await generateObject({
-      temperature: 0.2,
+      temperature: 0,
       model: openai("gpt-4.1-nano"),
       schema: emailCategorizationSchema,
       system: systemPrompt,

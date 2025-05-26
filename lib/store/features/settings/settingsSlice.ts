@@ -1,20 +1,15 @@
 import { CategorizationTestEmail } from "@/components/settings/categorization/CategorizationTestCard";
 import { createClient } from "@/lib/auth/client";
+import { RELEVANT_CATEGORIES } from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
 import type { EmailAccount } from "@/types/email";
 import {
-  allCategories,
   type Category,
   type CategoryAction,
   type CategoryPreferences,
 } from "@/types/settings";
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { User } from "@supabase/supabase-js";
-
-// Ensure this is defined, or import if it's from elsewhere
-const RELEVANT_CATEGORIES: Category[] = allCategories.filter(
-  (cat) => cat !== "uncategorizable"
-);
 
 // This interface represents the structure of settings as fetched or saved,
 // excluding slice-specific status fields or combined data like user object.

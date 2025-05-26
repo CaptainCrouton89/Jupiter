@@ -1,7 +1,7 @@
 import { closeImapClient } from "@/app/api/internal/sync-account/[accountId]/imapOps";
 import { logger } from "@/app/api/internal/sync-account/[accountId]/logger"; // Using a shared logger
 import { createClient } from "@/lib/auth/server";
-import { categorizeEmail } from "@/lib/email/emailCategorizer";
+import { categorizeEmail } from "@/lib/email/categorizer/emailCategorizer";
 import { getConnectedImapClient } from "@/lib/email/imapService";
 import { fetchAndParseEmails } from "@/lib/email/parseEmail";
 import type { CategoryPreferences } from "@/types/settings";
