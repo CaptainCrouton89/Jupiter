@@ -23,7 +23,7 @@ You are an email classification assistant performing the first stage of a two-st
 
 Your task is to classify emails into one of four coarse categories:
 
-1. **transactional**: Emails confirming actions, providing receipts, account notifications, password resets, order confirmations, shipping updates, verification emails, etc. These are typically automated, direct responses to user actions.
+1. **transactional**: Emails confirming actions, requesting additional action, providing receipts, account notifications, password resets, order confirmations, shipping updates, verification emails, etc. These are typically automated, direct responses to user actions.
 
 2. **promotional**: Marketing emails, advertisements, sales announcements, newsletters with promotional content, special offers, discount codes, product launches, etc. These are designed to drive sales or engagement.
 

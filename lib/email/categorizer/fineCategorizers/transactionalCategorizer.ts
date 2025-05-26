@@ -1,11 +1,17 @@
+import { Category } from "@/types/settings";
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { Category } from "@/types/settings";
 import type { EmailCategorizationInput, PreparedEmailData } from "../types";
 
 const transactionalSchema = z.object({
-  category: z.enum(['payments', 'finances', 'account-related', 'email-verification', 'notification']),
+  category: z.enum([
+    "payments",
+    "finances",
+    "account-related",
+    "email-verification",
+    "notification",
+  ]),
 });
 
 export async function categorizeTransactionalEmail(
@@ -27,7 +33,7 @@ You are categorizing emails that have been identified as transactional. Choose t
 3. **account-related**: Security alerts, password resets, account updates, login notifications, terms of service updates, account verification for existing accounts.
    - Keywords: "security alert", "password reset", "account update", "login", "terms", "privacy policy"
 
-4. **email-verification**: Specific emails asking to verify email address during new account signup.
+4. **email-verification**: Specific emails asking to verify email address or accept an invitation.
    - Keywords: "verify your email", "confirm your email address", "activate your account"
 
 5. **notification**: General transactional notifications that don't fit other categories - shipping updates, status changes, system alerts, CI/CD notifications.
@@ -46,7 +52,9 @@ ${subject || "N/A"}
 </subject>
 
 <body>
-${emailBody.substring(0, 2000)}${emailBody.length > 2000 ? "(continued...)" : ""}
+${emailBody.substring(0, 2000)}${
+    emailBody.length > 2000 ? "(continued...)" : ""
+  }
 </body>
 
 Categorize this transactional email into the most appropriate specific category.
