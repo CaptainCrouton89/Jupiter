@@ -21,7 +21,9 @@ export type Category =
   | "payments" // receipts, transactions
   | "finances" // bank statements, credit card statements, etc.
   | "personal"
-  | "notification" // customer-support, linkedin messages, social platform messages, security alerts,
+  | "shipping-delivery" // order tracking, delivery updates
+  | "system-alerts" // security alerts, login notifications
+  | "system-updates" // maintenance, service updates
   | "account-related" // password resets, tos changes
   | "work" // custom
   | "email-verification" // email verification, two factor auth, etc.
@@ -33,7 +35,9 @@ export const allCategories: Category[] = [
   "payments",
   "finances",
   "personal",
-  "notification",
+  "shipping-delivery",
+  "system-alerts",
+  "system-updates",
   "account-related",
   "work",
   "email-verification",

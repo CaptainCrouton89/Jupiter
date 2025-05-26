@@ -6,7 +6,9 @@ export const CATEGORY_ACCENT_COLORS: Record<Category, string> = {
   marketing: "#f0c76e", // Muted Yellow-Orange
   payments: "#6bbd8b", // Softer Green
   finances: "#a48cb8", // Softer Purple
-  notification: "#7a8899", // Lighter Slate Grey
+  "shipping-delivery": "#ff9f7a", // Soft Orange for shipping/delivery
+  "system-alerts": "#ff7a7a", // Soft Red for security alerts
+  "system-updates": "#7a8899", // Lighter Slate Grey for system updates
   "account-related": "#7ab3e8", // Softer Dodger Blue
   personal: "#7ec2bb", // Softer Teal/Turquoise
   "email-verification": "#82caaf", // Unique, soft teal-green

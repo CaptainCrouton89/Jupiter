@@ -27,7 +27,9 @@ import type { EmailContent } from "./generateDigest";
 
 const titleAndBulletsCategories: Category[] = ["newsletter"];
 const titleOnlyCategories: Category[] = [
-  "notification",
+  "shipping-delivery",
+  "system-alerts", 
+  "system-updates",
   "account-related",
   "email-verification",
   "uncategorizable",

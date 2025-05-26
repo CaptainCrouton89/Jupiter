@@ -35,8 +35,14 @@ export const getSummarizeSingleEmailPrompt = (
       systemPrompt = `Your task is to provide a title, and brief summary of a personal email. The title should be concise so it can be understood at a glance. The summary should be 1-3 brief, neutral summary sentences. ${jsonInstructionSentence}`;
       break;
     // Single sentence summaries
-    case "notification":
-      systemPrompt = `Your task is to provide a single, concise summary sentence (around 10-25 words) summarizing a notification email. Explain the core message (e.g., shipping update, social media mention, system alert). ${jsonInstructionSentence}`;
+    case "shipping-delivery":
+      systemPrompt = `Your task is to provide a single, concise summary sentence (around 10-25 words) summarizing a shipping/delivery email. Explain the core message (e.g., shipped, delivered, tracking update). ${jsonInstructionSentence}`;
+      break;
+    case "system-alerts":
+      systemPrompt = `Your task is to provide a single, concise summary sentence (around 10-25 words) summarizing a system alert email. Explain the core message (e.g., security alert, login notification, suspicious activity). ${jsonInstructionSentence}`;
+      break;
+    case "system-updates":
+      systemPrompt = `Your task is to provide a single, concise summary sentence (around 10-25 words) summarizing a system update email. Explain the core message (e.g., maintenance, service update, platform announcement). ${jsonInstructionSentence}`;
       break;
     case "account-related":
       systemPrompt = `Your task is to provide a single, concise summary sentence (around 15-30 words) summarizing an account-related email. Explain the message (e.g., security alert, ToS update, login confirmation). ${jsonInstructionSentence}`;

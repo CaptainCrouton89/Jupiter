@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { EmailCategorizationInput, PreparedEmailData } from "../types";
 
 const operationalSchema = z.object({
-  category: z.enum(["work", "notification"]),
+  category: z.enum(["work", "system-updates"]),
 });
 
 export async function categorizeOperationalEmail(
@@ -13,7 +13,7 @@ export async function categorizeOperationalEmail(
   preparedData: PreparedEmailData
 ): Promise<{ category: Category }> {
   const { from, subject, userWorkProfile } = emailData;
-  const { emailBody } = preparedData;
+  const { emailBody, heuristicSignals } = preparedData;
 
   const defaultWorkCriteria =
     "emails pertaining to ongoing projects, team communications, client interactions, and notifications from work-specific tools (e.g., Jira, company platforms).";
@@ -28,9 +28,11 @@ You are categorizing emails that have been identified as operational (informatio
 1. **work**: Professional communications, project updates, team collaboration, client interactions, work-related tool notifications.
    - User's work criteria: ${effectiveWorkCriteria}
    - Consider: sender domain, work-related keywords, project names, professional context
+   - Examples: Slack notifications, Jira updates, GitHub notifications, team communications
 
-2. **notification**: General operational notifications that don't fit work criteria - system updates, service notifications, maintenance notices, general informational updates.
-   - Examples: Service outages, system maintenance, general platform updates, non-work tool notifications
+2. **system-updates**: General operational notifications that don't fit work criteria - system updates, service notifications, maintenance notices, platform status updates.
+   - Examples: Service outages, system maintenance, app updates, platform announcements, non-work tool notifications
+   - Keywords: "maintenance", "update", "service", "downtime", "upgrade", "status"
 
 The key is whether the content relates to the user's professional work context based on their defined criteria.
 `;
@@ -44,13 +46,22 @@ ${from?.address || "N/A"} (Name: ${from?.name || "N/A"})
 ${subject || "N/A"}
 </subject>
 
+<heuristic_signals>
+Sender Domain: ${heuristicSignals.senderAnalysis.domain || "N/A"}
+Is Common Freemail: ${heuristicSignals.senderAnalysis.isCommonFreemail}
+Work-Related Keywords: ${heuristicSignals.promotionalKeywords.some(k => 
+  ['project', 'team', 'client', 'jira', 'slack', 'github', 'meeting'].includes(k.toLowerCase()))}
+System Keywords: ${heuristicSignals.promotionalKeywords.some(k => 
+  ['maintenance', 'update', 'service', 'downtime', 'upgrade', 'status'].includes(k.toLowerCase()))}
+</heuristic_signals>
+
 <body>
 ${emailBody.substring(0, 2000)}${
     emailBody.length > 2000 ? "(continued...)" : ""
   }
 </body>
 
-Determine whether this operational email is work-related based on the user's work criteria or a general notification.
+Determine whether this operational email is work-related based on the user's work criteria or a general system update.
 `;
 
   try {
@@ -66,6 +77,6 @@ Determine whether this operational email is work-related based on the user's wor
     return object;
   } catch (error) {
     console.error("Error in operational fine categorization:", error);
-    return { category: "notification" as Category };
+    return { category: "system-updates" as Category };
   }
 }

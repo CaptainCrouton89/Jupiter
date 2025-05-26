@@ -10,7 +10,8 @@ const transactionalSchema = z.object({
     "finances",
     "account-related",
     "email-verification",
-    "notification",
+    "shipping-delivery",
+    "system-alerts",
   ]),
 });
 
@@ -19,7 +20,7 @@ export async function categorizeTransactionalEmail(
   preparedData: PreparedEmailData
 ): Promise<{ category: Category }> {
   const { from, subject } = emailData;
-  const { emailBody } = preparedData;
+  const { emailBody, heuristicSignals } = preparedData;
 
   const systemPrompt = `
 You are categorizing emails that have been identified as transactional. Choose the most specific category:
@@ -30,14 +31,17 @@ You are categorizing emails that have been identified as transactional. Choose t
 2. **finances**: Banking statements, investment updates, credit card alerts, account balance notifications, financial institution communications (but not direct payment confirmations).
    - Keywords: "statement", "account balance", "transaction alert", "investment", "banking", "credit card"
 
-3. **account-related**: Security alerts, password resets, account updates, login notifications, terms of service updates, account verification for existing accounts.
-   - Keywords: "security alert", "password reset", "account update", "login", "terms", "privacy policy"
+3. **account-related**: Password resets, account updates, terms of service updates, account verification for existing accounts, privacy policy changes.
+   - Keywords: "password reset", "account update", "terms", "privacy policy", "account verification"
 
 4. **email-verification**: Specific emails asking to verify email address or accept an invitation.
    - Keywords: "verify your email", "confirm your email address", "activate your account"
 
-5. **notification**: General transactional notifications that don't fit other categories - shipping updates, status changes, system alerts, CI/CD notifications.
-   - Keywords: "shipped", "delivered", "status update", "deployment", "system notification"
+5. **shipping-delivery**: Order tracking, shipping updates, delivery confirmations, package notifications, return/exchange updates.
+   - Keywords: "shipped", "delivered", "tracking", "package", "delivery", "return", "exchange"
+
+6. **system-alerts**: Security alerts, login notifications, suspicious activity warnings, authentication alerts, account access notifications.
+   - Keywords: "security alert", "login notification", "suspicious activity", "authentication", "access alert"
 
 Choose the most specific category that fits the email content.
 `;
@@ -50,6 +54,13 @@ ${from?.address || "N/A"} (Name: ${from?.name || "N/A"})
 <subject>
 ${subject || "N/A"}
 </subject>
+
+<heuristic_signals>
+Sender Domain: ${heuristicSignals.senderAnalysis.domain || "N/A"}
+Automated Patterns: X-Mailer: ${!!heuristicSignals.relevantHeaders.xMailer}
+Security Context: Login/Auth Keywords: ${heuristicSignals.promotionalKeywords.some(k => 
+  ['login', 'password', 'security', 'verify', 'authentication'].includes(k.toLowerCase()))}
+</heuristic_signals>
 
 <body>
 ${emailBody.substring(0, 2000)}${
@@ -73,6 +84,6 @@ Categorize this transactional email into the most appropriate specific category.
     return object;
   } catch (error) {
     console.error("Error in transactional fine categorization:", error);
-    return { category: "notification" as Category };
+    return { category: "system-alerts" as Category };
   }
 }
