@@ -37,6 +37,28 @@ const COMMON_PROMOTIONAL_KEYWORDS = [
   "webinar",
 ];
 
+const VERIFICATION_KEYWORDS = [
+  "verify",
+  "confirm",
+  "activate",
+  "verification",
+  "confirmation",
+  "authentication",
+  "two-factor",
+  "2fa",
+  "security code",
+  "login attempt",
+  "suspicious activity",
+  "account security",
+  "reset password",
+  "change password",
+  "confirm email",
+  "verify email",
+  "account verification",
+  "email verification",
+  "phone verification",
+];
+
 function hasTrackingPixel(htmlContent: string | null | undefined): boolean {
   if (!htmlContent) return false;
   const trackingPixelRegex =
@@ -88,6 +110,23 @@ function extractPromotionalKeywords(
   const textToSearch = `${subject || ""} ${fullText}`.toLowerCase();
 
   for (const keyword of COMMON_PROMOTIONAL_KEYWORDS) {
+    if (textToSearch.includes(keyword.toLowerCase())) {
+      foundKeywords.add(keyword);
+      if (foundKeywords.size >= limit) break;
+    }
+  }
+  return Array.from(foundKeywords);
+}
+
+function extractVerificationKeywords(
+  fullText: string,
+  subject: string | null | undefined,
+  limit: number = 5
+): string[] {
+  const foundKeywords = new Set<string>();
+  const textToSearch = `${subject || ""} ${fullText}`.toLowerCase();
+
+  for (const keyword of VERIFICATION_KEYWORDS) {
     if (textToSearch.includes(keyword.toLowerCase())) {
       foundKeywords.add(keyword);
       if (foundKeywords.size >= limit) break;
@@ -205,6 +244,7 @@ export function analyzeHeuristicSignals(
     trackingPixelDetected: hasTrackingPixel(htmlContent),
     unsubscribeInfo: getUnsubscribeInfo(htmlContent, textContent, headers),
     promotionalKeywords: extractPromotionalKeywords(emailBody, subject, 5),
+    verificationKeywords: extractVerificationKeywords(emailBody, subject, 5),
     senderAnalysis: analyzeSender(from, headers),
     stylingAnalysis: analyzeStylingAndStructure(htmlContent),
     relevantHeaders: getRelevantHeaders(headers),

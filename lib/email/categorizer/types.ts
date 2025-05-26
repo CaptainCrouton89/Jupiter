@@ -19,6 +19,7 @@ export interface HeuristicSignals {
     listUnsubscribeHeader?: string;
   };
   promotionalKeywords: string[];
+  verificationKeywords: string[];
   senderAnalysis: {
     domain: string | null;
     isCommonFreemail: boolean;

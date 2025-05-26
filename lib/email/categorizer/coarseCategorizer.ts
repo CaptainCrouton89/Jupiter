@@ -23,7 +23,7 @@ You are an email classification assistant performing the first stage of a two-st
 
 Your task is to classify emails into one of four coarse categories:
 
-1. **transactional**: Emails confirming actions, requesting additional action, providing receipts, account notifications, password resets, order confirmations, shipping updates, verification emails, etc. These are typically automated, direct responses to user actions.
+1. **transactional**: Emails requiring user action or confirming user actions, including account verification, email confirmation, password resets, two-factor authentication, login notifications, order confirmations, receipts, shipping updates, etc. Verification and authentication emails should ALWAYS be classified as transactional regardless of promotional styling or marketing language.
 
 2. **promotional**: Marketing emails, advertisements, sales announcements, newsletters with promotional content, special offers, discount codes, product launches, etc. These are designed to drive sales or engagement.
 
@@ -32,7 +32,8 @@ Your task is to classify emails into one of four coarse categories:
 4. **personal**: Direct human-to-human communication, personal messages, conversations, individual correspondence, forwarded emails, etc. These are typically unique, conversational content between people.
 
 Use the provided heuristic signals to inform your decision:
-- Tracking pixels, unsubscribe mechanisms, and promotional keywords suggest promotional
+- Verification, confirmation, authentication, and security-related content should be classified as transactional
+- Tracking pixels, unsubscribe mechanisms, and promotional keywords suggest promotional (unless email is verification/authentication)
 - Automated patterns, receipts, and confirmations suggest transactional  
 - Regular informational updates and system notifications suggest operational
 - Personal sender domains and conversational content suggest personal
@@ -61,6 +62,9 @@ Tracking Pixel Detected: ${heuristicSignals.trackingPixelDetected}
 Promotional Keywords Found: [${heuristicSignals.promotionalKeywords.join(
     ", "
   )}] (Count: ${heuristicSignals.promotionalKeywords.length})
+Verification Keywords Found: [${heuristicSignals.verificationKeywords.join(
+    ", "
+  )}] (Count: ${heuristicSignals.verificationKeywords.length})
 Styling/Structure: Visually Rich: ${
     heuristicSignals.stylingAnalysis.isVisuallyRich
   }, Image Count: ${heuristicSignals.stylingAnalysis.imageCount}

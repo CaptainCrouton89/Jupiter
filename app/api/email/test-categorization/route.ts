@@ -123,12 +123,11 @@ export async function GET(request: Request) {
       `[TestCategorization] Parsed ${parsedEmails.length} emails out of ${uidsToFetch.length} fetched.`
     );
 
-    const categorizedEmailsResult: CategorizationTestEmailFE[] = [];
-
-    for (const parsedEmail of parsedEmails) {
-      if (categorizedEmailsResult.length >= limit) break;
-
-      try {
+    // Limit emails to categorize and run in parallel
+    const emailsToProcess = parsedEmails.slice(0, limit);
+    
+    const categorizedEmailsResult = await Promise.allSettled(
+      emailsToProcess.map(async (parsedEmail) => {
         const categorizationInput = {
           from: parsedEmail.from,
           subject: parsedEmail.subject,
@@ -141,7 +140,7 @@ export async function GET(request: Request) {
 
         parsedEmail.category = categorization.category; // Assign category
 
-        categorizedEmailsResult.push({
+        return {
           uid: parsedEmail.imapUid || 0, // Should always have imapUid from fetchAndParseEmail
           messageId: parsedEmail.messageId,
           subject: parsedEmail.subject,
@@ -152,20 +151,27 @@ export async function GET(request: Request) {
             ? parsedEmail.text.substring(0, BODY_SNIPPET_LENGTH) +
               (parsedEmail.text.length > BODY_SNIPPET_LENGTH ? "..." : "")
             : null,
-        });
-      } catch (catError: any) {
+        };
+      })
+    );
+
+    // Filter successful results and log errors
+    const successfulResults: CategorizationTestEmailFE[] = [];
+    categorizedEmailsResult.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successfulResults.push(result.value);
+      } else {
         logger.error(
-          `[TestCategorization] Failed to categorize email UID ${parsedEmail.imapUid}: ${catError.message}`,
-          catError
+          `[TestCategorization] Failed to categorize email UID ${emailsToProcess[index].imapUid}: ${result.reason.message}`,
+          result.reason
         );
-        // Optionally skip this email or mark as 'uncategorized'
       }
-    }
+    });
 
     logger.info(
-      `[TestCategorization] Successfully processed and categorized ${categorizedEmailsResult.length} emails.`
+      `[TestCategorization] Successfully processed and categorized ${successfulResults.length} emails.`
     );
-    return NextResponse.json({ emails: categorizedEmailsResult });
+    return NextResponse.json({ emails: successfulResults });
   } catch (error: any) {
     logger.error(
       `[TestCategorization] Error during test categorization for accountId ${accountId}: ${error.message}`,
