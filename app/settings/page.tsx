@@ -219,7 +219,7 @@ export default function SettingsPage() {
         />
         <Card className="bg-secondary/10 border-secondary">
           <CardContent>
-            Don't believe the AI can categorize your emails? Test it out!
+            Don&apos;t believe the AI can categorize your emails? Test it out!
           </CardContent>
         </Card>
         <CategorizationTestCard

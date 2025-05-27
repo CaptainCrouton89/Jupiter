@@ -34,8 +34,8 @@ export function EmailSetupHelp() {
           <div className="space-y-2">
             <h3 className="text-lg font-semibold">Gmail Settings</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              To connect your Gmail account, we recommend using the "Connect
-              with Google" button for the simplest setup. For manual setup, use
+              To connect your Gmail account, we recommend using the &quot;Connect
+              with Google&quot; button for the simplest setup. For manual setup, use
               these settings:
             </p>
 
@@ -126,7 +126,7 @@ export function EmailSetupHelp() {
             <h3 className="text-lg font-semibold">Outlook Settings</h3>
             <p className="text-sm text-muted-foreground mb-4">
               To connect your Outlook.com, Hotmail, or Live account, we
-              recommend using the "Connect with Microsoft" button. For manual
+              recommend using the &quot;Connect with Microsoft&quot; button. For manual
               setup, use these settings:
             </p>
 
@@ -189,7 +189,7 @@ export function EmailSetupHelp() {
             <h3 className="text-lg font-semibold">Other Email Providers</h3>
             <p className="text-sm">
               For other email providers (Yahoo, AOL, iCloud, etc.), please check
-              your provider's documentation for the correct IMAP and SMTP
+              your provider&apos;s documentation for the correct IMAP and SMTP
               settings. Most providers have a help page with these details.
             </p>
           </div>

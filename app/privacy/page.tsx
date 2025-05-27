@@ -77,7 +77,7 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 Email body content (text and HTML) for categorization,
-                performing actions you've configured (like identifying content
+                performing actions you&apos;ve configured (like identifying content
                 for rules), and generating summaries for digests.
               </li>
               <li>

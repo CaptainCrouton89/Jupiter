@@ -329,7 +329,7 @@ export function ConnectedAccountsList({
               }', IMAP: '${account.imap_host}', SMTP: '${account.smtp_host}'`
             );
             return (
-              <p className="text-muted-foreground italic">
+              <p key={account.id} className="text-muted-foreground italic">
                 Configuration details are incomplete or not applicable.
               </p>
             );

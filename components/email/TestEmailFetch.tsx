@@ -66,7 +66,7 @@ export function TestEmailFetch({ accountId }: TestEmailFetchProps) {
         <CardHeader>
           <CardTitle className="text-lg">Test Email Fetching</CardTitle>
           <CardDescription>
-            Fetch recent emails (UIDs only) from this account's INBOX
+            Fetch recent emails (UIDs only) from this account&apos;s INBOX
           </CardDescription>
         </CardHeader>
         <CardContent>

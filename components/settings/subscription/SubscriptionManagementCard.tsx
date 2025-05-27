@@ -203,7 +203,7 @@ function SubscriptionManagementCard() {
     return (
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          You've processed{" "}
+          You&apos;ve processed{" "}
           <span
             className={`font-semibold ${
               isMaxedOut ? "text-destructive" : "text-foreground"
