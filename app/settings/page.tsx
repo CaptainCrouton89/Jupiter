@@ -7,6 +7,7 @@ import {
 } from "@/components/settings";
 import CategorizationTestCard from "@/components/settings/categorization/CategorizationTestCard";
 import EmailCategorySettings from "@/components/settings/EmailCategorySettings";
+import { TestDigestCard } from "@/components/settings/digest";
 import OnboardingTutorial from "@/components/tutorial/OnboardingTutorial";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnboardingTutorial } from "@/hooks/useOnboardingTutorial";
@@ -225,6 +226,7 @@ export default function SettingsPage() {
           onRunTest={handleRunCategorizationTest}
           onSelectTestAccount={handleSelectTestAccount}
         />
+        <TestDigestCard />
       </div>
     </div>
   );
