@@ -77,8 +77,8 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 Email body content (text and HTML) for categorization,
-                performing actions you&apos;ve configured (like identifying content
-                for rules), and generating summaries for digests.
+                performing actions you&apos;ve configured (like identifying
+                content for rules), and generating summaries for digests.
               </li>
               <li>
                 List of your email folders and email UIDs/IDs for
@@ -104,8 +104,33 @@ export default function PrivacyPolicyPage() {
           management features of Jupiter Mail.
         </p>
 
+        <h2 id="data-protection-guarantees">3. Data Protection Guarantees</h2>
+        <p>
+          <strong>Your privacy is paramount to us.</strong> We want to be absolutely clear about what we do NOT do with your data:
+        </p>
+        <ul>
+          <li>
+            <strong>We do not sell your data:</strong> Your email content, personal information, and usage patterns are never sold to third parties, advertisers, or data brokers.
+          </li>
+          <li>
+            <strong>We do not use your data for AI training:</strong> Your email content and personal information are never used to train AI models, machine learning systems, or to improve third-party AI services.
+          </li>
+          <li>
+            <strong>We do not share data for commercial purposes:</strong> Your information is never shared with third parties for marketing, advertising, profiling, or any commercial purposes beyond what is strictly necessary to provide Jupiter Mail's core functionality.
+          </li>
+          <li>
+            <strong>We do not create user profiles for advertising:</strong> We do not build advertising profiles, behavioral profiles, or engage in any form of user tracking for commercial purposes.
+          </li>
+          <li>
+            <strong>Minimal third-party data sharing:</strong> The only third-party data sharing occurs with essential service providers (like Supabase for hosting and AI services for categorization) and only to the extent necessary to deliver the features you've requested.
+          </li>
+        </ul>
+        <p>
+          <strong>Our commitment:</strong> Jupiter Mail exists solely to help you manage your email more effectively. Your data serves no purpose other than providing you with the service you've requested.
+        </p>
+
         <h2 id="data-storage-security-retention">
-          3. Data Storage, Security, and Retention
+          4. Data Storage, Security, and Retention
         </h2>
         <h3 className="text-xl font-semibold !mt-6 !mb-3">Security Measures</h3>
         <p>
@@ -158,7 +183,7 @@ export default function PrivacyPolicyPage() {
         </ul>
         <p>You retain ownership of your email data at all times.</p>
 
-        <h2 id="third-party-services">4. Third-Party Services</h2>
+        <h2 id="third-party-services">5. Third-Party Services</h2>
         <p>
           We utilize third-party services to provide Jupiter Mail. These
           services have their own privacy policies, and we encourage you to
@@ -194,7 +219,7 @@ export default function PrivacyPolicyPage() {
           </li>
         </ul>
 
-        <h2 id="your-rights-choices">5. Your Rights and Choices</h2>
+        <h2 id="your-rights-choices">6. Your Rights and Choices</h2>
         <p>You have control over your information and how it&apos;s used:</p>
         <ul>
           <li>
@@ -231,7 +256,7 @@ export default function PrivacyPolicyPage() {
           certain features of the service.
         </p>
 
-        <h2 id="childrens-privacy">6. Children&apos;s Privacy</h2>
+        <h2 id="childrens-privacy">7. Children&apos;s Privacy</h2>
         <p>
           Jupiter Mail is not directed to individuals under the age of 13 (or a
           higher age if stipulated by applicable law). We do not knowingly
@@ -240,7 +265,7 @@ export default function PrivacyPolicyPage() {
           delete such information.
         </p>
 
-        <h2 id="changes-to-this-policy">7. Changes to This Privacy Policy</h2>
+        <h2 id="changes-to-this-policy">8. Changes to This Privacy Policy</h2>
         <p>
           We may update this Privacy Policy from time to time to reflect changes
           in our practices or for other operational, legal, or regulatory
