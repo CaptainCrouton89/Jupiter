@@ -113,7 +113,7 @@ export default function PrivacyPolicyPage() {
             <strong>We do not sell your data:</strong> Your email content, personal information, and usage patterns are never sold to third parties, advertisers, or data brokers.
           </li>
           <li>
-            <strong>We do not use your data for AI training:</strong> Your email content and personal information are never used to train AI models, machine learning systems, or to improve third-party AI services.
+            <strong>We do not use your data for AI training:</strong> Your email content and personal information are never used to train AI models, machine learning systems, or to improve third-party AI services. This includes both our own systems and any third-party AI providers we use for email categorization and summarization.
           </li>
           <li>
             <strong>We do not share data for commercial purposes:</strong> Your information is never shared with third parties for marketing, advertising, profiling, or any commercial purposes beyond what is strictly necessary to provide Jupiter Mail's core functionality.
@@ -152,7 +152,8 @@ export default function PrivacyPolicyPage() {
         <p>
           Email content processed for categorization or digest generation is
           handled by third-party AI models (such as those provided by OpenAI).
-          This processing is done to deliver the core features of our service.
+          This processing is done solely to deliver the core features of our service.
+          Your data is never used by these AI providers to train or improve their models.
         </p>
 
         <h3 className="text-xl font-semibold !mt-6 !mb-3">Data Retention</h3>
