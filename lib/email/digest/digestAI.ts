@@ -72,7 +72,6 @@ export async function summarizeSingleEmail(
   try {
     const { object: summary } = await generateObject({
       model: openai("gpt-5-mini"),
-      temperature: 0.1,
       schema: generationSchema,
       system: systemPrompt,
       prompt: prompt,
@@ -111,7 +110,6 @@ export async function generateIntroHook(
   try {
     const { object: intro } = await generateObject({
       model: openai("gpt-5-mini"), // Reflecting user's manual change
-      temperature: 0.1,
       schema: introHookSchema,
       system: systemPrompt,
       prompt: prompt,
