@@ -77,7 +77,6 @@ Categorize this transactional email into the most appropriate specific category.
 
   try {
     const { object } = await generateObject({
-      temperature: 0,
       model: openai("gpt-5-nano"),
       schema: transactionalSchema,
       system: systemPrompt,

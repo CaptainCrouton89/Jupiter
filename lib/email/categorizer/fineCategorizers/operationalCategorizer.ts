@@ -83,7 +83,6 @@ Determine whether this operational email is work-related based on the user's wor
 
   try {
     const { object } = await generateObject({
-      temperature: 0,
       model: openai("gpt-5-nano"),
       schema: operationalSchema,
       system: systemPrompt,

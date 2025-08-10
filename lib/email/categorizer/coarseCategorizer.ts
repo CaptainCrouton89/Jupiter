@@ -84,7 +84,6 @@ Based on the content and heuristic signals, classify this email into one of the 
 
   try {
     const { object } = await generateObject({
-      temperature: 0,
       model: openai("gpt-5-nano"),
       schema: coarseCategorizationSchema,
       system: systemPrompt,
