@@ -14,6 +14,9 @@ export interface EmailContent {
   from: string | null;
   content: string;
   receivedAt?: string;
+  domain?: string;
+  emailCount?: number; // Number of emails combined from the same domain
+  subjects?: string[]; // All subjects when multiple emails are combined
 }
 
 export async function generateDigestSummary(
@@ -105,6 +108,9 @@ export async function generateDigestSummary(
             : undefined,
         category: categoryName,
         receivedAt: originalEmail.receivedAt || "",
+        domain: originalEmail.domain,
+        emailCount: originalEmail.emailCount,
+        subjects: originalEmail.subjects,
       };
 
       if (currentSummaryItem) {

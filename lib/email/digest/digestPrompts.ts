@@ -16,14 +16,16 @@ export const getSummarizeSingleEmailPrompt = (
     case "newsletter":
       systemPrompt = `Your task is to provide abbreviated information from a newsletter email. It will need a title and 2-5 bullet points. Focus on the most important information, and only include one bullet point per critical topic covered in the email—you do not need to use all 5 bullet points. 
       
-      For a title, use a more concise, 1-sentence title that captures the most important information from the email. ${jsonInstructionSentence}`;
+      If the content contains multiple emails from the same domain, summarize the combined content while noting the number of emails.
+      
+      For a title, use a more concise, 1-sentence title that captures the most important information from the email(s). ${jsonInstructionSentence}`;
       break;
     // Title with summary
     case "work":
-      systemPrompt = `Your task is to provide a title, and brief summary of an work email. The title should be concise so it can be understood at a glance. The summary should be a 1-3 sentences summarizing the work email. Explain the message (e.g., project update, meeting request, task assignment). ${jsonInstructionSentence}`;
+      systemPrompt = `Your task is to provide a title, and brief summary of work email(s). The title should be concise so it can be understood at a glance. The summary should be a 1-3 sentences summarizing the work email(s). Explain the message (e.g., project update, meeting request, task assignment). If summarizing multiple emails from the same domain, provide an overview of the combined content. ${jsonInstructionSentence}`;
       break;
     case "marketing":
-      systemPrompt = `Your task is to provide a title, and brief summary of an marketing email. The title should be concise so it can be understood at a glance. The summary should be a single, concise summary sentence (around 15-30 words) identifying the main product/service, key benefits highlighted, and any special offers or deadlines. ${jsonInstructionSentence}`;
+      systemPrompt = `Your task is to provide a title, and brief summary of marketing email(s). The title should be concise so it can be understood at a glance. The summary should be a single, concise summary sentence (around 15-30 words) identifying the main product/service, key benefits highlighted, and any special offers or deadlines. If summarizing multiple emails from the same domain, combine the key points. ${jsonInstructionSentence}`;
       break;
     case "payments":
       systemPrompt = `Your task is to provide a title, and brief summary of an receipt or invoice email. The title should be concise so it can be understood at a glance. The summary should be single, concise summary sentence (around 10-25 words) summarizing a financial document (receipt or invoice). Stating the vendor/store name, total amount, and transaction/due date. If the amount is notably large or the item important, briefly highlight this. ${jsonInstructionSentence}`;
@@ -54,9 +56,18 @@ export const getSummarizeSingleEmailPrompt = (
       break;
   }
 
-  const baseInfo = `
+  let baseInfo = `
   FROM: ${email.from || "N/A"}
-  SUBJECT: ${email.subject || "N/A"}
+  SUBJECT: ${email.subject || "N/A"}`;
+
+  // Handle grouped emails from same domain
+  if (email.emailCount && email.emailCount > 1) {
+    baseInfo += `
+  NOTE: This contains ${email.emailCount} emails from the same domain (${email.domain || 'unknown'}).
+  SUBJECTS: ${email.subjects?.join("; ") || "N/A"}`;
+  }
+
+  baseInfo += `
   CONTENT (potentially truncated):
   ${email.content.substring(0, 3500)}
   `;

@@ -15,6 +15,9 @@ export interface EmailSummaryItem {
   bullets?: string[];
   receivedAt: string; // Added for displaying email date
   categoryName?: string; // Added back for category-specific styling
+  domain?: string; // Domain of the sender
+  emailCount?: number; // Number of emails combined from the same domain
+  subjects?: string[]; // All subjects when multiple emails are combined
 }
 
 export interface DigestEmailData {
@@ -202,12 +205,19 @@ export function getDigestHtmlTemplate(data: DigestEmailData): string {
           })
         : "";
 
+      // Build source info with domain grouping information
+      let sourceInfo = `From: ${item.source}`;
+      if (item.emailCount && item.emailCount > 1) {
+        sourceInfo += ` (${item.emailCount} emails from ${item.domain})`;
+      }
+      if (dateString) {
+        sourceInfo += ` | Received: ${dateString}`;
+      }
+
       return `
         <div class="email-summary-item">
           ${titleHtml}
-          <p class="email-source">From: ${item.source}${
-        dateString ? ` | Received: ${dateString}` : ""
-      }</p>
+          <p class="email-source">${sourceInfo}</p>
           ${summaryContentHtml}
         </div>
       `;

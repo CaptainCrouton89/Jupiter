@@ -18,8 +18,32 @@ const logger = {
     console.error("[WeeklyDigestService ERROR]", ...args),
 };
 
+// Utility function to extract domain from email address
+function extractDomainFromEmail(email: string): string {
+  try {
+    const match = email.match(/@([^@]+)$/);
+    return match ? match[1].toLowerCase() : 'unknown-domain';
+  } catch (error) {
+    logger.warn(`Error extracting domain from email "${email}":`, error);
+    return 'unknown-domain';
+  }
+}
+
 // Align ProcessedEmailContent with EmailContent expected by generateDigestSummary
-interface ProcessedEmailContent extends EmailContent {}
+interface ProcessedEmailContent extends EmailContent {
+  originalEmails?: EmailWithHeaders[]; // Store original email objects for reference
+}
+
+// Intermediate interface for individual email processing
+interface IntermediateEmailData {
+  subject: string;
+  from: string;
+  content: string;
+  receivedAt?: string;
+  domain: string;
+  fromEmail: string;
+  originalEmail: EmailWithHeaders;
+}
 
 // More specific type for what the digest service needs from user settings
 interface UserDigestPreferences {
@@ -186,14 +210,17 @@ export class WeeklyDigestService {
   private prepareEmailContents(
     emails: EmailWithHeaders[] // Use EmailWithHeaders
   ): ProcessedEmailContent[] {
-    return emails.map((email) => {
+    // First, process all emails individually to decrypt and clean content
+    const processedEmails: IntermediateEmailData[] = emails.map((email) => {
       let fromValue: string;
+      let fromEmail: string;
       try {
         fromValue = email.from_name
           ? decrypt(email.from_name)
           : email.from_email
           ? decrypt(email.from_email)
           : "Unknown Sender";
+        fromEmail = email.from_email ? decrypt(email.from_email) : "";
       } catch (error) {
         logger.warn(
           `Error decrypting sender info for email ${email.id} (From Name: ${
@@ -202,6 +229,7 @@ export class WeeklyDigestService {
           error
         );
         fromValue = "Unknown Sender (Decryption Error)";
+        fromEmail = "";
       }
 
       let plainSubject: string;
@@ -252,13 +280,81 @@ export class WeeklyDigestService {
         decryptedBodyText
       );
 
+      const domain = extractDomainFromEmail(fromEmail);
+
       return {
         subject: plainSubject,
         from: fromValue,
-        content: cleanedContentForDigest, // Use the fully cleaned content
-        receivedAt: email.received_at === null ? undefined : email.received_at, // Ensure null becomes undefined
+        content: cleanedContentForDigest,
+        receivedAt: email.received_at === null ? undefined : email.received_at,
+        domain: domain,
+        fromEmail: fromEmail,
+        originalEmail: email,
       };
     });
+
+    // Group emails by domain
+    const domainGroups = new Map<string, IntermediateEmailData[]>();
+    
+    for (const processedEmail of processedEmails) {
+      const domain = processedEmail.domain || 'unknown-domain';
+      if (!domainGroups.has(domain)) {
+        domainGroups.set(domain, []);
+      }
+      domainGroups.get(domain)!.push(processedEmail);
+    }
+
+    // Combine emails from the same domain
+    const groupedEmails: ProcessedEmailContent[] = [];
+    
+    for (const [domain, emailsFromDomain] of domainGroups) {
+      if (emailsFromDomain.length === 1) {
+        // Single email, keep as-is
+        const email = emailsFromDomain[0];
+        groupedEmails.push({
+          subject: email.subject,
+          from: email.from,
+          content: email.content,
+          receivedAt: email.receivedAt,
+          domain: email.domain,
+          emailCount: 1,
+          originalEmails: [email.originalEmail],
+        });
+      } else {
+        // Multiple emails from same domain - combine them
+        const subjects = emailsFromDomain.map(e => e.subject).filter(Boolean);
+        const combinedContent = emailsFromDomain
+          .map((e, index) => {
+            const emailHeader = e.subject ? `Email ${index + 1}: "${e.subject}"\n` : `Email ${index + 1}:\n`;
+            return `${emailHeader}${e.content}`;
+          })
+          .join('\n\n---\n\n');
+        
+        // Use the most recent sender name and date
+        const mostRecentEmail = emailsFromDomain.sort((a, b) => {
+          const dateA = a.receivedAt ? new Date(a.receivedAt).getTime() : 0;
+          const dateB = b.receivedAt ? new Date(b.receivedAt).getTime() : 0;
+          return dateB - dateA;
+        })[0];
+
+        groupedEmails.push({
+          subject: `${emailsFromDomain.length} emails from ${domain}`,
+          from: mostRecentEmail.from,
+          content: combinedContent,
+          receivedAt: mostRecentEmail.receivedAt,
+          domain: domain,
+          emailCount: emailsFromDomain.length,
+          subjects: subjects as string[],
+          originalEmails: emailsFromDomain.map(e => e.originalEmail),
+        });
+
+        logger.info(
+          `Grouped ${emailsFromDomain.length} emails from domain ${domain} into single digest entry`
+        );
+      }
+    }
+
+    return groupedEmails;
   }
 
   private async generateAndSendCategoryDigest(
