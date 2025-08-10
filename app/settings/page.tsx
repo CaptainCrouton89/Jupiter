@@ -97,14 +97,14 @@ export default function SettingsPage() {
     ) => {
       dispatch(setCategoryPreference({ category, type, value }));
     },
-    []
+    [dispatch]
   );
 
   const handleWorkProfileChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       dispatch(setWorkProfileDescription(event.target.value));
     },
-    []
+    [dispatch]
   );
 
   useEffect(() => {
@@ -140,6 +140,7 @@ export default function SettingsPage() {
     initialLoadComplete,
     isLoadingSettings,
     lastSavedCategory,
+    dispatch,
   ]);
 
   useEffect(() => {
@@ -165,11 +166,11 @@ export default function SettingsPage() {
     } else {
       toast.error("Please select an email account to run the test.");
     }
-  }, []);
+  }, [dispatch]);
 
   const handleSelectTestAccount = useCallback((accountId: string | null) => {
     dispatch(setSelectedTestAccountId(accountId));
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     return () => {

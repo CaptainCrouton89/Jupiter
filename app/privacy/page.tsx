@@ -116,17 +116,17 @@ export default function PrivacyPolicyPage() {
             <strong>We do not use your data for AI training:</strong> Your email content and personal information are never used to train AI models, machine learning systems, or to improve third-party AI services. This includes both our own systems and any third-party AI providers we use for email categorization and summarization.
           </li>
           <li>
-            <strong>We do not share data for commercial purposes:</strong> Your information is never shared with third parties for marketing, advertising, profiling, or any commercial purposes beyond what is strictly necessary to provide Jupiter Mail's core functionality.
+            <strong>We do not share data for commercial purposes:</strong> Your information is never shared with third parties for marketing, advertising, profiling, or any commercial purposes beyond what is strictly necessary to provide Jupiter Mail&apos;s core functionality.
           </li>
           <li>
             <strong>We do not create user profiles for advertising:</strong> We do not build advertising profiles, behavioral profiles, or engage in any form of user tracking for commercial purposes.
           </li>
           <li>
-            <strong>Minimal third-party data sharing:</strong> The only third-party data sharing occurs with essential service providers (like Supabase for hosting and AI services for categorization) and only to the extent necessary to deliver the features you've requested.
+            <strong>Minimal third-party data sharing:</strong> The only third-party data sharing occurs with essential service providers (like Supabase for hosting and AI services for categorization) and only to the extent necessary to deliver the features you&apos;ve requested.
           </li>
         </ul>
         <p>
-          <strong>Our commitment:</strong> Jupiter Mail exists solely to help you manage your email more effectively. Your data serves no purpose other than providing you with the service you've requested.
+          <strong>Our commitment:</strong> Jupiter Mail exists solely to help you manage your email more effectively. Your data serves no purpose other than providing you with the service you&apos;ve requested.
         </p>
 
         <h2 id="data-storage-security-retention">

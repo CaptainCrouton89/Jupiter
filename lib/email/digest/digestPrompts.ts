@@ -5,6 +5,9 @@ export const getSummarizeSingleEmailPrompt = (
     from: string | null;
     content: string;
     receivedAt?: string;
+    domain?: string;
+    emailCount?: number;
+    subjects?: string[];
   }
 ) => {
   let systemPrompt = "";
