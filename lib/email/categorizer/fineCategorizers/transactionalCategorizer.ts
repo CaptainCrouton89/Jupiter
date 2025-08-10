@@ -58,8 +58,12 @@ ${subject || "N/A"}
 <heuristic_signals>
 Sender Domain: ${heuristicSignals.senderAnalysis.domain || "N/A"}
 Automated Patterns: X-Mailer: ${!!heuristicSignals.relevantHeaders.xMailer}
-Security Context: Login/Auth Keywords: ${heuristicSignals.promotionalKeywords.some(k => 
-  ['login', 'password', 'security', 'verify', 'authentication'].includes(k.toLowerCase()))}
+Security Context: Login/Auth Keywords: ${heuristicSignals.promotionalKeywords.some(
+    (k) =>
+      ["login", "password", "security", "verify", "authentication"].includes(
+        k.toLowerCase()
+      )
+  )}
 </heuristic_signals>
 
 <body>
@@ -74,7 +78,7 @@ Categorize this transactional email into the most appropriate specific category.
   try {
     const { object } = await generateObject({
       temperature: 0,
-      model: openai("gpt-4.1-nano"),
+      model: openai("gpt-5-nano"),
       schema: transactionalSchema,
       system: systemPrompt,
       prompt: mainPrompt,

@@ -1,11 +1,11 @@
+import { Category } from "@/types/settings";
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { Category } from "@/types/settings";
 import type { EmailCategorizationInput, PreparedEmailData } from "../types";
 
 const promotionalSchema = z.object({
-  category: z.enum(['marketing', 'newsletter']),
+  category: z.enum(["marketing", "newsletter"]),
 });
 
 export async function categorizePromotionalEmail(
@@ -45,7 +45,9 @@ Visually Rich: ${heuristicSignals.stylingAnalysis.isVisuallyRich}
 </heuristic_signals>
 
 <body>
-${emailBody.substring(0, 2000)}${emailBody.length > 2000 ? "(continued...)" : ""}
+${emailBody.substring(0, 2000)}${
+    emailBody.length > 2000 ? "(continued...)" : ""
+  }
 </body>
 
 Determine whether this is direct marketing content or newsletter content.
@@ -54,7 +56,7 @@ Determine whether this is direct marketing content or newsletter content.
   try {
     const { object } = await generateObject({
       temperature: 0,
-      model: openai("gpt-4.1-nano"),
+      model: openai("gpt-5-nano"),
       schema: promotionalSchema,
       system: systemPrompt,
       prompt: mainPrompt,

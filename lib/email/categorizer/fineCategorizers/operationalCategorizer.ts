@@ -49,10 +49,27 @@ ${subject || "N/A"}
 <heuristic_signals>
 Sender Domain: ${heuristicSignals.senderAnalysis.domain || "N/A"}
 Is Common Freemail: ${heuristicSignals.senderAnalysis.isCommonFreemail}
-Work-Related Keywords: ${heuristicSignals.promotionalKeywords.some(k => 
-  ['project', 'team', 'client', 'jira', 'slack', 'github', 'meeting'].includes(k.toLowerCase()))}
-System Keywords: ${heuristicSignals.promotionalKeywords.some(k => 
-  ['maintenance', 'update', 'service', 'downtime', 'upgrade', 'status'].includes(k.toLowerCase()))}
+Work-Related Keywords: ${heuristicSignals.promotionalKeywords.some((k) =>
+    [
+      "project",
+      "team",
+      "client",
+      "jira",
+      "slack",
+      "github",
+      "meeting",
+    ].includes(k.toLowerCase())
+  )}
+System Keywords: ${heuristicSignals.promotionalKeywords.some((k) =>
+    [
+      "maintenance",
+      "update",
+      "service",
+      "downtime",
+      "upgrade",
+      "status",
+    ].includes(k.toLowerCase())
+  )}
 </heuristic_signals>
 
 <body>
@@ -67,7 +84,7 @@ Determine whether this operational email is work-related based on the user's wor
   try {
     const { object } = await generateObject({
       temperature: 0,
-      model: openai("gpt-4.1-nano"),
+      model: openai("gpt-5-nano"),
       schema: operationalSchema,
       system: systemPrompt,
       prompt: mainPrompt,
