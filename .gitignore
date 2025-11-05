@@ -34,3 +34,4 @@ tasks/
 .next/
 
 mcp.json
+.vercel
