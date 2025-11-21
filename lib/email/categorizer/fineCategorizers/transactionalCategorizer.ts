@@ -82,6 +82,11 @@ Categorize this transactional email into the most appropriate specific category.
       system: systemPrompt,
       prompt: mainPrompt,
       temperature: 1,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "minimal",
+        },
+      },
     });
 
     console.log("Transactional fine categorization result:", object.category);

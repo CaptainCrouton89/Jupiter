@@ -76,6 +76,11 @@ export async function summarizeSingleEmail(
       system: systemPrompt,
       prompt: prompt,
       temperature: 1,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "low",
+        },
+      },
     });
     return summary as IndividualEmailSummary;
   } catch (error) {
@@ -115,6 +120,11 @@ export async function generateIntroHook(
       system: systemPrompt,
       prompt: prompt,
       temperature: 1,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "low",
+        },
+      },
     });
     return intro.hookParagraph;
   } catch (error) {

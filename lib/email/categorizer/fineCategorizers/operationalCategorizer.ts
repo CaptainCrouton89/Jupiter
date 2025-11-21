@@ -88,6 +88,11 @@ Determine whether this operational email is work-related based on the user's wor
       system: systemPrompt,
       prompt: mainPrompt,
       temperature: 1,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "minimal",
+        },
+      },
     });
 
     console.log("Operational fine categorization result:", object.category);

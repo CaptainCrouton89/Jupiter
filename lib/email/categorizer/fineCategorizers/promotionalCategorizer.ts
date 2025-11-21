@@ -60,6 +60,11 @@ Determine whether this is direct marketing content or newsletter content.
       system: systemPrompt,
       prompt: mainPrompt,
       temperature: 1,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "minimal",
+        },
+      },
     });
 
     console.log("Promotional fine categorization result:", object.category);

@@ -89,6 +89,11 @@ Based on the content and heuristic signals, classify this email into one of the 
       system: systemPrompt,
       prompt: mainPrompt,
       temperature: 1,
+      providerOptions: {
+        openai: {
+          reasoningEffort: "minimal",
+        },
+      },
     });
 
     console.log("Coarse categorization result:", object);
