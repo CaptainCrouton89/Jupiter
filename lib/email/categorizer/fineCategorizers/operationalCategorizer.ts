@@ -87,6 +87,7 @@ Determine whether this operational email is work-related based on the user's wor
       schema: operationalSchema,
       system: systemPrompt,
       prompt: mainPrompt,
+      temperature: 1,
     });
 
     console.log("Operational fine categorization result:", object.category);

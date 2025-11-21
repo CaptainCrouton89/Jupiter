@@ -75,6 +75,7 @@ export async function summarizeSingleEmail(
       schema: generationSchema,
       system: systemPrompt,
       prompt: prompt,
+      temperature: 1,
     });
     return summary as IndividualEmailSummary;
   } catch (error) {
@@ -113,6 +114,7 @@ export async function generateIntroHook(
       schema: introHookSchema,
       system: systemPrompt,
       prompt: prompt,
+      temperature: 1,
     });
     return intro.hookParagraph;
   } catch (error) {

@@ -59,6 +59,7 @@ Determine whether this is direct marketing content or newsletter content.
       schema: promotionalSchema,
       system: systemPrompt,
       prompt: mainPrompt,
+      temperature: 1,
     });
 
     console.log("Promotional fine categorization result:", object.category);

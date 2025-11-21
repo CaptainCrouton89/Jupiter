@@ -88,6 +88,7 @@ Based on the content and heuristic signals, classify this email into one of the 
       schema: coarseCategorizationSchema,
       system: systemPrompt,
       prompt: mainPrompt,
+      temperature: 1,
     });
 
     console.log("Coarse categorization result:", object);

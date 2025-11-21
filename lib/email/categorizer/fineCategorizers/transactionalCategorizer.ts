@@ -81,6 +81,7 @@ Categorize this transactional email into the most appropriate specific category.
       schema: transactionalSchema,
       system: systemPrompt,
       prompt: mainPrompt,
+      temperature: 1,
     });
 
     console.log("Transactional fine categorization result:", object.category);
