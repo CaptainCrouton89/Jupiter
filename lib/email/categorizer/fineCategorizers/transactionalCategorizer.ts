@@ -25,7 +25,7 @@ export async function categorizeTransactionalEmail(
   const systemPrompt = `
 You are categorizing emails that have been identified as transactional. Choose the most specific category:
 
-1. **payments**: Purchase confirmations, receipts, invoices, payment due notices, transaction confirmations, order details, subscription billing, refund notifications.
+1. **payments**: Purchase and sales confirmations, receipts, invoices, payment due notices, transaction confirmations, order details, subscription billing, refund notifications.
    - Keywords: "receipt", "order confirmation", "invoice", "payment", "purchase", "transaction", "billing", "refund"
 
 2. **finances**: Banking statements, investment updates, credit card alerts, account balance notifications, financial institution communications (but not direct payment confirmations).
